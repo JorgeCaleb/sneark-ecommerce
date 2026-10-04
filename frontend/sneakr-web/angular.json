@@ -1,0 +1,74 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "cli": {
+    "packageManager": "npm",
+    "analytics": "01ae2f24-59d2-4eb8-a566-459e50a89868"
+  },
+  "newProjectRoot": "projects",
+  "projects": {
+    "sneakr-web": {
+      "projectType": "application",
+      "schematics": {},
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "src/main.ts",
+            "tsConfig": "tsconfig.app.json",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "public"
+              }
+            ],
+            "styles": [
+              "src/styles.css"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "sneakr-web:build:production"
+            },
+            "development": {
+              "buildTarget": "sneakr-web:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test"
+        }
+      }
+    }
+  }
+}
