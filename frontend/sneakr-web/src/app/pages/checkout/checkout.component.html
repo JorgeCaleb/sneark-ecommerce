@@ -1,0 +1,194 @@
+<div class="checkout-page">
+  <div class="container">
+
+    <div class="checkout-page__header">
+      <a routerLink="/carrito" class="checkout-page__back">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Volver al carrito
+      </a>
+      <h1 class="checkout-page__title">Checkout</h1>
+    </div>
+
+    <div class="checkout-layout">
+
+      <!-- ── Formulario ──────────────────────────────────── -->
+      <div class="checkout-form-wrap">
+
+        <!-- Datos de entrega -->
+        <section class="checkout-section">
+          <h2 class="checkout-section__title">
+            <span class="checkout-section__num">1</span>
+            Datos de entrega
+          </h2>
+
+          <div class="form-grid">
+            <div class="form-field">
+              <label class="form-label" for="telefono">Teléfono</label>
+              <input
+                id="telefono"
+                type="tel"
+                class="form-input"
+                placeholder="Ej: 987 654 321"
+                [(ngModel)]="telefono"
+                maxlength="20"
+              />
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="ciudad">Ciudad</label>
+              <input
+                id="ciudad"
+                type="text"
+                class="form-input"
+                placeholder="Ej: Lima"
+                [(ngModel)]="ciudad"
+                maxlength="100"
+              />
+            </div>
+
+            <div class="form-field form-field--full">
+              <label class="form-label" for="direccion">Dirección de envío</label>
+              <input
+                id="direccion"
+                type="text"
+                class="form-input"
+                placeholder="Ej: Av. Javier Prado 1234, San Isidro"
+                [(ngModel)]="direccion"
+                maxlength="255"
+              />
+            </div>
+          </div>
+        </section>
+
+        <!-- Método de pago -->
+        <section class="checkout-section">
+          <h2 class="checkout-section__title">
+            <span class="checkout-section__num">2</span>
+            Método de pago
+          </h2>
+
+          <div class="metodos-pago">
+
+            <!-- Yape -->
+            <button
+              class="metodo-btn"
+              [class.metodo-btn--activo]="metodoPago === 'YAPE'"
+              (click)="seleccionarMetodo('YAPE')"
+            >
+              <div class="metodo-btn__radio">
+                @if (metodoPago === 'YAPE') {
+                  <div class="metodo-btn__radio-dot"></div>
+                }
+              </div>
+              <div class="metodo-btn__content">
+                <span class="metodo-btn__nombre">Yape</span>
+                <span class="metodo-btn__desc">Pago instantáneo por código QR</span>
+              </div>
+              <div class="metodo-btn__badge metodo-btn__badge--yape">YAPE</div>
+            </button>
+
+            <!-- Plin -->
+            <button
+              class="metodo-btn"
+              [class.metodo-btn--activo]="metodoPago === 'PLIN'"
+              (click)="seleccionarMetodo('PLIN')"
+            >
+              <div class="metodo-btn__radio">
+                @if (metodoPago === 'PLIN') {
+                  <div class="metodo-btn__radio-dot"></div>
+                }
+              </div>
+              <div class="metodo-btn__content">
+                <span class="metodo-btn__nombre">Plin</span>
+                <span class="metodo-btn__desc">Pago instantáneo por código QR</span>
+              </div>
+              <div class="metodo-btn__badge metodo-btn__badge--plin">PLIN</div>
+            </button>
+
+          </div>
+
+          <!-- Instrucciones de pago -->
+          <div class="pago-instrucciones">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <p>
+              Después de confirmar el pedido te mostraremos el número de cuenta o QR para realizar el pago.
+              Deberás subir una foto del comprobante para verificar tu pago.
+            </p>
+          </div>
+        </section>
+
+        <!-- Error -->
+        @if (error()) {
+          <div class="checkout-error animate-fade-up">
+            {{ error() }}
+          </div>
+        }
+
+      </div>
+
+      <!-- ── Resumen ──────────────────────────────────────── -->
+      <aside class="checkout-resumen">
+        <h2 class="checkout-resumen__title">Tu pedido</h2>
+
+        @if (carrito()) {
+          <div class="checkout-resumen__items">
+            @for (item of carrito()!.items; track item.id) {
+              <div class="checkout-item">
+                <div class="checkout-item__img-wrap">
+                  <img
+                    [src]="item.tallaProducto.producto.imagenes?.[0]?.url ?? '/placeholder-shoe.jpg'"
+                    [alt]="item.tallaProducto.producto.nombre"
+                    class="checkout-item__img"
+                    onerror="this.src='/placeholder-shoe.jpg'"
+                  />
+                  <span class="checkout-item__qty">{{ item.cantidad }}</span>
+                </div>
+                <div class="checkout-item__info">
+                  <p class="checkout-item__nombre">{{ item.tallaProducto.producto.nombre }}</p>
+                  <p class="checkout-item__talla">Talla {{ item.tallaProducto.talla }}</p>
+                </div>
+                <p class="checkout-item__precio">{{ formatearPrecio(item.subtotal) }}</p>
+              </div>
+            }
+          </div>
+
+          <div class="checkout-resumen__total">
+            <span>Total a pagar</span>
+            <span class="checkout-resumen__total-num">{{ formatearPrecio(total()) }}</span>
+          </div>
+        }
+
+        <!-- Botón confirmar -->
+        <button
+          class="btn-primary checkout-resumen__confirmar"
+          (click)="confirmar()"
+          [disabled]="enviando()"
+        >
+          @if (enviando()) {
+            <span class="checkout-spinner"></span>
+            Confirmando...
+          } @else {
+            Confirmar pedido
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          }
+        </button>
+
+        <p class="checkout-resumen__nota">
+          Al confirmar aceptás nuestros términos. El pedido se procesa luego de verificar el pago.
+        </p>
+      </aside>
+
+    </div>
+  </div>
+</div>

@@ -1,0 +1,265 @@
+<!-- ═══════════════════════════════════════════════════════════
+     HERO
+════════════════════════════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero__inner container">
+    <div class="hero__content">
+      <span class="badge hero__badge animate-fade-up">Nueva temporada 2026</span>
+
+      <h1 class="hero__title animate-fade-up" style="animation-delay: 80ms">
+        Tu estilo,<br>
+        <em class="hero__title-em">sin límites.</em>
+      </h1>
+
+      <p class="hero__desc animate-fade-up" style="animation-delay: 160ms">
+        Zapatillas multimarca con los mejores modelos del mercado.
+        Envíos a todo el Perú. Pago con Yape o Plin.
+      </p>
+
+      <div class="hero__ctas animate-fade-up" style="animation-delay: 240ms">
+        <a routerLink="/catalogo" class="btn-primary hero__cta-primary">
+          Ver catálogo
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </a>
+        <a routerLink="/auth/registro" class="btn-secondary">
+          Crear cuenta
+        </a>
+      </div>
+
+      <!-- Stats -->
+      <div class="hero__stats animate-fade-up" style="animation-delay: 320ms">
+        <div class="hero__stat">
+          <span class="hero__stat-num">50+</span>
+          <span class="hero__stat-label">Modelos</span>
+        </div>
+        <div class="hero__stat-divider"></div>
+        <div class="hero__stat">
+          <span class="hero__stat-num">10+</span>
+          <span class="hero__stat-label">Marcas</span>
+        </div>
+        <div class="hero__stat-divider"></div>
+        <div class="hero__stat">
+          <span class="hero__stat-num">24h</span>
+          <span class="hero__stat-label">Despacho</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Imagen hero -->
+    <div class="hero__visual animate-fade-in" style="animation-delay: 100ms">
+      <div class="hero__img-wrap">
+        <div class="hero__img-bg"></div>
+        <img
+          src="/hero-shoe.png"
+          alt="Zapatilla destacada"
+          class="hero__img"
+          onerror="this.style.display='none'"
+        />
+        <!-- Floating tags -->
+        <div class="hero__tag hero__tag--1">
+          <span>Nike Air Max</span>
+          <strong>S/ 380</strong>
+        </div>
+        <div class="hero__tag hero__tag--2">
+          <span>✓ En stock</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MARCAS
+════════════════════════════════════════════════════════════ -->
+@if (marcas().length > 0) {
+  <section class="marcas">
+    <div class="container">
+      <p class="marcas__label">Marcas disponibles</p>
+      <div class="marcas__list">
+        @for (marca of marcas(); track marca.id) {
+          <a [routerLink]="['/catalogo']" [queryParams]="{ marcaId: marca.id }"
+             class="marcas__item">
+            @if (marca.logo) {
+              <img [src]="marca.logo" [alt]="marca.nombre" class="marcas__logo">
+            } @else {
+              <span class="marcas__nombre">{{ marca.nombre }}</span>
+            }
+          </a>
+        }
+      </div>
+    </div>
+  </section>
+}
+
+<!-- ═══════════════════════════════════════════════════════════
+     PRODUCTOS DESTACADOS
+════════════════════════════════════════════════════════════ -->
+<section class="destacados">
+  <div class="container">
+    <div class="destacados__header">
+      <div>
+        <p class="destacados__eyebrow">Lo más nuevo</p>
+        <h2 class="destacados__title">Destacados</h2>
+      </div>
+      <a routerLink="/catalogo" class="destacados__ver-todos">
+        Ver todos
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </a>
+    </div>
+
+    <!-- Skeleton loader -->
+    @if (cargando()) {
+      <div class="productos-grid">
+        @for (i of [1,2,3,4,5,6,7,8]; track i) {
+          <div class="producto-skeleton"></div>
+        }
+      </div>
+    }
+
+    <!-- Grid de productos -->
+    @if (!cargando()) {
+      @if (destacados().length === 0) {
+        <div class="destacados__empty">
+          <p>Pronto habrá productos disponibles.</p>
+          <a routerLink="/catalogo" class="btn-primary" style="margin-top: 1rem">
+            Ver catálogo
+          </a>
+        </div>
+      } @else {
+        <div class="productos-grid">
+          @for (producto of destacados(); track producto.id; let i = $index) {
+            <a [routerLink]="['/producto', producto.id]"
+               class="producto-card stagger-item animate-fade-up"
+               [style.animation-delay]="(i * 60) + 'ms'">
+
+              <!-- Imagen -->
+              <div class="producto-card__img-wrap">
+                <img
+                  [src]="imagenPrincipal(producto)"
+                  [alt]="producto.nombre"
+                  class="producto-card__img"
+                  loading="lazy"
+                  onerror="this.src='/placeholder-shoe.jpg'"
+                />
+                <!-- Badge sin stock -->
+                @if (!tieneStock(producto)) {
+                  <span class="producto-card__agotado">Agotado</span>
+                }
+                <!-- Badge marca -->
+                <span class="producto-card__marca">{{ producto.marca.nombre }}</span>
+              </div>
+
+              <!-- Info -->
+              <div class="producto-card__info">
+                <h3 class="producto-card__nombre">{{ producto.nombre }}</h3>
+                <div class="producto-card__footer">
+                  <span class="producto-card__precio">
+                    {{ formatearPrecio(producto.precio) }}
+                  </span>
+                  <span class="producto-card__categoria">
+                    {{ producto.categoria.nombre }}
+                  </span>
+                </div>
+              </div>
+
+            </a>
+          }
+        </div>
+      }
+    }
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BANNER — CÓMO COMPRAR
+════════════════════════════════════════════════════════════ -->
+<section class="como-comprar">
+  <div class="container">
+    <div class="como-comprar__inner">
+      <h2 class="como-comprar__title">¿Cómo comprar?</h2>
+      <div class="como-comprar__pasos">
+
+        <div class="paso">
+          <div class="paso__num">01</div>
+          <div class="paso__content">
+            <h3 class="paso__title">Elegí tu modelo</h3>
+            <p class="paso__desc">Explorá el catálogo y seleccioná la talla que necesitás.</p>
+          </div>
+        </div>
+
+        <div class="paso__flecha">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+
+        <div class="paso">
+          <div class="paso__num">02</div>
+          <div class="paso__content">
+            <h3 class="paso__title">Confirmá tu pedido</h3>
+            <p class="paso__desc">Completá tu datos de envío y elegí Yape o Plin.</p>
+          </div>
+        </div>
+
+        <div class="paso__flecha">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+
+        <div class="paso">
+          <div class="paso__num">03</div>
+          <div class="paso__content">
+            <h3 class="paso__title">Pagá y subí tu comprobante</h3>
+            <p class="paso__desc">Realizá la transferencia y adjuntá la captura de pantalla.</p>
+          </div>
+        </div>
+
+        <div class="paso__flecha">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </div>
+
+        <div class="paso">
+          <div class="paso__num">04</div>
+          <div class="paso__content">
+            <h3 class="paso__title">¡Recibí tus zapatillas!</h3>
+            <p class="paso__desc">Verificamos el pago y enviamos tu pedido en 24 horas.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CTA FINAL
+════════════════════════════════════════════════════════════ -->
+<section class="cta-final">
+  <div class="container">
+    <div class="cta-final__inner">
+      <h2 class="cta-final__title">¿Listo para encontrar tu par?</h2>
+      <p class="cta-final__desc">
+        Más de 50 modelos disponibles. Envíos a todo el Perú.
+      </p>
+      <a routerLink="/catalogo" class="btn-primary cta-final__btn">
+        Explorar catálogo
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+</section>

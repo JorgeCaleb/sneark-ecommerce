@@ -1,0 +1,203 @@
+<!-- Skeleton -->
+@if (cargando()) {
+  <div class="container detalle-skeleton">
+    <div class="detalle-skeleton__galeria"></div>
+    <div class="detalle-skeleton__info">
+      <div class="detalle-skeleton__line detalle-skeleton__line--sm"></div>
+      <div class="detalle-skeleton__line detalle-skeleton__line--lg"></div>
+      <div class="detalle-skeleton__line detalle-skeleton__line--md"></div>
+      <div class="detalle-skeleton__line detalle-skeleton__line--sm"></div>
+    </div>
+  </div>
+}
+
+<!-- Detalle -->
+@if (!cargando() && producto()) {
+  <div class="container detalle animate-fade-in">
+
+    <!-- Breadcrumb -->
+    <nav class="detalle__breadcrumb" aria-label="Navegación">
+      <a routerLink="/" class="breadcrumb__link">Inicio</a>
+      <span class="breadcrumb__sep">/</span>
+      <a routerLink="/catalogo" class="breadcrumb__link">Catálogo</a>
+      <span class="breadcrumb__sep">/</span>
+      <span class="breadcrumb__actual">{{ producto()!.nombre }}</span>
+    </nav>
+
+    <div class="detalle__grid">
+
+      <!-- ── Galería ──────────────────────────────────────── -->
+      <div class="galeria">
+        <!-- Imagen principal -->
+        <div class="galeria__principal">
+          @if (producto()!.imagenes.length > 0) {
+            <img
+              [src]="producto()!.imagenes[imagenActiva()].url"
+              [alt]="producto()!.nombre"
+              class="galeria__img"
+            />
+          } @else {
+            <div class="galeria__placeholder">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+            </div>
+          }
+        </div>
+
+        <!-- Miniaturas -->
+        @if (producto()!.imagenes.length > 1) {
+          <div class="galeria__thumbs">
+            @for (img of producto()!.imagenes; track img.id; let i = $index) {
+              <button
+                class="galeria__thumb"
+                [class.galeria__thumb--activa]="imagenActiva() === i"
+                (click)="seleccionarImagen(i)"
+                [attr.aria-label]="'Ver imagen ' + (i + 1)"
+              >
+                <img [src]="img.url" [alt]="'Imagen ' + (i + 1)" loading="lazy" />
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- ── Info del producto ────────────────────────────── -->
+      <div class="detalle__info">
+
+        <!-- Marca y categoría -->
+        <div class="detalle__tags">
+          <span class="badge">{{ producto()!.marca.nombre }}</span>
+          <span class="detalle__categoria">{{ producto()!.categoria.nombre }}</span>
+        </div>
+
+        <!-- Nombre -->
+        <h1 class="detalle__nombre">{{ producto()!.nombre }}</h1>
+
+        <!-- Precio -->
+        <p class="detalle__precio">{{ formatearPrecio(producto()!.precio) }}</p>
+
+        <!-- Descripción -->
+        @if (producto()!.descripcion) {
+          <p class="detalle__descripcion">{{ producto()!.descripcion }}</p>
+        }
+
+        <div class="detalle__divider"></div>
+
+        <!-- Tallas -->
+        <div class="detalle__tallas-section">
+          <div class="detalle__tallas-header">
+            <span class="detalle__label">Talla</span>
+            @if (tallaSeleccionada()) {
+              <span class="detalle__talla-stock">
+                {{ stockDisponible() }} en stock
+              </span>
+            }
+          </div>
+
+          <div class="detalle__tallas">
+            @for (talla of producto()!.tallas; track talla.id) {
+              <button
+                class="talla-btn"
+                [class.talla-btn--activa]="tallaSeleccionada()?.id === talla.id"
+                [class.talla-btn--agotada]="talla.stock === 0"
+                [disabled]="talla.stock === 0"
+                (click)="seleccionarTalla(talla)"
+                [attr.aria-label]="'Talla ' + talla.talla + (talla.stock === 0 ? ' - Agotada' : '')"
+              >
+                {{ talla.talla }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Cantidad -->
+        @if (tallaSeleccionada() && stockDisponible() > 0) {
+          <div class="detalle__cantidad-section">
+            <span class="detalle__label">Cantidad</span>
+            <div class="cantidad">
+              <button class="cantidad__btn" (click)="decrementar()" [disabled]="cantidad() === 1"
+                      aria-label="Disminuir cantidad">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+              <span class="cantidad__num">{{ cantidad() }}</span>
+              <button class="cantidad__btn" (click)="incrementar()"
+                      [disabled]="cantidad() === stockDisponible()" aria-label="Aumentar cantidad">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        }
+
+        <!-- Error -->
+        @if (error()) {
+          <div class="detalle__error">{{ error() }}</div>
+        }
+
+        <!-- Éxito -->
+        @if (mensajeExito()) {
+          <div class="detalle__exito animate-fade-up">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            ¡Agregado al carrito!
+          </div>
+        }
+
+        <!-- Botones CTA -->
+        <div class="detalle__ctas">
+          <button
+            class="btn-primary detalle__agregar"
+            (click)="agregarAlCarrito()"
+            [disabled]="agregando()"
+          >
+            @if (agregando()) {
+              <span class="detalle__spinner"></span>
+              Agregando...
+            } @else {
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+              </svg>
+              Agregar al carrito
+            }
+          </button>
+
+          <a routerLink="/carrito" class="btn-secondary detalle__ir-carrito">
+            Ver carrito
+          </a>
+        </div>
+
+        <!-- Info de entrega -->
+        <div class="detalle__entrega">
+          <div class="entrega__item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+              <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+            </svg>
+            <span>Envío a todo el Perú — 24 a 72 horas</span>
+          </div>
+          <div class="entrega__item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span>Pago seguro con Yape o Plin</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+}

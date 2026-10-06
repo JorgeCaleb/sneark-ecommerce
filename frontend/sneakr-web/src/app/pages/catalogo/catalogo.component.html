@@ -1,0 +1,199 @@
+<div class="catalogo">
+
+  <!-- ── Header ───────────────────────────────────────────── -->
+  <div class="catalogo__header">
+    <div class="container catalogo__header-inner">
+      <div>
+        <h1 class="catalogo__title">Catálogo</h1>
+        @if (meta()) {
+          <p class="catalogo__count">
+            {{ meta()!.total }} producto{{ meta()!.total !== 1 ? 's' : '' }} encontrado{{ meta()!.total !== 1 ? 's' : '' }}
+          </p>
+        }
+      </div>
+
+      <!-- Búsqueda -->
+      <div class="catalogo__search-wrap">
+        <svg class="catalogo__search-icon" width="18" height="18" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input
+          type="search"
+          class="catalogo__search"
+          placeholder="Buscar zapatillas..."
+          [(ngModel)]="busqueda"
+          (keydown.enter)="aplicarFiltros()"
+        />
+      </div>
+
+      <!-- Botón filtros mobile -->
+      <button class="catalogo__filtros-toggle" (click)="toggleFiltros()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="6" x2="20" y2="6"/>
+          <line x1="8" y1="12" x2="20" y2="12"/>
+          <line x1="12" y1="18" x2="20" y2="18"/>
+        </svg>
+        Filtros
+        @if (hayFiltrosActivos()) {
+          <span class="catalogo__filtros-badge"></span>
+        }
+      </button>
+    </div>
+  </div>
+
+  <div class="container catalogo__body">
+
+    <!-- ── Sidebar filtros ───────────────────────────────── -->
+    <aside class="catalogo__sidebar" [class.catalogo__sidebar--open]="filtrosPanelAbierto()">
+      <div class="catalogo__sidebar-inner">
+
+        <div class="filtros__header">
+          <h2 class="filtros__title">Filtros</h2>
+          @if (hayFiltrosActivos()) {
+            <button class="filtros__limpiar" (click)="limpiarFiltros()">Limpiar</button>
+          }
+        </div>
+
+        <!-- Marca -->
+        <div class="filtros__grupo">
+          <h3 class="filtros__grupo-title">Marca</h3>
+          <div class="filtros__opciones">
+            <button class="filtros__opcion" [class.filtros__opcion--activa]="marcaId === 0"
+                    (click)="marcaId = 0; aplicarFiltros()">Todas</button>
+            @for (marca of marcas(); track marca.id) {
+              <button class="filtros__opcion" [class.filtros__opcion--activa]="marcaId === marca.id"
+                      (click)="marcaId = marca.id; aplicarFiltros()">
+                {{ marca.nombre }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Categoría -->
+        <div class="filtros__grupo">
+          <h3 class="filtros__grupo-title">Categoría</h3>
+          <div class="filtros__opciones">
+            <button class="filtros__opcion" [class.filtros__opcion--activa]="categoriaId === 0"
+                    (click)="categoriaId = 0; aplicarFiltros()">Todas</button>
+            @for (cat of categorias(); track cat.id) {
+              <button class="filtros__opcion" [class.filtros__opcion--activa]="categoriaId === cat.id"
+                      (click)="categoriaId = cat.id; aplicarFiltros()">
+                {{ cat.nombre }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Precio -->
+        <div class="filtros__grupo">
+          <h3 class="filtros__grupo-title">Precio (S/)</h3>
+          <div class="filtros__precio">
+            <input type="number" class="filtros__precio-input" placeholder="Mín"
+                   [(ngModel)]="precioMin" min="0" />
+            <span class="filtros__precio-sep">—</span>
+            <input type="number" class="filtros__precio-input" placeholder="Máx"
+                   [(ngModel)]="precioMax" min="0" />
+          </div>
+          <button class="btn-primary filtros__aplicar-precio" (click)="aplicarFiltros()">
+            Aplicar
+          </button>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- ── Grid de productos ─────────────────────────────── -->
+    <main class="catalogo__main">
+
+      <!-- Skeleton -->
+      @if (cargando()) {
+        <div class="catalogo__grid">
+          @for (i of [1,2,3,4,5,6,7,8,9,10,11,12]; track i) {
+            <div class="producto-skeleton"></div>
+          }
+        </div>
+      }
+
+      <!-- Sin resultados -->
+      @if (!cargando() && productos().length === 0) {
+        <div class="catalogo__empty">
+          <div class="catalogo__empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </div>
+          <h3 class="catalogo__empty-title">Sin resultados</h3>
+          <p class="catalogo__empty-desc">
+            No encontramos productos con esos filtros.
+          </p>
+          <button class="btn-primary" (click)="limpiarFiltros()">
+            Limpiar filtros
+          </button>
+        </div>
+      }
+
+      <!-- Grid -->
+      @if (!cargando() && productos().length > 0) {
+        <div class="catalogo__grid">
+          @for (producto of productos(); track producto.id; let i = $index) {
+            <a [routerLink]="['/producto', producto.id]"
+               class="producto-card stagger-item animate-fade-up"
+               [style.animation-delay]="(i * 40) + 'ms'">
+
+              <div class="producto-card__img-wrap">
+                <img [src]="imagenPrincipal(producto)" [alt]="producto.nombre"
+                     class="producto-card__img" loading="lazy"
+                     onerror="this.src='/placeholder-shoe.jpg'" />
+                @if (!tieneStock(producto)) {
+                  <span class="producto-card__agotado">Agotado</span>
+                }
+                <span class="producto-card__marca-tag">{{ producto.marca.nombre }}</span>
+              </div>
+
+              <div class="producto-card__info">
+                <h3 class="producto-card__nombre">{{ producto.nombre }}</h3>
+                <div class="producto-card__footer">
+                  <span class="producto-card__precio">{{ formatearPrecio(producto.precio) }}</span>
+                  <span class="producto-card__cat">{{ producto.categoria.nombre }}</span>
+                </div>
+              </div>
+
+            </a>
+          }
+        </div>
+
+        <!-- Paginación -->
+        @if (totalPaginas() > 1) {
+          <nav class="paginacion" aria-label="Paginación">
+            <button class="paginacion__btn" [disabled]="paginaActual === 1"
+                    (click)="irAPagina(paginaActual - 1)" aria-label="Página anterior">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 18l-6-6 6-6"/>
+              </svg>
+            </button>
+
+            @for (pagina of paginasArray(); track pagina) {
+              <button class="paginacion__num" [class.paginacion__num--activa]="pagina === paginaActual"
+                      (click)="irAPagina(pagina)">
+                {{ pagina }}
+              </button>
+            }
+
+            <button class="paginacion__btn" [disabled]="paginaActual === totalPaginas()"
+                    (click)="irAPagina(paginaActual + 1)" aria-label="Página siguiente">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            </button>
+          </nav>
+        }
+      }
+
+    </main>
+  </div>
+</div>

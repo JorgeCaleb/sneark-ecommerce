@@ -1,0 +1,237 @@
+// Esta es la configuración principal de Prisma
+// Documentación: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// USUARIOS
+// ─────────────────────────────────────────────
+model Usuario {
+  id       Int      @id @default(autoincrement())
+  nombre   String   @db.VarChar(100)
+  email    String   @unique @db.VarChar(191)
+  // Hash (bcrypt/argon2), nunca texto plano
+  password String   @db.VarChar(255)
+  rol      Rol      @default(CLIENTE)
+  creadoEn DateTime @default(now())
+
+  pedidos Pedido[]
+  carrito Carrito?
+
+  @@map("usuarios")
+}
+
+enum Rol {
+  CLIENTE
+  ADMIN
+}
+
+// ─────────────────────────────────────────────
+// MARCAS
+// ─────────────────────────────────────────────
+model Marca {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique @db.VarChar(100)
+  logo      String?    @db.VarChar(500)
+  productos Producto[]
+
+  @@map("marcas")
+}
+
+// ─────────────────────────────────────────────
+// CATEGORÍAS
+// ─────────────────────────────────────────────
+model Categoria {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique @db.VarChar(100)
+  productos Producto[]
+
+  @@map("categorias")
+}
+
+// ─────────────────────────────────────────────
+// PRODUCTOS
+// ─────────────────────────────────────────────
+model Producto {
+  id          Int     @id @default(autoincrement())
+  nombre      String  @db.VarChar(150)
+  descripcion String? @db.Text
+  precio      Decimal @db.Decimal(10, 2)
+
+  marcaId Int
+  marca   Marca @relation(fields: [marcaId], references: [id])
+
+  categoriaId Int
+  categoria   Categoria @relation(fields: [categoriaId], references: [id])
+
+  // Los productos se desactivan, no se borran (protege el historial de pedidos)
+  activo        Boolean  @default(true)
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  imagenes ImagenProducto[]
+  tallas   TallaProducto[]
+
+  @@index([marcaId])
+  @@index([categoriaId])
+  @@index([activo])
+  @@map("productos")
+}
+
+// ─────────────────────────────────────────────
+// IMÁGENES DEL PRODUCTO
+// ─────────────────────────────────────────────
+model ImagenProducto {
+  id Int @id @default(autoincrement())
+
+  // URL pública de Cloudinary
+  url      String @db.VarChar(500)
+  // ID de Cloudinary, para poder eliminar/reemplazar la imagen
+  publicId String @db.VarChar(255)
+
+  productoId Int
+  producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@index([productoId])
+  @@map("imagenes_producto")
+}
+
+// ─────────────────────────────────────────────
+// TALLAS Y STOCK
+// ─────────────────────────────────────────────
+model TallaProducto {
+  id    Int    @id @default(autoincrement())
+  talla String @db.VarChar(20)
+  stock Int    @default(0)
+
+  productoId Int
+  producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  itemsCarrito ItemCarrito[]
+  itemsPedido  ItemPedido[]
+
+  @@unique([productoId, talla])
+  @@index([productoId])
+  @@map("tallas_producto")
+}
+
+// ─────────────────────────────────────────────
+// CARRITO
+// ─────────────────────────────────────────────
+model Carrito {
+  id Int @id @default(autoincrement())
+
+  usuarioId Int     @unique
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  items    ItemCarrito[]
+  creadoEn DateTime      @default(now())
+
+  @@map("carritos")
+}
+
+model ItemCarrito {
+  id Int @id @default(autoincrement())
+
+  carritoId Int
+  carrito   Carrito @relation(fields: [carritoId], references: [id], onDelete: Cascade)
+
+  // El producto se obtiene vía tallaProducto.producto
+  tallaProductoId Int
+  tallaProducto   TallaProducto @relation(fields: [tallaProductoId], references: [id], onDelete: Cascade)
+
+  cantidad Int @default(1)
+
+  @@unique([carritoId, tallaProductoId])
+  @@index([tallaProductoId])
+  @@map("items_carrito")
+}
+
+// ─────────────────────────────────────────────
+// PEDIDOS
+// ─────────────────────────────────────────────
+model Pedido {
+  id Int @id @default(autoincrement())
+
+  usuarioId Int
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
+
+  items ItemPedido[]
+
+  total Decimal @db.Decimal(10, 2)
+
+  estado     EstadoPedido @default(PENDIENTE)
+  metodoPago MetodoPago
+
+  // URL de Cloudinary del comprobante de Yape/Plin
+  comprobante     String? @db.VarChar(500)
+  // Código de operación del comprobante (ayuda a verificar y detectar repetidos)
+  numeroOperacion String? @db.VarChar(50)
+
+  // Datos de entrega, guardados tal como estaban al hacer el pedido
+  telefono  String @db.VarChar(20)
+  ciudad    String @db.VarChar(100)
+  direccion String @db.VarChar(255)
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  @@index([usuarioId])
+  @@index([estado])
+  @@index([creadoEn])
+  @@index([numeroOperacion])
+  @@map("pedidos")
+}
+
+model ItemPedido {
+  id Int @id @default(autoincrement())
+
+  pedidoId Int
+  pedido   Pedido @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
+  // El producto se obtiene vía tallaProducto.producto
+  tallaProductoId Int
+  tallaProducto   TallaProducto @relation(fields: [tallaProductoId], references: [id])
+
+  // Snapshot: el pedido sigue legible aunque luego se edite el producto
+  nombreProducto String @db.VarChar(150)
+  talla          String @db.VarChar(20)
+
+  cantidad Int
+
+  // Precio del producto en el momento de la compra
+  precio   Decimal @db.Decimal(10, 2)
+  // cantidad × precio
+  subtotal Decimal @db.Decimal(10, 2)
+
+  @@index([pedidoId])
+  @@index([tallaProductoId])
+  @@map("items_pedido")
+}
+
+// ─────────────────────────────────────────────
+// ESTADOS DEL PEDIDO
+// ─────────────────────────────────────────────
+enum EstadoPedido {
+  PENDIENTE
+  PAGO_VERIFICADO
+  EN_PREPARACION
+  ENVIADO
+  ENTREGADO
+  CANCELADO
+}
+
+// ─────────────────────────────────────────────
+// MÉTODOS DE PAGO
+// ─────────────────────────────────────────────
+enum MetodoPago {
+  YAPE
+  PLIN
+}

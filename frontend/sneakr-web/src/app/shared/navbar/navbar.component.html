@@ -1,0 +1,89 @@
+<header class="navbar" [class.navbar--scrolled]="scrolled()">
+  <div class="navbar__inner container">
+
+    <!-- Logo -->
+    <a routerLink="/" class="navbar__logo" (click)="cerrarMenu()">
+      <span class="navbar__logo-text">SNEARK</span>
+    </a>
+
+    <!-- Nav links — desktop -->
+    <nav class="navbar__links" aria-label="Navegación principal">
+      <a routerLink="/" routerLinkActive="navbar__link--active"
+         [routerLinkActiveOptions]="{ exact: true }"
+         class="navbar__link">Inicio</a>
+      <a routerLink="/catalogo" routerLinkActive="navbar__link--active"
+         class="navbar__link">Catálogo</a>
+      @if (auth.esAdmin()) {
+        <a routerLink="/admin" routerLinkActive="navbar__link--active"
+           class="navbar__link navbar__link--admin">Admin</a>
+      }
+    </nav>
+
+    <!-- Acciones — desktop -->
+    <div class="navbar__actions">
+      <!-- Carrito -->
+      <a routerLink="/carrito" class="navbar__icon-btn" aria-label="Ver carrito">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <path d="M16 10a4 4 0 0 1-8 0"/>
+        </svg>
+        @if (carritoService.cantidadItems() > 0) {
+          <span class="navbar__badge">{{ carritoService.cantidadItems() }}</span>
+        }
+      </a>
+
+      <!-- Auth -->
+      @if (auth.estaAutenticado()) {
+        <div class="navbar__user">
+          <span class="navbar__user-name">{{ auth.usuario()?.nombre?.split(' ')[0] }}</span>
+          <button class="btn-secondary navbar__btn-logout" (click)="logout()">
+            Salir
+          </button>
+        </div>
+      } @else {
+        <a routerLink="/auth/login" class="navbar__link">Iniciar sesión</a>
+        <a routerLink="/auth/registro" class="btn-primary navbar__btn-registro">
+          Registrarse
+        </a>
+      }
+    </div>
+
+    <!-- Botón hamburguesa — mobile -->
+    <button class="navbar__hamburger" (click)="toggleMenu()"
+            [attr.aria-expanded]="menuAbierto()"
+            aria-label="Abrir menú">
+      <span class="navbar__hamburger-line" [class.navbar__hamburger-line--open]="menuAbierto()"></span>
+    </button>
+
+  </div>
+
+  <!-- Menú mobile -->
+  <div class="navbar__mobile" [class.navbar__mobile--open]="menuAbierto()" aria-hidden="{{ !menuAbierto() }}">
+    <nav class="navbar__mobile-links">
+      <a routerLink="/" class="navbar__mobile-link" (click)="cerrarMenu()">Inicio</a>
+      <a routerLink="/catalogo" class="navbar__mobile-link" (click)="cerrarMenu()">Catálogo</a>
+      @if (auth.esAdmin()) {
+        <a routerLink="/admin" class="navbar__mobile-link" (click)="cerrarMenu()">Admin</a>
+      }
+      <div class="navbar__mobile-divider"></div>
+      @if (auth.estaAutenticado()) {
+        <a routerLink="/mis-pedidos" class="navbar__mobile-link" (click)="cerrarMenu()">Mis pedidos</a>
+        <a routerLink="/carrito" class="navbar__mobile-link" (click)="cerrarMenu()">
+          Carrito
+          @if (carritoService.cantidadItems() > 0) {
+            <span class="badge">{{ carritoService.cantidadItems() }}</span>
+          }
+        </a>
+        <button class="navbar__mobile-link navbar__mobile-logout" (click)="logout()">
+          Cerrar sesión
+        </button>
+      } @else {
+        <a routerLink="/auth/login" class="navbar__mobile-link" (click)="cerrarMenu()">Iniciar sesión</a>
+        <a routerLink="/auth/registro" class="navbar__mobile-link navbar__mobile-registro"
+           (click)="cerrarMenu()">Registrarse</a>
+      }
+    </nav>
+  </div>
+</header>

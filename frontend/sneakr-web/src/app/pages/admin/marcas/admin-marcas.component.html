@@ -1,0 +1,126 @@
+<div class="admin-page">
+
+  <div class="admin-page__header">
+    <div>
+      <h1 class="admin-page__title">Marcas</h1>
+      <p class="admin-page__sub">{{ marcas().length }} marcas registradas</p>
+    </div>
+    <button class="btn-primary" (click)="abrirCrear()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Nueva marca
+    </button>
+  </div>
+
+  @if (cargando()) {
+    <div class="marcas-grid">
+      @for (i of [1,2,3,4,5,6]; track i) {
+        <div class="marca-skeleton"></div>
+      }
+    </div>
+  }
+
+  @if (!cargando()) {
+    @if (marcas().length === 0) {
+      <div class="admin-empty">
+        <p>No hay marcas registradas.</p>
+      </div>
+    } @else {
+      <div class="marcas-grid">
+        @for (marca of marcas(); track marca.id) {
+          <div class="marca-card">
+            <div class="marca-card__img">
+              @if (marca.logo) {
+                <img [src]="marca.logo" [alt]="marca.nombre"
+                     onerror="this.style.display='none'" />
+              } @else {
+                <span class="marca-card__inicial">
+                  {{ marca.nombre.charAt(0) }}
+                </span>
+              }
+            </div>
+            <div class="marca-card__info">
+              <p class="marca-card__nombre">{{ marca.nombre }}</p>
+              <p class="marca-card__productos">
+                {{ marca._count?.productos ?? 0 }} producto(s)
+              </p>
+            </div>
+            <div class="marca-card__acciones">
+              <button class="accion-btn accion-btn--edit" (click)="abrirEditar(marca)"
+                      title="Editar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </button>
+              <button class="accion-btn accion-btn--del" (click)="eliminar(marca.id)"
+                      title="Eliminar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  }
+
+</div>
+
+<!-- Modal -->
+@if (modalAbierto()) {
+  <div class="modal-backdrop" (click)="cerrarModal()"></div>
+  <div class="modal animate-fade-up">
+
+    <div class="modal__header">
+      <h2 class="modal__title">{{ marcaEditar() ? 'Editar marca' : 'Nueva marca' }}</h2>
+      <button class="modal__cerrar" (click)="cerrarModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal__body">
+      <div class="form-field">
+        <label class="form-label">Nombre <span class="form-req">*</span></label>
+        <input type="text" class="form-input" [(ngModel)]="form.nombre"
+               placeholder="Ej: Nike" maxlength="100" />
+      </div>
+      <div class="form-field">
+        <label class="form-label">URL del logo</label>
+        <input type="url" class="form-input" [(ngModel)]="form.logo"
+               placeholder="https://..." />
+        <p class="form-hint">URL de imagen para el logo (opcional)</p>
+      </div>
+      @if (form.logo) {
+        <div class="logo-preview">
+          <img [src]="form.logo" alt="Preview logo"
+               onerror="this.style.display='none'" />
+        </div>
+      }
+      @if (errorForm()) {
+        <div class="form-error animate-fade-up">{{ errorForm() }}</div>
+      }
+    </div>
+
+    <div class="modal__footer">
+      <button class="btn-secondary" (click)="cerrarModal()">Cancelar</button>
+      <button class="btn-primary" (click)="guardar()" [disabled]="guardando()">
+        @if (guardando()) {
+          <span class="spinner"></span> Guardando...
+        } @else {
+          {{ marcaEditar() ? 'Guardar cambios' : 'Crear marca' }}
+        }
+      </button>
+    </div>
+
+  </div>
+}

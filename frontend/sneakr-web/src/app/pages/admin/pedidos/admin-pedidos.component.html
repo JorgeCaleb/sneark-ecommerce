@@ -1,0 +1,254 @@
+<div class="admin-page">
+
+  <!-- Header -->
+  <div class="admin-page__header">
+    <div>
+      <h1 class="admin-page__title">Pedidos</h1>
+      <p class="admin-page__sub">{{ todosLosPedidos().length }} pedidos en total</p>
+    </div>
+    <button class="btn-secondary admin-refresh" (click)="cargar()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+      Actualizar
+    </button>
+  </div>
+
+  <!-- Filtros por estado -->
+  <div class="filtros-estado">
+    <button class="filtro-btn" [class.filtro-btn--activo]="filtroEstado === ''"
+            (click)="filtroEstado = ''; filtrar()">
+      Todos
+      <span class="filtro-btn__count">{{ todosLosPedidos().length }}</span>
+    </button>
+    @for (estado of estados; track estado) {
+      <button class="filtro-btn"
+              [class.filtro-btn--activo]="filtroEstado === estado"
+              (click)="filtroEstado = estado; filtrar()">
+        <span class="filtro-dot filtro-dot--{{ estadoConfig[estado].color }}"></span>
+        {{ estadoConfig[estado].label }}
+        <span class="filtro-btn__count">
+          {{ todosLosPedidos().filter(p => p.estado === estado).length }}
+        </span>
+      </button>
+    }
+  </div>
+
+  <!-- Skeleton -->
+  @if (cargando()) {
+    <div class="tabla-skeleton">
+      @for (i of [1,2,3,4,5,6]; track i) {
+        <div class="tabla-skeleton__fila"></div>
+      }
+    </div>
+  }
+
+  <!-- Tabla -->
+  @if (!cargando()) {
+    @if (pedidosFiltrados().length === 0) {
+      <div class="admin-empty">
+        <p>No hay pedidos con ese filtro.</p>
+      </div>
+    } @else {
+      <div class="tabla-wrap">
+        <table class="tabla">
+          <thead class="tabla__head">
+            <tr>
+              <th class="tabla__th">#</th>
+              <th class="tabla__th">Cliente</th>
+              <th class="tabla__th">Método</th>
+              <th class="tabla__th">Estado</th>
+              <th class="tabla__th">Comprobante</th>
+              <th class="tabla__th tabla__th--right">Total</th>
+              <th class="tabla__th tabla__th--right">Fecha</th>
+              <th class="tabla__th tabla__th--right">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (pedido of pedidosFiltrados(); track pedido.id) {
+              <tr class="tabla__row" [class.tabla__row--pendiente]="pedido.estado === 'PENDIENTE'">
+                <td class="tabla__td">
+                  <span class="tabla__id">#{{ pedido.id }}</span>
+                </td>
+                <td class="tabla__td">
+                  <p class="tabla__nombre">{{ pedido.usuario.nombre }}</p>
+                  <p class="tabla__email">{{ pedido.usuario.email }}</p>
+                </td>
+                <td class="tabla__td">
+                  <span class="metodo-badge metodo-badge--{{ pedido.metodoPago.toLowerCase() }}">
+                    {{ pedido.metodoPago }}
+                  </span>
+                </td>
+                <td class="tabla__td">
+                  <span class="estado-badge estado-badge--{{ estadoConfig[pedido.estado].color }}">
+                    {{ estadoConfig[pedido.estado].label }}
+                  </span>
+                </td>
+                <td class="tabla__td">
+                  @if (pedido.comprobante) {
+                    <a [href]="pedido.comprobante" target="_blank" rel="noopener"
+                       class="comprobante-link">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                           stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                           stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                      Ver
+                    </a>
+                  } @else {
+                    <span class="sin-comprobante">Sin comprobante</span>
+                  }
+                </td>
+                <td class="tabla__td tabla__td--right tabla__td--bold">
+                  {{ formatearPrecio(pedido.total) }}
+                </td>
+                <td class="tabla__td tabla__td--right tabla__td--muted">
+                  {{ formatearFecha(pedido.creadoEn) }}
+                </td>
+                <td class="tabla__td tabla__td--right">
+                  <button class="accion-ver" (click)="abrirDetalle(pedido)">
+                    Gestionar
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MODAL DETALLE / CAMBIAR ESTADO
+═══════════════════════════════════════════════════════════ -->
+@if (pedidoDetalle()) {
+  <div class="modal-backdrop" (click)="cerrarDetalle()"></div>
+  <div class="modal animate-fade-up">
+
+    <div class="modal__header">
+      <div>
+        <h2 class="modal__title">Pedido #{{ pedidoDetalle()!.id }}</h2>
+        <p class="modal__sub">{{ formatearFecha(pedidoDetalle()!.creadoEn) }}</p>
+      </div>
+      <button class="modal__cerrar" (click)="cerrarDetalle()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal__body">
+
+      <!-- Info cliente -->
+      <div class="detalle-seccion">
+        <h3 class="detalle-seccion__title">Cliente</h3>
+        <div class="detalle-grid">
+          <div class="detalle-dato">
+            <span class="detalle-dato__label">Nombre</span>
+            <span class="detalle-dato__valor">{{ pedidoDetalle()!.usuario.nombre }}</span>
+          </div>
+          <div class="detalle-dato">
+            <span class="detalle-dato__label">Email</span>
+            <span class="detalle-dato__valor">{{ pedidoDetalle()!.usuario.email }}</span>
+          </div>
+          <div class="detalle-dato">
+            <span class="detalle-dato__label">Teléfono</span>
+            <span class="detalle-dato__valor">{{ pedidoDetalle()!.telefono }}</span>
+          </div>
+          <div class="detalle-dato detalle-dato--full">
+            <span class="detalle-dato__label">Dirección</span>
+            <span class="detalle-dato__valor">
+              {{ pedidoDetalle()!.direccion }}, {{ pedidoDetalle()!.ciudad }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Items -->
+      <div class="detalle-seccion">
+        <h3 class="detalle-seccion__title">Productos</h3>
+        <div class="detalle-items">
+          @for (item of pedidoDetalle()!.items; track item.id) {
+            <div class="detalle-item">
+              <div class="detalle-item__img">
+                <img [src]="item.tallaProducto?.producto?.imagenes?.[0]?.url ?? '/placeholder-shoe.jpg'"
+                     [alt]="item.nombreProducto" onerror="this.src='/placeholder-shoe.jpg'" />
+              </div>
+              <div class="detalle-item__info">
+                <p class="detalle-item__nombre">{{ item.nombreProducto }}</p>
+                <p class="detalle-item__sub">Talla {{ item.talla }} · ×{{ item.cantidad }}</p>
+              </div>
+              <p class="detalle-item__precio">{{ formatearPrecio(item.subtotal) }}</p>
+            </div>
+          }
+        </div>
+        <div class="detalle-total">
+          <span>Total</span>
+          <span class="detalle-total__num">{{ formatearPrecio(pedidoDetalle()!.total) }}</span>
+        </div>
+      </div>
+
+      <!-- Comprobante -->
+      @if (pedidoDetalle()!.comprobante) {
+        <div class="detalle-seccion">
+          <h3 class="detalle-seccion__title">Comprobante de pago</h3>
+          <a [href]="pedidoDetalle()!.comprobante!" target="_blank" rel="noopener"
+             class="comprobante-preview">
+            <img [src]="pedidoDetalle()!.comprobante!" alt="Comprobante" />
+            <div class="comprobante-preview__overlay">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+              Abrir imagen
+            </div>
+          </a>
+          @if (pedidoDetalle()!.numeroOperacion) {
+            <p class="num-operacion">
+              N° Operación: <strong>{{ pedidoDetalle()!.numeroOperacion }}</strong>
+            </p>
+          }
+        </div>
+      }
+
+      <!-- Cambiar estado -->
+      <div class="detalle-seccion">
+        <h3 class="detalle-seccion__title">Cambiar estado</h3>
+        <div class="estado-actual">
+          <span class="estado-badge estado-badge--{{ estadoConfig[pedidoDetalle()!.estado].color }}">
+            {{ estadoConfig[pedidoDetalle()!.estado].label }}
+          </span>
+          <span class="estado-flecha">→</span>
+          <select class="form-select" [(ngModel)]="nuevoEstado">
+            @for (e of estados; track e) {
+              <option [value]="e">{{ estadoConfig[e].label }}</option>
+            }
+          </select>
+        </div>
+        <button class="btn-primary estado-btn"
+                (click)="cambiarEstado()"
+                [disabled]="cambiandoEstado() || nuevoEstado() === pedidoDetalle()!.estado">
+          @if (cambiandoEstado()) {
+            <span class="spinner"></span> Guardando...
+          } @else {
+            Confirmar cambio
+          }
+        </button>
+      </div>
+
+    </div>
+
+    <div class="modal__footer">
+      <button class="btn-secondary" (click)="cerrarDetalle()">Cerrar</button>
+    </div>
+
+  </div>
+}

@@ -1,0 +1,285 @@
+<!-- Skeleton -->
+@if (cargando()) {
+  <div class="container comprobante-skeleton">
+    <div class="comprobante-skeleton__card"></div>
+    <div class="comprobante-skeleton__aside"></div>
+  </div>
+}
+
+<!-- Pantalla de éxito -->
+@if (exito()) {
+  <div class="container comprobante-exito animate-fade-up">
+    <div class="exito-card">
+      <div class="exito-card__icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <h1 class="exito-card__title">¡Comprobante enviado!</h1>
+      <p class="exito-card__desc">
+        Recibimos tu comprobante. Verificaremos el pago y te notificaremos cuando
+        tu pedido <strong>#{{ id }}</strong> entre en preparación.
+      </p>
+      <div class="exito-card__pasos">
+        <div class="exito-paso exito-paso--done">
+          <span class="exito-paso__num">✓</span>
+          <span>Pedido confirmado</span>
+        </div>
+        <div class="exito-paso__linea"></div>
+        <div class="exito-paso exito-paso--done">
+          <span class="exito-paso__num">✓</span>
+          <span>Comprobante enviado</span>
+        </div>
+        <div class="exito-paso__linea"></div>
+        <div class="exito-paso">
+          <span class="exito-paso__num">3</span>
+          <span>Verificación de pago</span>
+        </div>
+        <div class="exito-paso__linea"></div>
+        <div class="exito-paso">
+          <span class="exito-paso__num">4</span>
+          <span>Envío</span>
+        </div>
+      </div>
+      <a routerLink="/mis-pedidos" class="btn-primary exito-card__btn">
+        Ver mis pedidos
+      </a>
+    </div>
+  </div>
+}
+
+<!-- Formulario de carga -->
+@if (!cargando() && !exito() && pedido()) {
+  <div class="container comprobante-page animate-fade-in">
+
+    <div class="comprobante-page__header">
+      <a routerLink="/mis-pedidos" class="comprobante-back">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Mis pedidos
+      </a>
+      <h1 class="comprobante-page__title">
+        Pagar pedido <span class="comprobante-page__num">#{{ id }}</span>
+      </h1>
+    </div>
+
+    <div class="comprobante-layout">
+
+      <!-- ── Panel izquierdo: instrucciones + subida ────── -->
+      <div class="comprobante-main">
+
+        <!-- Paso 1: datos de transferencia -->
+        <section class="comprobante-section">
+          <h2 class="comprobante-section__title">
+            <span class="comprobante-section__num">1</span>
+            Realizá la transferencia
+          </h2>
+
+          <div class="metodos-grid">
+
+            <!-- Yape -->
+            <div class="metodo-card" [class.metodo-card--activo]="pedido()!.metodoPago === 'YAPE'">
+              <div class="metodo-card__header">
+                <span class="metodo-badge metodo-badge--yape">YAPE</span>
+                @if (pedido()!.metodoPago === 'YAPE') {
+                  <span class="metodo-card__seleccionado">Tu método elegido</span>
+                }
+              </div>
+              <div class="metodo-card__datos">
+                <div class="metodo-dato">
+                  <span class="metodo-dato__label">Número</span>
+                  <span class="metodo-dato__valor">{{ datosYape.numero }}</span>
+                </div>
+                <div class="metodo-dato">
+                  <span class="metodo-dato__label">Nombre</span>
+                  <span class="metodo-dato__valor">{{ datosYape.nombre }}</span>
+                </div>
+                <div class="metodo-dato">
+                  <span class="metodo-dato__label">Monto exacto</span>
+                  <span class="metodo-dato__valor metodo-dato__valor--monto">
+                    {{ formatearPrecio(pedido()!.total) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Plin -->
+            <div class="metodo-card" [class.metodo-card--activo]="pedido()!.metodoPago === 'PLIN'">
+              <div class="metodo-card__header">
+                <span class="metodo-badge metodo-badge--plin">PLIN</span>
+                @if (pedido()!.metodoPago === 'PLIN') {
+                  <span class="metodo-card__seleccionado">Tu método elegido</span>
+                }
+              </div>
+              <div class="metodo-card__datos">
+                <div class="metodo-dato">
+                  <span class="metodo-dato__label">Número</span>
+                  <span class="metodo-dato__valor">{{ datosPlin.numero }}</span>
+                </div>
+                <div class="metodo-dato">
+                  <span class="metodo-dato__label">Nombre</span>
+                  <span class="metodo-dato__valor">{{ datosPlin.nombre }}</span>
+                </div>
+                <div class="metodo-dato">
+                  <span class="metodo-dato__label">Monto exacto</span>
+                  <span class="metodo-dato__valor metodo-dato__valor--monto">
+                    {{ formatearPrecio(pedido()!.total) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="comprobante-aviso">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <p>Enviá el monto exacto de <strong>{{ formatearPrecio(pedido()!.total) }}</strong> para que podamos verificar tu pago de forma automática.</p>
+          </div>
+        </section>
+
+        <!-- Paso 2: subir comprobante -->
+        <section class="comprobante-section">
+          <h2 class="comprobante-section__title">
+            <span class="comprobante-section__num">2</span>
+            Subí el comprobante
+          </h2>
+
+          <!-- Número de operación -->
+          <div class="form-field">
+            <label class="form-label" for="numOp">
+              Número de operación
+              <span class="form-label-opt">(recomendado)</span>
+            </label>
+            <input
+              id="numOp"
+              type="text"
+              class="form-input"
+              placeholder="Ej: 123456789"
+              [(ngModel)]="numeroOperacion"
+              maxlength="50"
+            />
+            <p class="form-hint">
+              Es el código que aparece en la captura de pantalla del pago. Nos ayuda a verificarlo más rápido.
+            </p>
+          </div>
+
+          <!-- Drop zone -->
+          @if (!preview()) {
+            <label class="dropzone" for="archivo-input">
+              <input
+                id="archivo-input"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                class="dropzone__input"
+                (change)="onArchivoSeleccionado($event)"
+              />
+              <div class="dropzone__content">
+                <div class="dropzone__icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </div>
+                <p class="dropzone__title">Tocá para seleccionar la imagen</p>
+                <p class="dropzone__hint">JPG, PNG o WEBP · Máx. 10MB</p>
+              </div>
+            </label>
+          }
+
+          <!-- Preview de la imagen -->
+          @if (preview()) {
+            <div class="preview">
+              <img [src]="preview()!" alt="Comprobante seleccionado" class="preview__img" />
+              <div class="preview__overlay">
+                <button class="preview__quitar" (click)="quitarArchivo()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                  Cambiar imagen
+                </button>
+              </div>
+            </div>
+          }
+
+          <!-- Error -->
+          @if (error()) {
+            <div class="comprobante-error animate-fade-up">{{ error() }}</div>
+          }
+
+          <!-- Botón enviar -->
+          <button
+            class="btn-primary comprobante-submit"
+            (click)="enviar()"
+            [disabled]="subiendo() || !archivo()"
+          >
+            @if (subiendo()) {
+              <span class="comprobante-spinner"></span>
+              Enviando...
+            } @else {
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+              Enviar comprobante
+            }
+          </button>
+
+        </section>
+      </div>
+
+      <!-- ── Resumen del pedido ──────────────────────────── -->
+      <aside class="comprobante-resumen">
+        <h2 class="comprobante-resumen__title">Resumen del pedido</h2>
+
+        <div class="comprobante-resumen__items">
+          @for (item of pedido()!.items; track item.id) {
+            <div class="resumen-item">
+              <div class="resumen-item__img-wrap">
+                <img
+                  [src]="item.tallaProducto?.producto?.imagenes?.[0]?.url ?? '/placeholder-shoe.jpg'"
+                  [alt]="item.nombreProducto"
+                  class="resumen-item__img"
+                  onerror="this.src='/placeholder-shoe.jpg'"
+                />
+                <span class="resumen-item__qty">{{ item.cantidad }}</span>
+              </div>
+              <div class="resumen-item__info">
+                <p class="resumen-item__nombre">{{ item.nombreProducto }}</p>
+                <p class="resumen-item__talla">Talla {{ item.talla }}</p>
+              </div>
+              <p class="resumen-item__precio">{{ formatearPrecio(item.subtotal) }}</p>
+            </div>
+          }
+        </div>
+
+        <div class="comprobante-resumen__total">
+          <span>Total</span>
+          <span class="comprobante-resumen__total-num">
+            {{ formatearPrecio(pedido()!.total) }}
+          </span>
+        </div>
+
+        <div class="comprobante-resumen__entrega">
+          <p class="comprobante-resumen__entrega-label">Entrega en</p>
+          <p class="comprobante-resumen__entrega-dir">
+            {{ pedido()!.direccion }}, {{ pedido()!.ciudad }}
+          </p>
+        </div>
+
+      </aside>
+
+    </div>
+  </div>
+}

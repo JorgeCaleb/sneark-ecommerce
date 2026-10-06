@@ -1,19 +1,29 @@
 import { Module } from '@nestjs/common';
-import { createObserveModule } from '@nestjs/observe';
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
-
-export const { ObserveModule, ObserveInstrument } = createObserveModule();
+import { PrismaModule } from './prisma/prisma.module.js';
+import { CloudinaryModule } from './cloudinary/cloudinary.module.js';
+import { UsuariosModule } from './usuarios/usuarios.module.js';
+import { AuthModule } from './auth/auth.module.js';
+import { MarcasModule } from './marcas/marcas.module.js';
+import { CategoriasModule } from './categorias/categorias.module.js';
+import { ProductosModule } from './productos/productos.module.js';
+import { CarritoModule } from './carrito/carrito.module.js';
+import { PedidosModule } from './pedidos/pedidos.module.js';
 
 @Module({
   imports: [
-    // Distributed tracing, auto-correlated logs, request/job metrics, error
-    // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
-    ObserveModule.forRoot({
-      appKey: 'YOUR_APP_KEY',
-      appSecret: 'YOUR_APP_SECRET',
-      serviceId: 'sneark-back',
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    CloudinaryModule,
+    UsuariosModule,
+    AuthModule,
+    MarcasModule,
+    CategoriasModule,
+    ProductosModule,
+    CarritoModule,
+    PedidosModule,
   ],
   controllers: [AppController],
   providers: [AppService],

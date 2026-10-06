@@ -1,0 +1,101 @@
+<div class="auth-page">
+  <div class="auth-card animate-fade-up">
+
+    <!-- Logo -->
+    <a routerLink="/" class="auth-card__logo">SNEARK</a>
+
+    <div class="auth-card__header">
+      <h1 class="auth-card__title">Bienvenido de vuelta</h1>
+      <p class="auth-card__subtitle">Ingresá con tu cuenta para continuar</p>
+    </div>
+
+    <form class="auth-form" (ngSubmit)="submit()" #f="ngForm">
+
+      <!-- Email -->
+      <div class="form-field">
+        <label class="form-label" for="email">Email</label>
+        <div class="form-input-wrap">
+          <svg class="form-input-icon" width="16" height="16" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+          <input
+            id="email"
+            type="email"
+            class="form-input form-input--icon"
+            placeholder="tu@email.com"
+            [(ngModel)]="email"
+            name="email"
+            autocomplete="email"
+            required
+          />
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="form-field">
+        <div class="form-label-row">
+          <label class="form-label" for="password">Contraseña</label>
+        </div>
+        <div class="form-input-wrap">
+          <svg class="form-input-icon" width="16" height="16" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <input
+            id="password"
+            [type]="mostrarPass() ? 'text' : 'password'"
+            class="form-input form-input--icon form-input--icon-right"
+            placeholder="Tu contraseña"
+            [(ngModel)]="password"
+            name="password"
+            autocomplete="current-password"
+            required
+          />
+          <button type="button" class="form-input-toggle" (click)="togglePass()"
+                  [attr.aria-label]="mostrarPass() ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+            @if (mostrarPass()) {
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            } @else {
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            }
+          </button>
+        </div>
+      </div>
+
+      <!-- Error -->
+      @if (error()) {
+        <div class="auth-error animate-fade-up">{{ error() }}</div>
+      }
+
+      <!-- Submit -->
+      <button type="submit" class="btn-primary auth-submit" [disabled]="enviando()">
+        @if (enviando()) {
+          <span class="auth-spinner"></span>
+          Ingresando...
+        } @else {
+          Iniciar sesión
+        }
+      </button>
+
+    </form>
+
+    <p class="auth-card__footer">
+      ¿No tenés cuenta?
+      <a routerLink="/auth/registro" class="auth-card__link">Registrate gratis</a>
+    </p>
+
+  </div>
+</div>

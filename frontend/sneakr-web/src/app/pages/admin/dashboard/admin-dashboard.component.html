@@ -1,0 +1,189 @@
+<div class="dashboard">
+
+  <div class="dashboard__header">
+    <div>
+      <h1 class="dashboard__title">Dashboard</h1>
+      <p class="dashboard__sub">Resumen general de la tienda</p>
+    </div>
+    <a routerLink="/admin/pedidos" class="btn-primary dashboard__header-btn">
+      Ver pedidos
+    </a>
+  </div>
+
+  <!-- ── Métricas ──────────────────────────────────────────── -->
+  @if (cargando()) {
+    <div class="metricas-grid">
+      @for (i of [1,2,3,4]; track i) {
+        <div class="metrica-skeleton"></div>
+      }
+    </div>
+  }
+
+  @if (!cargando()) {
+    <div class="metricas-grid">
+      @for (m of metricas(); track m.label; let i = $index) {
+        <div class="metrica-card stagger-item animate-fade-up"
+             [style.animation-delay]="(i * 60) + 'ms'">
+          <div class="metrica-card__icon metrica-card__icon--{{ m.color }}">
+            @switch (m.icono) {
+              @case ('pedidos') {
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+              }
+              @case ('ingresos') {
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="1" x2="12" y2="23"/>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+              }
+              @case ('pendientes') {
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              }
+              @case ('productos') {
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                  <line x1="3" y1="6" x2="21" y2="6"/>
+                </svg>
+              }
+            }
+          </div>
+          <div class="metrica-card__body">
+            <p class="metrica-card__label">{{ m.label }}</p>
+            <p class="metrica-card__valor">{{ m.valor }}</p>
+            <p class="metrica-card__sub">{{ m.sub }}</p>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ── Pedidos recientes ─────────────────────────────────── -->
+  <div class="dashboard__section">
+    <div class="dashboard__section-header">
+      <h2 class="dashboard__section-title">Pedidos recientes</h2>
+      <a routerLink="/admin/pedidos" class="dashboard__section-link">
+        Ver todos
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </a>
+    </div>
+
+    @if (cargando()) {
+      <div class="tabla-skeleton">
+        @for (i of [1,2,3,4,5]; track i) {
+          <div class="tabla-skeleton__fila"></div>
+        }
+      </div>
+    }
+
+    @if (!cargando() && pedidosRecientes().length === 0) {
+      <div class="dashboard__empty">
+        <p>Todavía no hay pedidos.</p>
+      </div>
+    }
+
+    @if (!cargando() && pedidosRecientes().length > 0) {
+      <div class="tabla-wrap">
+        <table class="tabla">
+          <thead class="tabla__head">
+            <tr>
+              <th class="tabla__th">Pedido</th>
+              <th class="tabla__th">Cliente</th>
+              <th class="tabla__th">Método</th>
+              <th class="tabla__th">Estado</th>
+              <th class="tabla__th tabla__th--right">Total</th>
+              <th class="tabla__th tabla__th--right">Fecha</th>
+              <th class="tabla__th"></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (pedido of pedidosRecientes(); track pedido.id) {
+              <tr class="tabla__row">
+                <td class="tabla__td">
+                  <span class="tabla__id">#{{ pedido.id }}</span>
+                </td>
+                <td class="tabla__td tabla__td--nombre">
+                  {{ pedido.usuario.nombre }}
+                </td>
+                <td class="tabla__td">
+                  <span class="metodo-badge metodo-badge--{{ pedido.metodoPago.toLowerCase() }}">
+                    {{ pedido.metodoPago }}
+                  </span>
+                </td>
+                <td class="tabla__td">
+                  <span class="estado-badge estado-badge--{{ estadoConfig[pedido.estado].color }}">
+                    {{ estadoConfig[pedido.estado].label }}
+                  </span>
+                </td>
+                <td class="tabla__td tabla__td--right tabla__td--bold">
+                  {{ formatearPrecio(pedido.total) }}
+                </td>
+                <td class="tabla__td tabla__td--right tabla__td--muted">
+                  {{ formatearFecha(pedido.creadoEn) }}
+                </td>
+                <td class="tabla__td tabla__td--right">
+                  <a routerLink="/admin/pedidos" class="tabla__accion">
+                    Ver
+                  </a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  <!-- ── Accesos rápidos ───────────────────────────────────── -->
+  <div class="dashboard__section">
+    <h2 class="dashboard__section-title">Accesos rápidos</h2>
+    <div class="accesos-grid">
+      <a routerLink="/admin/productos" class="acceso-card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+          <line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+        </svg>
+        <span>Gestionar productos</span>
+      </a>
+      <a routerLink="/admin/pedidos" class="acceso-card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        <span>Gestionar pedidos</span>
+      </a>
+      <a routerLink="/admin/marcas" class="acceso-card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"/>
+        </svg>
+        <span>Gestionar marcas</span>
+      </a>
+      <a routerLink="/" target="_blank" class="acceso-card">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+        </svg>
+        <span>Ver tienda</span>
+      </a>
+    </div>
+  </div>
+
+</div>
