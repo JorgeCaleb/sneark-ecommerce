@@ -155,7 +155,7 @@
 ═══════════════════════════════════════════════════════════ -->
 @if (modalAbierto()) {
   <div class="modal-backdrop" (click)="cerrarModal()"></div>
-  <div class="modal animate-fade-up">
+  <div class="modal modal--enter">
     <div class="modal__header">
       <h2 class="modal__title">
         {{ productoEditar() ? 'Editar producto' : 'Nuevo producto' }}
@@ -263,7 +263,7 @@
 ═══════════════════════════════════════════════════════════ -->
 @if (modalImagenes()) {
   <div class="modal-backdrop" (click)="cerrarImagenes()"></div>
-  <div class="modal animate-fade-up">
+  <div class="modal modal--enter">
     <div class="modal__header">
       <h2 class="modal__title">Imágenes — {{ productoImagenes()?.nombre }}</h2>
       <button class="modal__cerrar" (click)="cerrarImagenes()">
@@ -298,14 +298,25 @@
       <!-- Subir nuevas -->
       <div class="form-field">
         <label class="form-label">Subir imágenes (máx. 5)</label>
-        <input type="file" class="form-input" accept="image/jpeg,image/png,image/webp"
-               multiple (change)="onImagenesSeleccionadas($event)" />
+        <input
+          type="file"
+          class="form-input"
+          accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif"
+          multiple
+          [disabled]="subiendoImg()"
+          (change)="onImagenesSeleccionadas($event)"
+        />
+        <p class="tallas-hint">JPG, PNG, WEBP o AVIF · máximo 5 MB por imagen.</p>
       </div>
 
       @if (previews().length > 0) {
         <div class="imagenes-previews">
           @for (p of previews(); track $index) {
             <img [src]="p" alt="Preview" class="preview-thumb" />
+          }
+
+          @if (errorImagenes()) {
+            <div class="form-error" role="alert">{{ errorImagenes() }}</div>
           }
         </div>
       }

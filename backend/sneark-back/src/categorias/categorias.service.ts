@@ -26,6 +26,9 @@ export class CategoriasService {
   async buscarTodas() {
     return this.prisma.categoria.findMany({
       orderBy: { nombre: 'asc' },
+      include: {
+        _count: { select: { productos: true } },
+      },
     });
   }
 

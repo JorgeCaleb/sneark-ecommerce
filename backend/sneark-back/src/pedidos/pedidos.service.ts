@@ -179,6 +179,19 @@ export class PedidosService {
     return pedido;
   }
 
+  async buscarPorUsuario(id: number, usuarioId: number) {
+    const pedido = await this.prisma.pedido.findFirst({
+      where: { id, usuarioId },
+      include: INCLUDE_PEDIDO,
+    });
+
+    if (!pedido) {
+      throw new NotFoundException(`Pedido #${id} no encontrado`);
+    }
+
+    return pedido;
+  }
+
   // Mis pedidos (cliente)
   async misPedidos(usuarioId: number) {
     return this.prisma.pedido.findMany({

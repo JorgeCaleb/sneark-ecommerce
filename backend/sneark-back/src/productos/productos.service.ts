@@ -29,13 +29,18 @@ export class ProductosService {
 
   async crear(dto: CrearProductoDto) {
     const { tallas, ...datos } = dto;
+    const tallasNormalizadas = tallas?.map((talla) => ({
+      talla: talla.talla.trim(),
+      stock: talla.stock,
+    }));
+    this.validarTallasDuplicadas(tallasNormalizadas);
 
     return this.prisma.producto.create({
       data: {
         ...datos,
         precio: datos.precio,
-        tallas: tallas?.length
-          ? { create: tallas }
+        tallas: tallasNormalizadas?.length
+          ? { create: tallasNormalizadas }
           : undefined,
       },
       include: INCLUDE_PRODUCTO,
@@ -105,15 +110,105 @@ export class ProductosService {
   }
 
   async actualizar(id: number, dto: ActualizarProductoDto) {
-    await this.buscarPorId(id); // lanza 404 si no existe
-
     const { tallas, ...datos } = dto;
+    const tallasNormalizadas = tallas?.map((talla) => ({
+      talla: talla.talla.trim(),
+      stock: talla.stock,
+    }));
+    this.validarTallasDuplicadas(tallasNormalizadas);
 
-    return this.prisma.producto.update({
-      where: { id },
-      data: datos,
-      include: INCLUDE_PRODUCTO,
+    return this.prisma.$transaction(async (tx) => {
+      const producto = await tx.producto.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+
+      if (!producto) {
+        throw new NotFoundException(`Producto con id ${id} no encontrado`);
+      }
+
+      if (tallasNormalizadas !== undefined) {
+        const tallasActuales = await tx.tallaProducto.findMany({
+          where: { productoId: id },
+          include: {
+            _count: {
+              select: { itemsCarrito: true, itemsPedido: true },
+            },
+          },
+        });
+        const nombresSolicitados = new Set(
+          tallasNormalizadas.map((talla) => this.normalizarNombreTalla(talla.talla)),
+        );
+        const tallasQuitadas = tallasActuales.filter(
+          (talla) => !nombresSolicitados.has(this.normalizarNombreTalla(talla.talla)),
+        );
+        const tallasEnUso = tallasQuitadas.filter(
+          (talla) =>
+            talla._count.itemsCarrito > 0 || talla._count.itemsPedido > 0,
+        );
+
+        if (tallasEnUso.length) {
+          throw new BadRequestException(
+            `No se pueden quitar las tallas ${tallasEnUso
+              .map((talla) => talla.talla)
+              .join(', ')} porque están en carritos o pedidos. Conservá esas tallas y asignales stock 0.`,
+          );
+        }
+
+        if (tallasQuitadas.length) {
+          await tx.tallaProducto.deleteMany({
+            where: { id: { in: tallasQuitadas.map((talla) => talla.id) } },
+          });
+        }
+
+        const tallasPorNombre = new Map(
+          tallasActuales.map((talla) => [
+            this.normalizarNombreTalla(talla.talla),
+            talla,
+          ]),
+        );
+
+        for (const talla of tallasNormalizadas) {
+          const tallaActual = tallasPorNombre.get(
+            this.normalizarNombreTalla(talla.talla),
+          );
+
+          if (tallaActual) {
+            await tx.tallaProducto.update({
+              where: { id: tallaActual.id },
+              data: { stock: talla.stock },
+            });
+          } else {
+            await tx.tallaProducto.create({
+              data: { ...talla, productoId: id },
+            });
+          }
+        }
+      }
+
+      return tx.producto.update({
+        where: { id },
+        data: datos,
+        include: INCLUDE_PRODUCTO,
+      });
     });
+  }
+
+  private validarTallasDuplicadas(
+    tallas: { talla: string; stock: number }[] | undefined,
+  ) {
+    if (!tallas) return;
+
+    const nombres = tallas.map((talla) =>
+      this.normalizarNombreTalla(talla.talla),
+    );
+    if (new Set(nombres).size !== nombres.length) {
+      throw new BadRequestException('No se pueden repetir las tallas');
+    }
+  }
+
+  private normalizarNombreTalla(talla: string) {
+    return talla.trim().toLocaleLowerCase();
   }
 
   async desactivar(id: number) {

@@ -8,7 +8,11 @@ import {
   Param,
   ParseIntPipe,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { MarcasService } from './marcas.service.js';
 import { CrearMarcaDto } from './dto/crear-marca.dto.js';
 import { ActualizarMarcaDto } from './dto/actualizar-marca.dto.js';
@@ -49,6 +53,36 @@ export class MarcasController {
     @Body() dto: ActualizarMarcaDto,
   ) {
     return this.marcasService.actualizar(id, dto);
+  }
+
+  // POST /api/marcas/:id/logo — subir un logo, incluido SVG
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Post(':id/logo')
+  @UseInterceptors(
+    FileInterceptor('logo', {
+      storage: memoryStorage(),
+      fileFilter: (_req, file, cb) => {
+        const permitidos = [
+          'image/svg+xml',
+          'image/png',
+          'image/jpeg',
+          'image/webp',
+        ];
+        if (permitidos.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new Error('El logo debe ser SVG, PNG, JPG o WEBP'), false);
+        }
+      },
+      limits: { fileSize: 2 * 1024 * 1024 },
+    }),
+  )
+  subirLogo(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() archivo: Express.Multer.File,
+  ) {
+    return this.marcasService.subirLogo(id, archivo);
   }
 
   // DELETE /api/marcas/:id — solo ADMIN

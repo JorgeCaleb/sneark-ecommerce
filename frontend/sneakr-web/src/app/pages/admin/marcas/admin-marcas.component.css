@@ -143,9 +143,9 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.5);
+  background-color: rgba(25, 26, 28, 0.48);
   z-index: 200;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(1px);
 }
 
 .modal {
@@ -162,7 +162,15 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation-fill-mode: both;
+}
+
+.modal--enter {
+  animation: modal-enter 160ms ease-out both;
+}
+
+@keyframes modal-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal__header {
@@ -287,5 +295,7 @@
     transform: none;
     max-width: 100%;
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    max-height: 92dvh;
+    overflow-y: auto;
   }
 }

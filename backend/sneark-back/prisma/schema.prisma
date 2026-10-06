@@ -40,6 +40,7 @@ model Marca {
   id        Int        @id @default(autoincrement())
   nombre    String     @unique @db.VarChar(100)
   logo      String?    @db.VarChar(500)
+  logoPublicId String? @db.VarChar(255)
   productos Producto[]
 
   @@map("marcas")

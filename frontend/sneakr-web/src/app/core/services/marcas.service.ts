@@ -22,4 +22,10 @@ export class MarcasService {
   buscarPorId(id: number) {
     return this.http.get<Marca>(`${this.API}/${id}`);
   }
+
+  subirLogo(id: number, archivo: File) {
+    const data = new FormData();
+    data.append('logo', archivo);
+    return this.http.post<Marca>(`${this.API}/${id}/logo`, data);
+  }
 }

@@ -43,11 +43,6 @@ export class HomeComponent implements OnInit {
     }).format(precio);
   }
 
-  // Imagen principal del producto o placeholder
-  imagenPrincipal(producto: Producto): string {
-    return producto.imagenes?.[0]?.url ?? '/placeholder-shoe.jpg';
-  }
-
   // Verifica si el producto tiene stock disponible
   tieneStock(producto: Producto): boolean {
     return producto.tallas.some((t) => t.stock > 0);

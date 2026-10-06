@@ -1,73 +1,63 @@
 <!-- ═══════════════════════════════════════════════════════════
      HERO
 ════════════════════════════════════════════════════════════ -->
-<section class="hero">
+<section class="hero" aria-labelledby="hero-title">
   <div class="hero__inner container">
     <div class="hero__content">
-      <span class="badge hero__badge animate-fade-up">Nueva temporada 2026</span>
+      <div class="hero__eyebrow">
+        <span class="hero__eyebrow-mark" aria-hidden="true"></span>
+        <span>SNEARK JOURNAL</span>
+        <span class="hero__eyebrow-index">VOL. 01 — 2026</span>
+      </div>
 
-      <h1 class="hero__title animate-fade-up" style="animation-delay: 80ms">
-        Tu estilo,<br>
-        <em class="hero__title-em">sin límites.</em>
+      <h1 class="hero__title" id="hero-title">
+        El próximo<br>
+        paso <em class="hero__title-em">es tuyo.</em>
       </h1>
 
-      <p class="hero__desc animate-fade-up" style="animation-delay: 160ms">
-        Zapatillas multimarca con los mejores modelos del mercado.
-        Envíos a todo el Perú. Pago con Yape o Plin.
+      <p class="hero__desc">
+        Una selección multimarca para moverte a tu manera.
+        Encuentra tu próximo par y llévalo más lejos.
       </p>
 
-      <div class="hero__ctas animate-fade-up" style="animation-delay: 240ms">
+      <div class="hero__ctas">
         <a routerLink="/catalogo" class="btn-primary hero__cta-primary">
-          Ver catálogo
+          Explorar selección
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M5 12h14M12 5l7 7-7 7"/>
           </svg>
         </a>
-        <a routerLink="/auth/registro" class="btn-secondary">
-          Crear cuenta
+        <a routerLink="/catalogo" class="hero__text-link">
+          Ver todas las marcas
         </a>
       </div>
 
-      <!-- Stats -->
-      <div class="hero__stats animate-fade-up" style="animation-delay: 320ms">
-        <div class="hero__stat">
-          <span class="hero__stat-num">50+</span>
-          <span class="hero__stat-label">Modelos</span>
-        </div>
-        <div class="hero__stat-divider"></div>
-        <div class="hero__stat">
-          <span class="hero__stat-num">10+</span>
-          <span class="hero__stat-label">Marcas</span>
-        </div>
-        <div class="hero__stat-divider"></div>
-        <div class="hero__stat">
-          <span class="hero__stat-num">24h</span>
-          <span class="hero__stat-label">Despacho</span>
-        </div>
+      <div class="hero__notes" aria-label="Información de compra">
+        <span>Envíos a todo el Perú</span>
+        <span aria-hidden="true"></span>
+        <span>Yape&nbsp;·&nbsp;Plin</span>
       </div>
     </div>
 
-    <!-- Imagen hero -->
-    <div class="hero__visual animate-fade-in" style="animation-delay: 100ms">
-      <div class="hero__img-wrap">
-        <div class="hero__img-bg"></div>
-        <img
-          src="/hero-shoe.png"
-          alt="Zapatilla destacada"
-          class="hero__img"
-          onerror="this.style.display='none'"
-        />
-        <!-- Floating tags -->
-        <div class="hero__tag hero__tag--1">
-          <span>Nike Air Max</span>
-          <strong>S/ 380</strong>
+    <aside class="hero__visual" aria-label="Identidad editorial Sneark, temporada 2026">
+      <div class="hero__cover">
+        <div class="hero__cover-top">
+          <span>SELECCIÓN MULTIMARCA</span>
+          <span>LIMA, PE</span>
         </div>
-        <div class="hero__tag hero__tag--2">
-          <span>✓ En stock</span>
+        <div class="hero__cover-art" aria-hidden="true">
+          <span class="hero__cover-orbit"></span>
+          <span class="hero__cover-type">S</span>
+          <span class="hero__cover-index">01</span>
+        </div>
+        <div class="hero__cover-bottom">
+          <span>ENCUENTRA<br>OTRA RUTA.</span>
+          <span class="hero__drop">NUEVO<br>DROP</span>
         </div>
       </div>
-    </div>
+      <span class="hero__visual-caption">ESTILO EN MOVIMIENTO — DESDE 2026</span>
+    </aside>
   </div>
 </section>
 
@@ -140,13 +130,19 @@
 
               <!-- Imagen -->
               <div class="producto-card__img-wrap">
-                <img
-                  [src]="imagenPrincipal(producto)"
-                  [alt]="producto.nombre"
-                  class="producto-card__img"
-                  loading="lazy"
-                  onerror="this.src='/placeholder-shoe.jpg'"
-                />
+                @if (producto.imagenes.length > 0) {
+                  <img
+                    [src]="producto.imagenes[0].url"
+                    [alt]="producto.nombre"
+                    class="producto-card__img"
+                    loading="lazy"
+                  />
+                } @else {
+                  <div class="producto-card__img-placeholder" aria-label="Imagen del producto próximamente">
+                    <span>SNEARK</span>
+                    <span>IMAGEN<br>PRÓXIMAMENTE</span>
+                  </div>
+                }
                 <!-- Badge sin stock -->
                 @if (!tieneStock(producto)) {
                   <span class="producto-card__agotado">Agotado</span>

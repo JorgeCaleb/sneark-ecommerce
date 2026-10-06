@@ -73,11 +73,16 @@ export class ProductosController {
     FilesInterceptor('imagenes', 5, {
       storage: memoryStorage(), // guardar en memoria para enviar a Cloudinary
       fileFilter: (_req, file, cb) => {
-        const permitidos = ['image/jpeg', 'image/png', 'image/webp'];
+        const permitidos = [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/avif',
+        ];
         if (permitidos.includes(file.mimetype)) {
           cb(null, true);
         } else {
-          cb(new Error('Solo se permiten imágenes JPG, PNG o WEBP'), false);
+          cb(new Error('Solo se permiten imágenes JPG, PNG, WEBP o AVIF'), false);
         }
       },
       limits: { fileSize: 5 * 1024 * 1024 }, // máx 5MB por imagen

@@ -17,4 +17,16 @@ export class CategoriasService {
   buscarTodas() {
     return this.http.get<Categoria[]>(this.API);
   }
+
+  crear(nombre: string) {
+    return this.http.post<Categoria>(this.API, { nombre });
+  }
+
+  actualizar(id: number, nombre: string) {
+    return this.http.patch<Categoria>(`${this.API}/${id}`, { nombre });
+  }
+
+  eliminar(id: number) {
+    return this.http.delete<void>(`${this.API}/${id}`);
+  }
 }

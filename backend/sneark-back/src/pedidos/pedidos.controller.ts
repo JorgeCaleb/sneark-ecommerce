@@ -41,8 +41,12 @@ export class PedidosController {
 
   // GET /api/pedidos/:id — ver detalle de un pedido
   @Get(':id')
-  buscarPorId(@Param('id', ParseIntPipe) id: number) {
-    return this.pedidosService.buscarPorId(id);
+  buscarPorId(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
+    if (req.user.rol === 'ADMIN') {
+      return this.pedidosService.buscarPorId(id);
+    }
+
+    return this.pedidosService.buscarPorUsuario(id, req.user.id);
   }
 
   // POST /api/pedidos/:id/comprobante — subir foto del comprobante Yape/Plin

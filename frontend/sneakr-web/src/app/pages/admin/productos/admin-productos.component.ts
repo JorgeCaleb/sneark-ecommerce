@@ -48,6 +48,7 @@ export class AdminProductosComponent implements OnInit {
   readonly subiendoImg      = signal(false);
   readonly archivosImg      = signal<File[]>([]);
   readonly previews         = signal<string[]>([]);
+  readonly errorImagenes    = signal('');
 
   // Búsqueda
   busqueda = '';
@@ -154,6 +155,7 @@ export class AdminProductosComponent implements OnInit {
     this.productoImagenes.set(p);
     this.archivosImg.set([]);
     this.previews.set([]);
+    this.errorImagenes.set('');
     this.modalImagenes.set(true);
   }
 
@@ -161,16 +163,44 @@ export class AdminProductosComponent implements OnInit {
 
   onImagenesSeleccionadas(event: Event) {
     const input = event.target as HTMLInputElement;
-    const files  = Array.from(input.files ?? []).slice(0, 5);
+    const files = Array.from(input.files ?? []);
+    const tiposPermitidos = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
+    const tamanoMaximo = 5 * 1024 * 1024;
+
+    this.errorImagenes.set('');
+    if (files.length > 5) {
+      this.errorImagenes.set('Puedes seleccionar hasta 5 imágenes por subida.');
+      input.value = '';
+      this.archivosImg.set([]);
+      this.previews.set([]);
+      return;
+    }
+
+    const archivoInvalido = files.find(
+      (file) => !tiposPermitidos.includes(file.type) || file.size > tamanoMaximo,
+    );
+    if (archivoInvalido) {
+      this.errorImagenes.set(
+        !tiposPermitidos.includes(archivoInvalido.type)
+          ? 'Formato no permitido. Usa JPG, PNG, WEBP o AVIF.'
+          : 'Cada imagen debe pesar 5 MB o menos.',
+      );
+      input.value = '';
+      this.archivosImg.set([]);
+      this.previews.set([]);
+      return;
+    }
+
     this.archivosImg.set(files);
     this.previews.set(files.map((f) => URL.createObjectURL(f)));
   }
 
   subirImagenes() {
     const producto = this.productoImagenes();
-    if (!producto || !this.archivosImg().length) return;
+    if (!producto || !this.archivosImg().length || this.subiendoImg()) return;
 
     this.subiendoImg.set(true);
+    this.errorImagenes.set('');
     const fd = new FormData();
     this.archivosImg().forEach((f) => fd.append('imagenes', f));
 
@@ -180,9 +210,18 @@ export class AdminProductosComponent implements OnInit {
         this.productoImagenes.set(p);
         this.archivosImg.set([]);
         this.previews.set([]);
+        this.errorImagenes.set('');
         this.cargar();
       },
-      error: () => this.subiendoImg.set(false),
+      error: (err) => {
+        this.subiendoImg.set(false);
+        const mensaje = err?.error?.message;
+        this.errorImagenes.set(
+          Array.isArray(mensaje)
+            ? mensaje.join(' ')
+            : mensaje ?? 'No se pudieron subir las imágenes. Revisa la conexión e inténtalo otra vez.',
+        );
+      },
     });
   }
 

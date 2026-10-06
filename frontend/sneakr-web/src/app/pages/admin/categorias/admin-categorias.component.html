@@ -1,0 +1,136 @@
+<section class="admin-page">
+  <header class="admin-page__header">
+    <div>
+      <p class="admin-page__eyebrow">CATÁLOGO</p>
+      <h1 class="admin-page__title">Categorías</h1>
+      <p class="admin-page__sub">
+        {{ categorias().length }} categorías para organizar tus productos
+      </p>
+    </div>
+    <button class="btn-primary" type="button" (click)="abrirCrear()">
+      <span aria-hidden="true">+</span>
+      Nueva categoría
+    </button>
+  </header>
+
+  @if (cargando()) {
+    <div class="categorias-grid" aria-label="Cargando categorías">
+      @for (item of [1, 2, 3, 4]; track item) {
+        <div class="categoria-skeleton"></div>
+      }
+    </div>
+  } @else if (errorCarga()) {
+    <div class="admin-message admin-message--error" role="alert">
+      <p>{{ errorCarga() }}</p>
+      <button type="button" class="btn-secondary" (click)="cargar()">Reintentar</button>
+    </div>
+  } @else if (categorias().length === 0) {
+    <div class="admin-empty">
+      <span class="admin-empty__mark" aria-hidden="true">01</span>
+      <h2>Aún no hay categorías</h2>
+      <p>Crea categorías para poder asignarlas al registrar productos.</p>
+      <button type="button" class="btn-primary" (click)="abrirCrear()">
+        Crear primera categoría
+      </button>
+    </div>
+  } @else {
+    <div class="categorias-grid">
+      @for (categoria of categorias(); track categoria.id) {
+        <article class="categoria-card">
+          <div class="categoria-card__index" aria-hidden="true">
+            {{ categoria.nombre.slice(0, 1).toUpperCase() }}
+          </div>
+          <div class="categoria-card__info">
+            <h2>{{ categoria.nombre }}</h2>
+            <p>
+              {{ categoria._count?.productos ?? 0 }}
+              {{ categoria._count?.productos === 1 ? 'producto' : 'productos' }}
+            </p>
+          </div>
+          <div class="categoria-card__actions">
+            <button
+              type="button"
+              class="categoria-action"
+              (click)="abrirEditar(categoria)"
+              [attr.aria-label]="'Editar ' + categoria.nombre"
+            >
+              Editar
+            </button>
+            <button
+              type="button"
+              class="categoria-action categoria-action--delete"
+              (click)="eliminar(categoria)"
+              [attr.aria-label]="'Eliminar ' + categoria.nombre"
+            >
+              Eliminar
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  }
+</section>
+
+@if (modalAbierto()) {
+  <div class="categoria-backdrop" (click)="cerrarModal()"></div>
+  <section
+    class="categoria-modal categoria-modal--enter"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="categoria-modal-title"
+  >
+    <header class="categoria-modal__header">
+      <div>
+        <p class="admin-page__eyebrow">ORGANIZACIÓN DEL CATÁLOGO</p>
+        <h2 id="categoria-modal-title">
+          {{ categoriaEditar() ? 'Editar categoría' : 'Nueva categoría' }}
+        </h2>
+      </div>
+      <button
+        type="button"
+        class="categoria-modal__close"
+        aria-label="Cerrar"
+        (click)="cerrarModal()"
+      >
+        ×
+      </button>
+    </header>
+
+    <form (ngSubmit)="guardar()">
+      <div class="categoria-modal__body">
+        <label class="categoria-label" for="categoria-nombre">Nombre</label>
+        <input
+          id="categoria-nombre"
+          class="categoria-input"
+          type="text"
+          name="nombre"
+          [(ngModel)]="nombre"
+          placeholder="Ej. Running, Lifestyle, Training"
+          maxlength="100"
+          required
+          autofocus
+        />
+        <p class="categoria-hint">
+          Las categorías con productos asociados no se pueden eliminar.
+        </p>
+        @if (errorForm()) {
+          <p class="categoria-error" role="alert">{{ errorForm() }}</p>
+        }
+      </div>
+
+      <footer class="categoria-modal__footer">
+        <button
+          type="button"
+          class="btn-secondary"
+          (click)="cerrarModal()"
+          [disabled]="guardando()"
+        >
+          Cancelar
+        </button>
+        <button type="submit" class="btn-primary" [disabled]="guardando()">
+          {{ guardando() ? 'Guardando…' : categoriaEditar() ? 'Guardar cambios' : 'Crear categoría' }}
+        </button>
+      </footer>
+    </form>
+  </section>
+}

@@ -5,6 +5,10 @@ import { AppModule } from './app.module.js';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.enableCors({
+    origin: process.env.FRONTEND_ORIGIN ?? 'http://localhost:4200',
+  });
+
   // Prefijo global para todas las rutas de la API
   app.setGlobalPrefix('api');
 

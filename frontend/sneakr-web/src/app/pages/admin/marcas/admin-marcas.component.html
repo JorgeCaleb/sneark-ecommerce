@@ -76,7 +76,7 @@
 <!-- Modal -->
 @if (modalAbierto()) {
   <div class="modal-backdrop" (click)="cerrarModal()"></div>
-  <div class="modal animate-fade-up">
+  <div class="modal modal--enter">
 
     <div class="modal__header">
       <h2 class="modal__title">{{ marcaEditar() ? 'Editar marca' : 'Nueva marca' }}</h2>
@@ -95,17 +95,20 @@
                placeholder="Ej: Nike" maxlength="100" />
       </div>
       <div class="form-field">
-        <label class="form-label">URL del logo</label>
-        <input type="url" class="form-input" [(ngModel)]="form.logo"
-               placeholder="https://..." />
-        <p class="form-hint">URL de imagen para el logo (opcional)</p>
+        <label class="form-label" for="marca-logo-file">Subir archivo de logo</label>
+        <input
+          id="marca-logo-file"
+          type="file"
+          class="form-input"
+          accept=".svg,.png,.jpg,.jpeg,.webp,image/svg+xml,image/png,image/jpeg,image/webp"
+          [disabled]="guardando()"
+          (change)="seleccionarLogo($event)"
+        />
+        <p class="form-hint">SVG, PNG, JPG o WEBP · máximo 2 MB.</p>
+        @if (archivoLogo(); as archivo) {
+          <p class="form-hint">Seleccionado: {{ archivo.name }}</p>
+        }
       </div>
-      @if (form.logo) {
-        <div class="logo-preview">
-          <img [src]="form.logo" alt="Preview logo"
-               onerror="this.style.display='none'" />
-        </div>
-      }
       @if (errorForm()) {
         <div class="form-error animate-fade-up">{{ errorForm() }}</div>
       }

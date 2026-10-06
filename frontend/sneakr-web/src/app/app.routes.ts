@@ -96,6 +96,13 @@ export const routes: Routes = [
             (m) => m.AdminMarcasComponent,
           ),
       },
+      {
+        path: 'categorias',
+        loadComponent: () =>
+          import('./pages/admin/categorias/admin-categorias.component').then(
+            (m) => m.AdminCategoriasComponent,
+          ),
+      },
     ],
   },
 

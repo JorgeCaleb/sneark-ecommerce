@@ -2,20 +2,22 @@
 
 /* ─────────────────────────────────────────────────────────────
    DESIGN SYSTEM — SNEARK
-   Fondo crema cálido + azul marino profundo
+   Marfil + carbón + azul eléctrico
 ───────────────────────────────────────────────────────────── */
 :root {
   /* Colores */
-  --color-bg: #faf7f2;
-  --color-surface: #f0ece4;
+  --color-bg: #f7f5ef;
+  --color-surface: #eeece5;
   --color-surface-2: #ffffff;
-  --color-border: #e2ddd6;
-  --color-accent: #1e3a8a;
-  --color-accent-hover: #1e40af;
-  --color-accent-light: #dbeafe;
-  --color-text: #0f172a;
-  --color-muted: #64748b;
-  --color-muted-light: #94a3b8;
+  --color-border: #dedbd3;
+  --color-accent: #244bff;
+  --color-accent-hover: #1738d4;
+  --color-accent-light: #e8edff;
+  --color-text: #191a1c;
+  --color-muted: #686b72;
+  --color-muted-light: #92949a;
+  --color-carbon: #191a1c;
+  --color-lime: #d8f36a;
   --color-success: #16a34a;
   --color-error: #dc2626;
 
