@@ -19,6 +19,7 @@ import { ActualizarMarcaDto } from './dto/actualizar-marca.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
+import { aceptarTipoArchivo } from '../common/filtro-tipo-archivo.util.js';
 
 @Controller('marcas')
 export class MarcasController {
@@ -69,11 +70,12 @@ export class MarcasController {
           'image/jpeg',
           'image/webp',
         ];
-        if (permitidos.includes(file.mimetype)) {
-          cb(null, true);
-        } else {
-          cb(new Error('El logo debe ser SVG, PNG, JPG o WEBP'), false);
-        }
+        aceptarTipoArchivo(
+          file.mimetype,
+          permitidos,
+          'El logo debe ser SVG, PNG, JPG o WEBP',
+          cb,
+        );
       },
       limits: { fileSize: 2 * 1024 * 1024 },
     }),

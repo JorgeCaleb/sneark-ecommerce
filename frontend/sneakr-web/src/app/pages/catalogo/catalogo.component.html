@@ -116,8 +116,18 @@
         </div>
       }
 
+      @if (!cargando() && errorCarga()) {
+        <div class="catalogo__empty" role="alert">
+          <h3 class="catalogo__empty-title">No se pudo cargar el catálogo</h3>
+          <p class="catalogo__empty-desc">Revisa tu conexión e inténtalo nuevamente.</p>
+          <button class="btn-primary" type="button" (click)="cargarProductos()">
+            Reintentar
+          </button>
+        </div>
+      }
+
       <!-- Sin resultados -->
-      @if (!cargando() && productos().length === 0) {
+      @if (!cargando() && !errorCarga() && productos().length === 0) {
         <div class="catalogo__empty">
           <div class="catalogo__empty-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -136,7 +146,7 @@
       }
 
       <!-- Grid -->
-      @if (!cargando() && productos().length > 0) {
+      @if (!cargando() && !errorCarga() && productos().length > 0) {
         <div class="catalogo__grid">
           @for (producto of productos(); track producto.id; let i = $index) {
             <a [routerLink]="['/producto', producto.id]"

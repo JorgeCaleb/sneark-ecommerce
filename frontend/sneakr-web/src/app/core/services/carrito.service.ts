@@ -2,11 +2,12 @@ import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import type { ValorMonetario } from '../models/valor-monetario';
 
 export interface ItemCarrito {
   id: number;
   cantidad: number;
-  subtotal: number;
+  subtotal: ValorMonetario;
   tallaProductoId: number;
   tallaProducto: {
     talla: string;
@@ -14,7 +15,7 @@ export interface ItemCarrito {
     producto: {
       id: number;
       nombre: string;
-      precio: number;
+      precio: ValorMonetario;
       marca: { nombre: string };
       imagenes: { url: string }[];
     };
@@ -24,7 +25,7 @@ export interface ItemCarrito {
 export interface Carrito {
   id: number;
   items: ItemCarrito[];
-  total: number;
+  total: ValorMonetario;
   cantidadItems: number;
 }
 

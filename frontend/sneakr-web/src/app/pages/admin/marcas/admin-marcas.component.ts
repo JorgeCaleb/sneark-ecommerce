@@ -1,10 +1,10 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MarcasService, Marca } from '../../../core/services/marcas.service';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../../environments/environment';
 
-interface MarcaForm { nombre: string; }
+interface MarcaForm {
+  nombre: string;
+}
 
 @Component({
   selector: 'app-admin-marcas',
@@ -13,35 +13,49 @@ interface MarcaForm { nombre: string; }
   templateUrl: './admin-marcas.component.html',
   styleUrl: './admin-marcas.component.css',
 })
-export class AdminMarcasComponent implements OnInit {
+export class AdminMarcasComponent implements OnInit, OnDestroy {
   private marcasService = inject(MarcasService);
-  private http          = inject(HttpClient);
-  private API           = `${environment.apiUrl}/marcas`;
 
-  readonly marcas      = signal<Marca[]>([]);
-  readonly cargando    = signal(true);
+  readonly marcas = signal<Marca[]>([]);
+  readonly cargando = signal(true);
+  readonly errorCarga = signal(false);
   readonly modalAbierto = signal(false);
-  readonly guardando   = signal(false);
-  readonly errorForm   = signal('');
+  readonly guardando = signal(false);
+  readonly errorForm = signal('');
   readonly marcaEditar = signal<Marca | null>(null);
   readonly archivoLogo = signal<File | null>(null);
+  readonly vistaPreviaLogo = signal<string | null>(null);
+  private urlVistaPreviaLogo: string | null = null;
 
   form: MarcaForm = { nombre: '' };
 
-  ngOnInit() { this.cargar(); }
+  ngOnInit() {
+    this.cargar();
+  }
+
+  ngOnDestroy() {
+    this.limpiarVistaPreviaLogo();
+  }
 
   cargar() {
     this.cargando.set(true);
+    this.errorCarga.set(false);
     this.marcasService.buscarTodas().subscribe({
-      next: (m) => { this.marcas.set(m); this.cargando.set(false); },
-      error: ()  => this.cargando.set(false),
+      next: (m) => {
+        this.marcas.set(m);
+        this.cargando.set(false);
+      },
+      error: () => {
+        this.cargando.set(false);
+        this.errorCarga.set(true);
+      },
     });
   }
 
   abrirCrear() {
     this.marcaEditar.set(null);
     this.form = { nombre: '' };
-    this.archivoLogo.set(null);
+    this.limpiarSeleccionLogo();
     this.errorForm.set('');
     this.modalAbierto.set(true);
   }
@@ -49,39 +63,49 @@ export class AdminMarcasComponent implements OnInit {
   abrirEditar(m: Marca) {
     this.marcaEditar.set(m);
     this.form = { nombre: m.nombre };
-    this.archivoLogo.set(null);
+    this.limpiarSeleccionLogo();
     this.errorForm.set('');
     this.modalAbierto.set(true);
   }
 
-  cerrarModal() { this.modalAbierto.set(false); }
+  cerrarModal() {
+    this.modalAbierto.set(false);
+    this.limpiarSeleccionLogo();
+  }
 
   seleccionarLogo(event: Event) {
     const input = event.target as HTMLInputElement;
     const archivo = input.files?.[0] ?? null;
     if (!archivo) return;
 
-    const tiposPermitidos = [
-      'image/svg+xml',
-      'image/png',
-      'image/jpeg',
-      'image/webp',
-    ];
+    const tiposPermitidos = ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp'];
     if (!tiposPermitidos.includes(archivo.type)) {
       this.errorForm.set('El logo debe estar en formato SVG, PNG, JPG o WEBP.');
       input.value = '';
-      this.archivoLogo.set(null);
+      this.limpiarSeleccionLogo();
       return;
     }
     if (archivo.size > 2 * 1024 * 1024) {
       this.errorForm.set('El logo debe pesar 2 MB o menos.');
       input.value = '';
-      this.archivoLogo.set(null);
+      this.limpiarSeleccionLogo();
       return;
     }
 
+    this.limpiarVistaPreviaLogo();
+    this.urlVistaPreviaLogo = URL.createObjectURL(archivo);
+    this.vistaPreviaLogo.set(this.urlVistaPreviaLogo);
     this.errorForm.set('');
     this.archivoLogo.set(archivo);
+  }
+
+  limpiarSeleccionLogo() {
+    this.archivoLogo.set(null);
+    this.limpiarVistaPreviaLogo();
+  }
+
+  formatearTamanoLogo(bytes: number): string {
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   }
 
   guardar() {
@@ -95,15 +119,18 @@ export class AdminMarcasComponent implements OnInit {
     const archivoLogo = this.archivoLogo();
     const data = { nombre: this.form.nombre.trim() };
 
-    const req$ = this.marcaEditar()
-      ? this.http.patch<Marca>(`${this.API}/${this.marcaEditar()!.id}`, data)
-      : this.http.post<Marca>(this.API, data);
+    const marcaActual = this.marcaEditar();
+    const req$ = marcaActual
+      ? this.marcasService.actualizar(marcaActual.id, data.nombre)
+      : this.marcasService.crear(data.nombre);
+    const creandoMarca = !marcaActual;
 
     req$.subscribe({
       next: (marca) => {
         if (!archivoLogo) {
           this.guardando.set(false);
           this.modalAbierto.set(false);
+          this.limpiarSeleccionLogo();
           this.cargar();
           return;
         }
@@ -113,12 +140,16 @@ export class AdminMarcasComponent implements OnInit {
           next: () => {
             this.guardando.set(false);
             this.modalAbierto.set(false);
+            this.limpiarSeleccionLogo();
             this.cargar();
           },
           error: (err) => {
             this.guardando.set(false);
             this.errorForm.set(
-              err?.error?.message ?? 'No se pudo completar la operación del logo.',
+              creandoMarca
+                ? 'La marca se creó, pero el logo no se pudo subir. Vuelve a guardar para reintentar el logo.'
+                : (err?.error?.message ??
+                    'No se pudo completar la operación del logo.'),
             );
             this.cargar();
           },
@@ -131,11 +162,22 @@ export class AdminMarcasComponent implements OnInit {
     });
   }
 
+  private limpiarVistaPreviaLogo() {
+    if (this.urlVistaPreviaLogo) {
+      URL.revokeObjectURL(this.urlVistaPreviaLogo);
+      this.urlVistaPreviaLogo = null;
+    }
+    this.vistaPreviaLogo.set(null);
+  }
+
   eliminar(id: number) {
     if (!confirm('¿Eliminar esta marca? Solo es posible si no tiene productos.')) return;
-    this.http.delete(`${this.API}/${id}`).subscribe({
-      next:  () => this.cargar(),
-      error: (err) => alert(err?.error?.message ?? 'No se pudo eliminar.'),
+    this.marcasService.eliminar(id).subscribe({
+      next: () => this.cargar(),
+      error: (err) => {
+        this.cargar();
+        alert(err?.error?.message ?? 'No se pudo eliminar.');
+      },
     });
   }
 }

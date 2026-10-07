@@ -6,7 +6,10 @@
       <h1 class="admin-page__title">Productos</h1>
       <p class="admin-page__sub">{{ metaProd()?.total ?? 0 }} productos en total</p>
     </div>
-    <button class="btn-primary" (click)="abrirCrear()">
+    <button
+      class="btn-primary"
+      (click)="abrirCrear()"
+    >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -14,6 +17,19 @@
       Nuevo producto
     </button>
   </div>
+
+  @if (errorDependencias()) {
+    <div class="admin-empty" role="alert">
+      <p>No se pudieron cargar las marcas o categorías.</p>
+      <button class="btn-secondary" type="button" (click)="cargarDependencias()">
+        Reintentar
+      </button>
+    </div>
+  }
+
+  @if (errorAccion()) {
+    <div class="admin-empty" role="alert">{{ errorAccion() }}</div>
+  }
 
   <!-- Búsqueda -->
   <div class="admin-search-wrap">
@@ -34,6 +50,12 @@
   }
 
   @if (!cargando()) {
+    @if (errorCarga()) {
+      <div class="admin-empty" role="alert">
+        <p>No se pudieron cargar los productos.</p>
+        <button class="btn-secondary" type="button" (click)="cargar()">Reintentar</button>
+      </div>
+    } @else {
     <div class="tabla-wrap">
       <table class="tabla">
         <thead class="tabla__head">
@@ -107,7 +129,8 @@
                   </button>
                   @if (p.activo) {
                     <button class="accion-btn accion-btn--del" (click)="desactivar(p.id)"
-                            title="Desactivar">
+                            title="Desactivar"
+                            [disabled]="desactivandoId() !== null">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"/>
@@ -146,6 +169,7 @@
         </button>
       </nav>
     }
+    }
   }
 
 </div>
@@ -154,13 +178,17 @@
      MODAL CREAR / EDITAR
 ═══════════════════════════════════════════════════════════ -->
 @if (modalAbierto()) {
-  <div class="modal-backdrop" (click)="cerrarModal()"></div>
-  <div class="modal modal--enter">
+  <div class="modal-backdrop" (click)="cerrarModal()" aria-hidden="true"></div>
+  <section class="modal modal--enter" role="dialog" aria-modal="true"
+           aria-labelledby="producto-modal-title">
     <div class="modal__header">
-      <h2 class="modal__title">
-        {{ productoEditar() ? 'Editar producto' : 'Nuevo producto' }}
-      </h2>
-      <button class="modal__cerrar" (click)="cerrarModal()">
+      <div>
+        <p class="modal__eyebrow">CATÁLOGO</p>
+        <h2 id="producto-modal-title" class="modal__title">
+          {{ productoEditar() ? 'Editar producto' : 'Nuevo producto' }}
+        </h2>
+      </div>
+      <button class="modal__cerrar" type="button" (click)="cerrarModal()" aria-label="Cerrar">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -169,23 +197,41 @@
     </div>
 
     <div class="modal__body">
+      @if (errorDependencias()) {
+        <div class="form-error" role="alert">
+          <span>No se pudieron cargar marcas o categorías; no podrás guardar hasta cargarlas.</span>
+          <button class="text-action" type="button" (click)="cargarDependencias()">
+            Reintentar
+          </button>
+        </div>
+      } @else if (cargandoDependencias()) {
+        <p class="tallas-hint" role="status">Cargando marcas y categorías…</p>
+      }
+
       <div class="form-grid">
 
         <div class="form-field form-field--full">
-          <label class="form-label">Nombre <span class="form-req">*</span></label>
+          <label class="form-label" for="producto-nombre">
+            Nombre del producto <span class="form-req">*</span>
+          </label>
           <input type="text" class="form-input" [(ngModel)]="form.nombre"
-                 placeholder="Ej: Nike Air Max 270" maxlength="150" />
+                 id="producto-nombre" placeholder="Ej. Nike Air Max 270" maxlength="150" />
         </div>
 
         <div class="form-field">
-          <label class="form-label">Precio (S/) <span class="form-req">*</span></label>
+          <label class="form-label" for="producto-precio">
+            Precio (S/) <span class="form-req">*</span>
+          </label>
           <input type="number" class="form-input" [(ngModel)]="form.precio"
-                 placeholder="Ej: 350" min="0" step="0.01" />
+                 id="producto-precio" placeholder="0.00" min="0" step="0.01" />
         </div>
 
         <div class="form-field">
-          <label class="form-label">Marca <span class="form-req">*</span></label>
-          <select class="form-input" [(ngModel)]="form.marcaId">
+          <label class="form-label" for="producto-marca">
+            Marca <span class="form-req">*</span>
+          </label>
+          <select class="form-input" id="producto-marca" [(ngModel)]="form.marcaId"
+                  [disabled]="cargandoDependencias() || errorDependencias()">
             <option [value]="0" disabled>Seleccioná una marca</option>
             @for (m of marcas(); track m.id) {
               <option [value]="m.id">{{ m.nombre }}</option>
@@ -194,8 +240,11 @@
         </div>
 
         <div class="form-field">
-          <label class="form-label">Categoría <span class="form-req">*</span></label>
-          <select class="form-input" [(ngModel)]="form.categoriaId">
+          <label class="form-label" for="producto-categoria">
+            Categoría <span class="form-req">*</span>
+          </label>
+          <select class="form-input" id="producto-categoria" [(ngModel)]="form.categoriaId"
+                  [disabled]="cargandoDependencias() || errorDependencias()">
             <option [value]="0" disabled>Seleccioná una categoría</option>
             @for (c of categorias(); track c.id) {
               <option [value]="c.id">{{ c.nombre }}</option>
@@ -204,9 +253,11 @@
         </div>
 
         <div class="form-field form-field--full">
-          <label class="form-label">Descripción</label>
+          <label class="form-label" for="producto-descripcion">Descripción</label>
           <textarea class="form-input form-textarea" [(ngModel)]="form.descripcion"
-                    placeholder="Descripción del producto..." rows="3"></textarea>
+                    id="producto-descripcion"
+                    placeholder="Materiales, calce y detalles que ayudan a elegir..."
+                    rows="3"></textarea>
         </div>
 
         <!-- Tallas -->
@@ -246,8 +297,8 @@
     </div>
 
     <div class="modal__footer">
-      <button class="btn-secondary" (click)="cerrarModal()">Cancelar</button>
-      <button class="btn-primary" (click)="guardar()" [disabled]="guardando()">
+      <button class="btn-secondary" type="button" (click)="cerrarModal()">Cancelar</button>
+      <button class="btn-primary" type="button" (click)="guardar()" [disabled]="guardando()">
         @if (guardando()) {
           <span class="spinner"></span> Guardando...
         } @else {
@@ -255,18 +306,23 @@
         }
       </button>
     </div>
-  </div>
+  </section>
 }
 
 <!-- ══════════════════════════════════════════════════════════
      MODAL IMÁGENES
 ═══════════════════════════════════════════════════════════ -->
 @if (modalImagenes()) {
-  <div class="modal-backdrop" (click)="cerrarImagenes()"></div>
-  <div class="modal modal--enter">
+  <div class="modal-backdrop" (click)="cerrarImagenes()" aria-hidden="true"></div>
+  <section class="modal modal--enter modal--images" role="dialog" aria-modal="true"
+           aria-labelledby="imagenes-modal-title">
     <div class="modal__header">
-      <h2 class="modal__title">Imágenes — {{ productoImagenes()?.nombre }}</h2>
-      <button class="modal__cerrar" (click)="cerrarImagenes()">
+      <div>
+        <p class="modal__eyebrow">FOTOGRAFÍA DEL PRODUCTO</p>
+        <h2 id="imagenes-modal-title" class="modal__title">Gestionar imágenes</h2>
+        <p class="modal__subtitle">{{ productoImagenes()?.nombre }}</p>
+      </div>
+      <button class="modal__cerrar" type="button" (click)="cerrarImagenes()" aria-label="Cerrar">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -276,7 +332,11 @@
 
     <div class="modal__body">
       <!-- Imágenes actuales -->
-      @if (productoImagenes()?.imagenes?.length! > 0) {
+      @if ((productoImagenes()?.imagenes?.length ?? 0) > 0) {
+        <div class="image-section-heading">
+          <strong>Imágenes actuales</strong>
+          <span>{{ productoImagenes()?.imagenes?.length }} guardadas</span>
+        </div>
         <div class="imagenes-actuales">
           @for (img of productoImagenes()!.imagenes; track img.id) {
             <div class="img-thumb">
@@ -292,40 +352,65 @@
           }
         </div>
       } @else {
-        <p class="tallas-hint">Este producto no tiene imágenes.</p>
+        <p class="tallas-hint">Aún no hay fotos. Agrega imágenes para que tus clientes vean el producto en la tienda.</p>
       }
 
       <!-- Subir nuevas -->
       <div class="form-field">
-        <label class="form-label">Subir imágenes (máx. 5)</label>
+        <div class="image-section-heading">
+          <strong>Agregar fotografías</strong>
+          <span>Hasta 5 imágenes · máximo 5 MB cada una</span>
+        </div>
         <input
+          id="producto-imagenes"
           type="file"
-          class="form-input"
+          class="file-input-hidden"
           accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif"
           multiple
           [disabled]="subiendoImg()"
           (change)="onImagenesSeleccionadas($event)"
         />
-        <p class="tallas-hint">JPG, PNG, WEBP o AVIF · máximo 5 MB por imagen.</p>
+        <label class="image-upload" for="producto-imagenes">
+          <span class="image-upload__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <circle cx="8.5" cy="9" r="1.5" />
+              <path d="m21 15-5-5L5 20" />
+              <path d="M12 12v5m-2-2 2-2 2 2" />
+            </svg>
+          </span>
+          <strong>Haz clic para elegir fotografías</strong>
+          <span>JPG, PNG, WEBP o AVIF</span>
+        </label>
       </div>
 
       @if (previews().length > 0) {
         <div class="imagenes-previews">
-          @for (p of previews(); track $index) {
-            <img [src]="p" alt="Preview" class="preview-thumb" />
-          }
-
-          @if (errorImagenes()) {
-            <div class="form-error" role="alert">{{ errorImagenes() }}</div>
+          @for (p of previews(); track p; let i = $index) {
+            <div class="preview-card">
+              <img [src]="p" [alt]="'Vista previa ' + (i + 1)" class="preview-thumb" />
+              <span class="preview-card__name">{{ archivosImg()[i]?.name }}</span>
+              <button
+                type="button"
+                class="preview-card__remove"
+                (click)="quitarImagenSeleccionada(i)"
+                [disabled]="subiendoImg()"
+                [attr.aria-label]="'Quitar ' + archivosImg()[i]?.name"
+              >×</button>
+            </div>
           }
         </div>
+      }
+      @if (errorImagenes()) {
+        <div class="form-error" role="alert">{{ errorImagenes() }}</div>
       }
     </div>
 
     <div class="modal__footer">
-      <button class="btn-secondary" (click)="cerrarImagenes()">Cerrar</button>
+      <button class="btn-secondary" type="button" (click)="cerrarImagenes()">Cerrar</button>
       @if (archivosImg().length > 0) {
-        <button class="btn-primary" (click)="subirImagenes()" [disabled]="subiendoImg()">
+        <button class="btn-primary" type="button" (click)="subirImagenes()" [disabled]="subiendoImg()">
           @if (subiendoImg()) {
             <span class="spinner"></span> Subiendo...
           } @else {
@@ -334,5 +419,5 @@
         </button>
       }
     </div>
-  </div>
+  </section>
 }

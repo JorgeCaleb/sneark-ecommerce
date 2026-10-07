@@ -4,8 +4,10 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
+import { nombreCarpetaCloudinary } from '../cloudinary/nombre-carpeta.util.js';
 import { CrearMarcaDto } from './dto/crear-marca.dto.js';
 import { ActualizarMarcaDto } from './dto/actualizar-marca.dto.js';
 
@@ -25,7 +27,11 @@ export class MarcasService {
       throw new ConflictException(`La marca "${dto.nombre}" ya existe`);
     }
 
-    return this.prisma.marca.create({ data: dto });
+    try {
+      return await this.prisma.marca.create({ data: dto });
+    } catch (error) {
+      this.lanzarConflictoNombreDuplicado(error, dto.nombre);
+    }
   }
 
   async buscarTodas() {
@@ -63,10 +69,14 @@ export class MarcasService {
       }
     }
 
-    return this.prisma.marca.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.marca.update({
+        where: { id },
+        data: dto,
+      });
+    } catch (error) {
+      this.lanzarConflictoNombreDuplicado(error, dto.nombre);
+    }
   }
 
   async subirLogo(id: number, archivo: Express.Multer.File) {
@@ -77,16 +87,32 @@ export class MarcasService {
     }
 
     const anteriorPublicId =
-      marca.logoPublicId ?? this.publicIdDesdeLogoCloudinary(marca.logo, id);
+      marca.logoPublicId ?? this.publicIdDesdeLogoCloudinary(marca.logo);
     const subido = await this.cloudinary.subirLogo(
       archivo,
-      `sneark/marcas/${id}`,
+      `sneark/marcas/${nombreCarpetaCloudinary(marca.nombre)}`,
     );
 
-    const actualizada = await this.prisma.marca.update({
-      where: { id },
-      data: { logo: subido.url, logoPublicId: subido.publicId },
-    });
+    let actualizada;
+    try {
+      actualizada = await this.prisma.marca.update({
+        where: { id },
+        data: { logo: subido.url, logoPublicId: subido.publicId },
+      });
+    } catch (error) {
+      try {
+        await this.cloudinary.eliminarImagen(subido.publicId);
+      } catch (cleanupError) {
+        const detalle =
+          cleanupError instanceof Error
+            ? cleanupError.message
+            : 'Error desconocido';
+        throw new BadGatewayException(
+          `No se pudo guardar el logo y tampoco eliminar el archivo subido: ${detalle}`,
+        );
+      }
+      throw error;
+    }
 
     if (anteriorPublicId) {
       try {
@@ -118,18 +144,39 @@ export class MarcasService {
     }
 
     const logoPublicId =
-      marca.logoPublicId ?? this.publicIdDesdeLogoCloudinary(marca.logo, id);
+      marca.logoPublicId ?? this.publicIdDesdeLogoCloudinary(marca.logo);
+    const eliminada = await this.prisma.marca.delete({ where: { id } });
     if (logoPublicId) {
-      await this.cloudinary.eliminarImagen(logoPublicId);
+      try {
+        await this.cloudinary.eliminarImagen(logoPublicId);
+      } catch (error) {
+        const detalle =
+          error instanceof Error ? error.message : 'Error desconocido';
+        throw new BadGatewayException(
+          `La marca se eliminó, pero no se pudo eliminar su logo de Cloudinary: ${detalle}`,
+        );
+      }
     }
 
-    return this.prisma.marca.delete({ where: { id } });
+    return eliminada;
   }
 
-  private publicIdDesdeLogoCloudinary(
-    logo: string | null,
-    marcaId: number,
-  ): string | null {
+  private lanzarConflictoNombreDuplicado(
+    error: unknown,
+    nombre?: string,
+  ): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new ConflictException(
+        `La marca${nombre ? ` "${nombre}"` : ''} ya existe`,
+      );
+    }
+    throw error;
+  }
+
+  private publicIdDesdeLogoCloudinary(logo: string | null): string | null {
     if (!logo) {
       return null;
     }
@@ -156,14 +203,13 @@ export class MarcasService {
       assetSegments.shift();
     }
 
-    const rutaCarpeta = `sneark/marcas/${marcaId}/`;
     const publicIdConExtension = assetSegments.join('/');
-    if (!publicIdConExtension.startsWith(rutaCarpeta)) {
+    if (!publicIdConExtension.startsWith('sneark/marcas/')) {
       return null;
     }
 
     const extensionIndex = publicIdConExtension.lastIndexOf('.');
-    if (extensionIndex <= rutaCarpeta.length) {
+    if (extensionIndex <= 'sneark/marcas/'.length) {
       return null;
     }
 

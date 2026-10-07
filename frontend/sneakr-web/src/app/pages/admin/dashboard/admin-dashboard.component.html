@@ -1,189 +1,464 @@
 <div class="dashboard">
-
-  <div class="dashboard__header">
+  <header class="dashboard__header">
     <div>
+      <p class="dashboard__eyebrow">SNEARK / ADMINISTRACIÓN</p>
       <h1 class="dashboard__title">Dashboard</h1>
-      <p class="dashboard__sub">Resumen general de la tienda</p>
+      <p class="dashboard__sub">Resumen general de SNEARK</p>
     </div>
-    <a routerLink="/admin/pedidos" class="btn-primary dashboard__header-btn">
-      Ver pedidos
+    <a routerLink="/admin/productos" class="btn-primary dashboard__header-btn">
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+      Agregar producto
     </a>
-  </div>
+  </header>
 
-  <!-- ── Métricas ──────────────────────────────────────────── -->
-  @if (cargando()) {
-    <div class="metricas-grid">
-      @for (i of [1,2,3,4]; track i) {
-        <div class="metrica-skeleton"></div>
-      }
-    </div>
-  }
-
-  @if (!cargando()) {
-    <div class="metricas-grid">
-      @for (m of metricas(); track m.label; let i = $index) {
-        <div class="metrica-card stagger-item animate-fade-up"
-             [style.animation-delay]="(i * 60) + 'ms'">
-          <div class="metrica-card__icon metrica-card__icon--{{ m.color }}">
-            @switch (m.icono) {
+  <section class="metricas-grid" aria-label="Indicadores principales">
+    @for (metrica of metricas(); track metrica.tipo) {
+      <article
+        class="metrica-card"
+        [class.metrica-card--error]="
+          ((metrica.tipo === 'ventas' || metrica.tipo === 'pedidos') && errorPedidos()) ||
+          ((metrica.tipo === 'productos' || metrica.tipo === 'stock') && errorProductos())
+        "
+      >
+        <div class="metrica-card__top">
+          <span class="metrica-card__label">{{ metrica.label }}</span>
+          <span class="metrica-card__icon" aria-hidden="true">
+            @switch (metrica.tipo) {
+              @case ('ventas') {
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              }
               @case ('pedidos') {
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
-              }
-              @case ('ingresos') {
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="1" x2="12" y2="23"/>
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                </svg>
-              }
-              @case ('pendientes') {
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="8" x2="12" y2="12"/>
-                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 2v6h6M8 13h8M8 17h5" />
                 </svg>
               }
               @case ('productos') {
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                  <line x1="3" y1="6" x2="21" y2="6"/>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                  <path d="M3 6h18M16 10a4 4 0 0 1-8 0" />
+                </svg>
+              }
+              @case ('stock') {
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 3 2.8 19a1.3 1.3 0 0 0 1.1 2h16.2a1.3 1.3 0 0 0 1.1-2L12 3z" />
+                  <path d="M12 9v4M12 17h.01" />
                 </svg>
               }
             }
-          </div>
-          <div class="metrica-card__body">
-            <p class="metrica-card__label">{{ m.label }}</p>
-            <p class="metrica-card__valor">{{ m.valor }}</p>
-            <p class="metrica-card__sub">{{ m.sub }}</p>
+          </span>
+        </div>
+        <p class="metrica-card__valor">
+          @if (
+            ((metrica.tipo === 'ventas' || metrica.tipo === 'pedidos') && errorPedidos()) ||
+            ((metrica.tipo === 'productos' || metrica.tipo === 'stock') && errorProductos())
+          ) {
+            —
+          } @else {
+            {{ metrica.valor }}
+          }
+        </p>
+        <p class="metrica-card__sub">
+          @if (
+            ((metrica.tipo === 'ventas' || metrica.tipo === 'pedidos') && errorPedidos()) ||
+            ((metrica.tipo === 'productos' || metrica.tipo === 'stock') && errorProductos())
+          ) {
+            Error al cargar los datos
+          } @else {
+            {{ metrica.detalle }}
+          }
+        </p>
+      </article>
+    }
+  </section>
+
+  <section class="dashboard-grid dashboard-grid--principal">
+    <article class="dashboard-panel sales-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="panel-heading__eyebrow">RENDIMIENTO</p>
+          <h2 class="panel-heading__title">Ventas</h2>
+          <p class="panel-heading__sub">Ventas confirmadas · últimos 30 días por fecha de pedido</p>
+        </div>
+        <span class="periodo-tag">30 días</span>
+      </div>
+
+      @if (cargandoPedidos()) {
+        <div
+          class="chart-skeleton"
+          role="status"
+          aria-live="polite"
+          aria-label="Cargando gráfico de ventas"
+        ></div>
+      } @else if (errorPedidos()) {
+        <div class="panel-state panel-state--error" role="alert">
+          <strong>No se pudieron cargar las ventas.</strong>
+          <span>Intenta nuevamente.</span>
+          <button type="button" class="text-action" (click)="cargarPedidos()">Reintentar</button>
+        </div>
+      } @else if (ventasPeriodo().length === 0) {
+        <div class="panel-state">
+          <span class="panel-state__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M3 3v18h18M7 14l4-4 4 4 6-7" />
+            </svg>
+          </span>
+          <strong>Sin ventas en el periodo</strong>
+          <span>Las ventas confirmadas aparecerán aquí.</span>
+        </div>
+      } @else {
+        <div class="chart-summary">
+          <strong>{{ formatearPrecio(totalVentasPeriodo()) }}</strong>
+          @if (variacionVentas() !== null) {
+            <span
+              class="chart-summary__change"
+              [class.chart-summary__change--negative]="variacionVentas()! < 0"
+            >
+              {{ formatearVariacion(variacionVentas()!) }} vs. periodo anterior
+            </span>
+          } @else {
+            <span class="chart-summary__change chart-summary__change--muted">
+              Periodo anterior sin ventas para comparar
+            </span>
+          }
+        </div>
+        <div class="chart-wrap">
+          <svg
+            class="sales-chart"
+            viewBox="0 0 720 220"
+            role="img"
+            aria-labelledby="sales-chart-title sales-chart-description"
+            preserveAspectRatio="none"
+          >
+            <title id="sales-chart-title">Ventas confirmadas de los últimos 30 días</title>
+            <desc id="sales-chart-description">
+              Gráfico de área agrupado por fecha de creación del pedido. Total:
+              {{ formatearPrecio(totalVentasPeriodo()) }}.
+            </desc>
+            @for (nivel of [0, 1, 2, 3]; track nivel) {
+              <text class="sales-chart__tick" x="56" [attr.y]="31 + nivel * 49" text-anchor="end">
+                {{ etiquetasEjeVenta()[nivel] }}
+              </text>
+              <line
+                class="sales-chart__gridline"
+                x1="64"
+                [attr.y1]="28 + nivel * 49"
+                x2="714"
+                [attr.y2]="28 + nivel * 49"
+              />
+            }
+            <path class="sales-chart__area" [attr.d]="areaGrafico()" />
+            <path class="sales-chart__line" [attr.d]="lineaGrafico()" />
+            @for (punto of puntosVenta(); track punto.etiqueta + $index) {
+              @if (punto.total > 0) {
+                <circle
+                  class="sales-chart__point"
+                  [attr.cx]="coordenadaX($index, puntosVenta().length)"
+                  [attr.cy]="coordenadaY(punto.total, maxVentaDiaria() || 1)"
+                  r="3.5"
+                >
+                  <title>
+                    {{ punto.etiqueta }}:
+                    {{ formatearPrecio(punto.total) }}
+                  </title>
+                </circle>
+              }
+            }
+          </svg>
+          <div class="chart-axis" aria-hidden="true">
+            @for (punto of etiquetasGrafico(); track punto.etiqueta) {
+              <span>{{ punto.etiqueta }}</span>
+            }
           </div>
         </div>
       }
-    </div>
-  }
+    </article>
 
-  <!-- ── Pedidos recientes ─────────────────────────────────── -->
-  <div class="dashboard__section">
-    <div class="dashboard__section-header">
-      <h2 class="dashboard__section-title">Pedidos recientes</h2>
-      <a routerLink="/admin/pedidos" class="dashboard__section-link">
-        Ver todos
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
+    <article class="dashboard-panel orders-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="panel-heading__eyebrow">ACTIVIDAD</p>
+          <h2 class="panel-heading__title">Pedidos recientes</h2>
+        </div>
+        <a routerLink="/admin/pedidos" class="panel-link">
+          Ver todos
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+        </a>
+      </div>
+
+      @if (cargandoPedidos()) {
+        <div class="compact-skeleton" role="status" aria-live="polite" aria-label="Cargando pedidos">
+          @for (fila of [1, 2, 3, 4]; track fila) {
+            <span></span>
+          }
+        </div>
+      } @else if (errorPedidos()) {
+        <div class="panel-state panel-state--compact panel-state--error" role="alert">
+          <strong>No se pudieron cargar los pedidos.</strong>
+          <span>Intenta nuevamente.</span>
+          <button type="button" class="text-action" (click)="cargarPedidos()">Reintentar</button>
+        </div>
+      } @else if (pedidosRecientes().length === 0) {
+        <div class="panel-state panel-state--compact">
+          <strong>No hay pedidos todavía</strong>
+          <span>No hay pedidos registrados en este momento.</span>
+        </div>
+      } @else {
+        <div class="recent-orders">
+          @for (pedido of pedidosRecientes(); track pedido.id) {
+            <a routerLink="/admin/pedidos" class="recent-order">
+              <span class="recent-order__main">
+                <span class="recent-order__id">#{{ pedido.id }}</span>
+                <span class="recent-order__customer">{{ pedido.usuario.nombre }}</span>
+                <span class="recent-order__date">{{ formatearFecha(pedido.creadoEn) }}</span>
+              </span>
+              <span class="recent-order__side">
+                <span class="recent-order__total">
+                  {{ formatearPrecio(pedido.total) }}
+                </span>
+                <span class="estado-badge estado-badge--{{ estadoConfig[pedido.estado].color }}">
+                  {{ etiquetaEstado(pedido.estado) }}
+                </span>
+              </span>
+            </a>
+          }
+        </div>
+      }
+    </article>
+  </section>
+
+  <section class="dashboard-grid dashboard-grid--secundario">
+    <article class="dashboard-panel bestsellers-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="panel-heading__eyebrow">CATÁLOGO</p>
+          <h2 class="panel-heading__title">Productos más vendidos</h2>
+          <p class="panel-heading__sub">Unidades en pedidos confirmados</p>
+        </div>
+        <a routerLink="/admin/productos" class="panel-link">Catálogo</a>
+      </div>
+
+      @if (cargandoPedidos()) {
+        <div class="compact-skeleton" role="status" aria-live="polite" aria-label="Cargando productos vendidos">
+          @for (fila of [1, 2, 3]; track fila) {
+            <span></span>
+          }
+        </div>
+      } @else if (errorPedidos()) {
+        <div class="panel-state panel-state--compact panel-state--error" role="alert">
+          <strong>No se pudieron cargar las ventas.</strong>
+          <span>Intenta nuevamente.</span>
+          <button type="button" class="text-action" (click)="cargarPedidos()">Reintentar</button>
+        </div>
+      } @else if (productosMasVendidos().length === 0) {
+        <div class="panel-state panel-state--compact">
+          <strong>Sin ventas todavía</strong>
+          <span>Los productos aparecerán cuando existan ventas confirmadas.</span>
+        </div>
+      } @else {
+        <ol class="best-sellers">
+          @for (producto of productosMasVendidos(); track producto.id; let indice = $index) {
+            <li class="best-seller">
+              <span class="best-seller__rank">{{ indice + 1 | number: '2.0-0' }}</span>
+              <span class="product-thumb">
+                @if (producto.imagen) {
+                  <img [src]="producto.imagen" [alt]="producto.nombre" loading="lazy" />
+                } @else {
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 16c2.5 0 3.5-2 5-4l2 2c1.5 1.5 3 2 5 2h3a3 3 0 0 1 3 3v1H3z" />
+                    <path d="m8 12 2-5 3 2 3 1" />
+                  </svg>
+                }
+              </span>
+              <span class="best-seller__info">
+                <strong>{{ producto.nombre }}</strong>
+                <span>{{ producto.marca || 'Marca no disponible' }}</span>
+              </span>
+              <span class="best-seller__detail">
+                <strong>{{ formatearPrecio(producto.precio) }}</strong>
+                <span>{{ producto.cantidad }} vendidos</span>
+              </span>
+            </li>
+          }
+        </ol>
+      }
+    </article>
+
+    <article class="dashboard-panel inventory-panel">
+      <div class="panel-heading">
+        <div>
+          <p class="panel-heading__eyebrow">CONTROL DE STOCK</p>
+          <h2 class="panel-heading__title">Estado del inventario</h2>
+        </div>
+        <a routerLink="/admin/productos" class="panel-link">Productos</a>
+      </div>
+
+      @if (cargandoProductos()) {
+        <div class="compact-skeleton" role="status" aria-live="polite" aria-label="Cargando inventario">
+          <span></span><span></span><span></span>
+        </div>
+      } @else if (errorProductos()) {
+        <div class="panel-state panel-state--compact panel-state--error" role="alert">
+          <strong>No se pudo cargar el inventario.</strong>
+          <span>Intenta nuevamente.</span>
+          <button type="button" class="text-action" (click)="cargarProductos()">Reintentar</button>
+        </div>
+      } @else if (totalProductos() === 0) {
+        <div class="panel-state panel-state--compact">
+          <strong>Sin productos todavía</strong>
+          <span>Agrega productos para ver su disponibilidad.</span>
+        </div>
+      } @else {
+        <div class="inventory-stats">
+          <div class="inventory-stat">
+            <span class="inventory-stat__dot inventory-stat__dot--available"></span>
+            <span>Disponible <small>&gt; 5 unidades</small></span>
+            <strong>{{ inventarioResumen().disponibles }}</strong>
+          </div>
+          <div class="inventory-stat">
+            <span class="inventory-stat__dot inventory-stat__dot--low"></span>
+            <span>Stock bajo <small>1–5 unidades</small></span>
+            <strong>{{ inventarioResumen().bajos }}</strong>
+          </div>
+          <div class="inventory-stat">
+            <span class="inventory-stat__dot inventory-stat__dot--empty"></span>
+            <span>Agotados <small>0 unidades</small></span>
+            <strong>{{ inventarioResumen().agotados }}</strong>
+          </div>
+        </div>
+        <p class="inventory-note">Conteo de variantes por talla</p>
+      }
+    </article>
+  </section>
+
+  <section class="dashboard-panel low-stock-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="panel-heading__eyebrow">ATENCIÓN DE INVENTARIO</p>
+        <h2 class="panel-heading__title">Productos con stock bajo</h2>
+        <p class="panel-heading__sub">Variantes con entre 1 y 5 unidades disponibles</p>
+      </div>
+      <a routerLink="/admin/productos" class="panel-link">
+        Gestionar productos
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M5 12h14M12 5l7 7-7 7" />
         </svg>
       </a>
     </div>
 
-    @if (cargando()) {
-      <div class="tabla-skeleton">
-        @for (i of [1,2,3,4,5]; track i) {
-          <div class="tabla-skeleton__fila"></div>
+    @if (cargandoProductos()) {
+      <div class="compact-skeleton" role="status" aria-live="polite" aria-label="Cargando productos con stock bajo">
+        @for (fila of [1, 2, 3]; track fila) {
+          <span></span>
+        }
+      </div>
+    } @else if (errorProductos()) {
+      <div class="panel-state panel-state--compact panel-state--error" role="alert">
+        <strong>No se pudo cargar el inventario.</strong>
+        <span>Intenta nuevamente.</span>
+        <button type="button" class="text-action" (click)="cargarProductos()">Reintentar</button>
+      </div>
+    } @else if (variantesStockBajo().length === 0) {
+      <div class="panel-state panel-state--compact">
+        <strong>Sin productos con stock bajo</strong>
+        <span>No hay variantes entre 1 y 5 unidades.</span>
+      </div>
+    } @else {
+      <div class="low-stock-list" role="region" aria-label="Variantes con stock bajo" tabindex="0">
+        @for (variante of variantesStockBajo(); track variante.productoId + '-' + variante.talla) {
+          <a routerLink="/admin/productos" class="low-stock-item">
+            <span class="product-thumb product-thumb--small">
+              @if (variante.imagen) {
+                <img [src]="variante.imagen" [alt]="variante.producto" loading="lazy" />
+              } @else {
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  aria-hidden="true"
+                >
+                  <path d="M3 16c2.5 0 3.5-2 5-4l2 2c1.5 1.5 3 2 5 2h3a3 3 0 0 1 3 3v1H3z" />
+                  <path d="m8 12 2-5 3 2 3 1" />
+                </svg>
+              }
+            </span>
+            <span class="low-stock-item__product">
+              <strong>{{ variante.producto }}</strong>
+              <span>{{ variante.marca }}</span>
+            </span>
+            <span class="low-stock-item__size">Talla {{ variante.talla }}</span>
+            <span class="stock-count" [class.stock-count--critical]="variante.stock <= 2">
+              {{ variante.stock }} <small>uds.</small>
+            </span>
+          </a>
         }
       </div>
     }
-
-    @if (!cargando() && pedidosRecientes().length === 0) {
-      <div class="dashboard__empty">
-        <p>Todavía no hay pedidos.</p>
-      </div>
-    }
-
-    @if (!cargando() && pedidosRecientes().length > 0) {
-      <div class="tabla-wrap">
-        <table class="tabla">
-          <thead class="tabla__head">
-            <tr>
-              <th class="tabla__th">Pedido</th>
-              <th class="tabla__th">Cliente</th>
-              <th class="tabla__th">Método</th>
-              <th class="tabla__th">Estado</th>
-              <th class="tabla__th tabla__th--right">Total</th>
-              <th class="tabla__th tabla__th--right">Fecha</th>
-              <th class="tabla__th"></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (pedido of pedidosRecientes(); track pedido.id) {
-              <tr class="tabla__row">
-                <td class="tabla__td">
-                  <span class="tabla__id">#{{ pedido.id }}</span>
-                </td>
-                <td class="tabla__td tabla__td--nombre">
-                  {{ pedido.usuario.nombre }}
-                </td>
-                <td class="tabla__td">
-                  <span class="metodo-badge metodo-badge--{{ pedido.metodoPago.toLowerCase() }}">
-                    {{ pedido.metodoPago }}
-                  </span>
-                </td>
-                <td class="tabla__td">
-                  <span class="estado-badge estado-badge--{{ estadoConfig[pedido.estado].color }}">
-                    {{ estadoConfig[pedido.estado].label }}
-                  </span>
-                </td>
-                <td class="tabla__td tabla__td--right tabla__td--bold">
-                  {{ formatearPrecio(pedido.total) }}
-                </td>
-                <td class="tabla__td tabla__td--right tabla__td--muted">
-                  {{ formatearFecha(pedido.creadoEn) }}
-                </td>
-                <td class="tabla__td tabla__td--right">
-                  <a routerLink="/admin/pedidos" class="tabla__accion">
-                    Ver
-                  </a>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    }
-  </div>
-
-  <!-- ── Accesos rápidos ───────────────────────────────────── -->
-  <div class="dashboard__section">
-    <h2 class="dashboard__section-title">Accesos rápidos</h2>
-    <div class="accesos-grid">
-      <a routerLink="/admin/productos" class="acceso-card">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-          <line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
-        </svg>
-        <span>Gestionar productos</span>
-      </a>
-      <a routerLink="/admin/pedidos" class="acceso-card">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-        </svg>
-        <span>Gestionar pedidos</span>
-      </a>
-      <a routerLink="/admin/marcas" class="acceso-card">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"/>
-        </svg>
-        <span>Gestionar marcas</span>
-      </a>
-      <a routerLink="/" target="_blank" class="acceso-card">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-          <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-        </svg>
-        <span>Ver tienda</span>
-      </a>
-    </div>
-  </div>
-
+  </section>
 </div>

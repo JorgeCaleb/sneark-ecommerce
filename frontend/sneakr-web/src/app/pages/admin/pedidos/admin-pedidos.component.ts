@@ -1,6 +1,7 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, signal, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PedidosService, Pedido, EstadoPedido } from '../../../core/services/pedidos.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-admin-pedidos',
@@ -9,7 +10,7 @@ import { PedidosService, Pedido, EstadoPedido } from '../../../core/services/ped
   templateUrl: './admin-pedidos.component.html',
   styleUrl: './admin-pedidos.component.css',
 })
-export class AdminPedidosComponent implements OnInit {
+export class AdminPedidosComponent implements OnInit, OnDestroy {
   private pedidosService = inject(PedidosService);
 
   readonly todosLosPedidos = signal<Pedido[]>([]);
@@ -17,6 +18,13 @@ export class AdminPedidosComponent implements OnInit {
   readonly pedidoDetalle   = signal<Pedido | null>(null);
   readonly cambiandoEstado = signal(false);
   readonly nuevoEstado     = signal<EstadoPedido | ''>('');
+  readonly totalPedidos = signal(0);
+  readonly pagina = signal(1);
+  readonly totalPaginas = signal(0);
+  readonly errorCarga = signal(false);
+  readonly errorEstado = signal('');
+  readonly LIMITE_PAGINA = 25;
+  private cargaSubscription?: Subscription;
 
   filtroEstado: EstadoPedido | '' = '';
 
@@ -33,27 +41,48 @@ export class AdminPedidosComponent implements OnInit {
     'PENDIENTE', 'PAGO_VERIFICADO', 'EN_PREPARACION', 'ENVIADO', 'ENTREGADO', 'CANCELADO',
   ];
 
-  // Pedidos filtrados localmente
-  readonly pedidosFiltrados = computed(() => {
-    const estado = this.filtroEstado;
-    const lista  = this.todosLosPedidos();
-    return estado ? lista.filter((p) => p.estado === estado) : lista;
-  });
+  readonly pedidosFiltrados = computed(() => this.todosLosPedidos());
 
   ngOnInit() {
     this.cargar();
   }
 
+  ngOnDestroy() {
+    this.cargaSubscription?.unsubscribe();
+  }
+
   cargar() {
+    this.cargaSubscription?.unsubscribe();
     this.cargando.set(true);
-    this.pedidosService.buscarTodos().subscribe({
-      next:  (p) => { this.todosLosPedidos.set(p); this.cargando.set(false); },
-      error: ()  => this.cargando.set(false),
+    this.errorCarga.set(false);
+    this.cargaSubscription = this.pedidosService.buscarPagina(
+      this.pagina(),
+      this.LIMITE_PAGINA,
+      this.filtroEstado || undefined,
+    ).subscribe({
+      next: (resultado) => {
+        this.todosLosPedidos.set(resultado.datos);
+        this.totalPedidos.set(resultado.meta.total);
+        this.pagina.set(resultado.meta.pagina);
+        this.totalPaginas.set(resultado.meta.totalPaginas);
+        this.cargando.set(false);
+      },
+      error: () => {
+        this.errorCarga.set(true);
+        this.cargando.set(false);
+      },
     });
   }
 
   filtrar() {
-    // El filtrado es reactivo via computed, no hace falta fetch
+    this.pagina.set(1);
+    this.cargar();
+  }
+
+  irAPagina(nuevaPagina: number) {
+    if (nuevaPagina < 1 || nuevaPagina > this.totalPaginas()) return;
+    this.pagina.set(nuevaPagina);
+    this.cargar();
   }
 
   abrirDetalle(pedido: Pedido) {
@@ -72,34 +101,37 @@ export class AdminPedidosComponent implements OnInit {
     if (!pedido || !estado || estado === pedido.estado) return;
 
     this.cambiandoEstado.set(true);
+    this.errorEstado.set('');
     this.pedidosService.actualizarEstado(pedido.id, estado).subscribe({
       next: (p) => {
         this.cambiandoEstado.set(false);
         this.pedidoDetalle.set(p);
-        // Actualizar en la lista local
-        this.todosLosPedidos.update((lista) =>
-          lista.map((item) => (item.id === p.id ? p : item))
-        );
+        this.cargar();
       },
-      error: () => this.cambiandoEstado.set(false),
+      error: (error) => {
+        this.cambiandoEstado.set(false);
+        this.errorEstado.set(error?.error?.message ?? 'No se pudo actualizar el estado.');
+      },
     });
   }
 
-  formatearPrecio(precio: number): string {
+  formatearPrecio(precio: number | string): string {
     return new Intl.NumberFormat('es-PE', {
       style: 'currency',
       currency: 'PEN',
       minimumFractionDigits: 0,
-    }).format(precio);
+    }).format(Number(precio));
   }
 
   formatearFecha(fecha: string): string {
+    const fechaPedido = new Date(fecha);
+    if (Number.isNaN(fechaPedido.getTime())) return 'Fecha no disponible';
     return new Intl.DateTimeFormat('es-PE', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    }).format(new Date(fecha));
+    }).format(fechaPedido);
   }
 }

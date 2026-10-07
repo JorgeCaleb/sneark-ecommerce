@@ -21,6 +21,7 @@ import { FiltrarProductosDto } from './dto/filtrar-productos.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
+import { aceptarTipoArchivo } from '../common/filtro-tipo-archivo.util.js';
 
 @Controller('productos')
 export class ProductosController {
@@ -79,11 +80,12 @@ export class ProductosController {
           'image/webp',
           'image/avif',
         ];
-        if (permitidos.includes(file.mimetype)) {
-          cb(null, true);
-        } else {
-          cb(new Error('Solo se permiten imágenes JPG, PNG, WEBP o AVIF'), false);
-        }
+        aceptarTipoArchivo(
+          file.mimetype,
+          permitidos,
+          'Solo se permiten imágenes JPG, PNG, WEBP o AVIF',
+          cb,
+        );
       },
       limits: { fileSize: 5 * 1024 * 1024 }, // máx 5MB por imagen
     }),

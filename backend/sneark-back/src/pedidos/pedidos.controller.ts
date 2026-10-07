@@ -18,9 +18,12 @@ import { PedidosService } from './pedidos.service.js';
 import { CrearPedidoDto } from './dto/crear-pedido.dto.js';
 import { ActualizarEstadoDto } from './dto/actualizar-estado.dto.js';
 import { SubirComprobanteDto } from './dto/subir-comprobante.dto.js';
+import { FiltrarPedidosDto } from './dto/filtrar-pedidos.dto.js';
+import { DashboardPedidosDto } from './dto/dashboard-pedidos.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
+import { aceptarTipoArchivo } from '../common/filtro-tipo-archivo.util.js';
 
 @UseGuards(JwtAuthGuard)
 @Controller('pedidos')
@@ -37,6 +40,21 @@ export class PedidosController {
   @Get('mis-pedidos')
   misPedidos(@Request() req: any) {
     return this.pedidosService.misPedidos(req.user.id);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @Get('admin/dashboard')
+  resumenDashboard(@Query() filtros: DashboardPedidosDto) {
+    return this.pedidosService.obtenerResumenDashboard(filtros);
+  }
+
+  // GET /api/pedidos/admin/list — pedidos paginados (ADMIN)
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @Get('admin/list')
+  buscarPagina(@Query() filtros: FiltrarPedidosDto) {
+    return this.pedidosService.buscarPagina(filtros);
   }
 
   // GET /api/pedidos/:id — ver detalle de un pedido
@@ -56,11 +74,12 @@ export class PedidosController {
       storage: memoryStorage(),
       fileFilter: (_req, file, cb) => {
         const permitidos = ['image/jpeg', 'image/png', 'image/webp'];
-        if (permitidos.includes(file.mimetype)) {
-          cb(null, true);
-        } else {
-          cb(new Error('Solo se permiten imágenes JPG, PNG o WEBP'), false);
-        }
+        aceptarTipoArchivo(
+          file.mimetype,
+          permitidos,
+          'Solo se permiten imágenes JPG, PNG o WEBP',
+          cb,
+        );
       },
       limits: { fileSize: 10 * 1024 * 1024 }, // máx 10MB para comprobantes
     }),
@@ -82,12 +101,12 @@ export class PedidosController {
 
   // ─── Rutas ADMIN ─────────────────────────────────────────────────────────────
 
-  // GET /api/pedidos — todos los pedidos (ADMIN)
+  // GET /api/pedidos — pedidos paginados (ADMIN, compatibilidad)
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
   @Get()
-  buscarTodos(@Query('estado') estado?: string) {
-    return this.pedidosService.buscarTodos(estado);
+  buscarTodos(@Query() filtros: FiltrarPedidosDto) {
+    return this.pedidosService.buscarPagina(filtros);
   }
 
   // PATCH /api/pedidos/:id/estado — cambiar estado del pedido (ADMIN)

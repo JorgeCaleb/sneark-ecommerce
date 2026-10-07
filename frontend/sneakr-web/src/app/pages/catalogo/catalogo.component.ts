@@ -1,5 +1,6 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Component, DestroyRef, OnInit, inject, signal, computed } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ProductosService, Producto, FiltrosProducto } from '../../core/services/productos.service';
 import { MarcasService, Marca } from '../../core/services/marcas.service';
@@ -13,6 +14,7 @@ import { CategoriasService, Categoria } from '../../core/services/categorias.ser
   styleUrl: './catalogo.component.css',
 })
 export class CatalogoComponent implements OnInit {
+  private destroyRef = inject(DestroyRef);
   private productosService = inject(ProductosService);
   private marcasService    = inject(MarcasService);
   private categoriasService = inject(CategoriasService);
@@ -26,6 +28,8 @@ export class CatalogoComponent implements OnInit {
   readonly marcas     = signal<Marca[]>([]);
   readonly categorias = signal<Categoria[]>([]);
   readonly filtrosPanelAbierto = signal(false);
+  readonly errorCarga = signal(false);
+  private queryParamsInicializados = false;
 
   // Filtros activos
   busqueda   = '';
@@ -43,19 +47,43 @@ export class CatalogoComponent implements OnInit {
 
   ngOnInit() {
     // Leer query params iniciales
-    this.route.queryParams.subscribe((params) => {
-      this.marcaId     = +params['marcaId']     || 0;
-      this.categoriaId = +params['categoriaId'] || 0;
-      this.busqueda    = params['busqueda']      || '';
-      this.paginaActual = +params['pagina']      || 1;
-      this.cargarProductos();
-    });
+    this.route.queryParams
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        const filtros = {
+          marcaId: Number(params['marcaId']) || 0,
+          categoriaId: Number(params['categoriaId']) || 0,
+          busqueda: params['busqueda'] || '',
+          pagina: Number(params['pagina']) || 1,
+          precioMin: Number(params['precioMin']) || 0,
+          precioMax: Number(params['precioMax']) || 0,
+        };
+        const cambiaronFiltros =
+          !this.queryParamsInicializados ||
+          filtros.marcaId !== this.marcaId ||
+          filtros.categoriaId !== this.categoriaId ||
+          filtros.busqueda !== this.busqueda ||
+          filtros.pagina !== this.paginaActual ||
+          filtros.precioMin !== this.precioMin ||
+          filtros.precioMax !== this.precioMax;
+
+        this.marcaId = filtros.marcaId;
+        this.categoriaId = filtros.categoriaId;
+        this.busqueda = filtros.busqueda;
+        this.paginaActual = filtros.pagina;
+        this.precioMin = filtros.precioMin;
+        this.precioMax = filtros.precioMax;
+        this.queryParamsInicializados = true;
+
+        if (cambiaronFiltros) this.cargarProductos();
+      });
 
     this.marcasService.buscarTodas().subscribe((m) => this.marcas.set(m));
     this.categoriasService.buscarTodas().subscribe((c) => this.categorias.set(c));
   }
 
   cargarProductos() {
+    this.errorCarga.set(false);
     const filtros: FiltrosProducto = {
       pagina: this.paginaActual,
       limite: this.LIMITE,
@@ -66,7 +94,10 @@ export class CatalogoComponent implements OnInit {
     if (this.precioMin)   filtros.precioMin   = this.precioMin;
     if (this.precioMax)   filtros.precioMax   = this.precioMax;
 
-    this.productosService.buscarTodos(filtros).subscribe();
+    this.productosService
+      .buscarTodos(filtros)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ error: () => this.errorCarga.set(true) });
     this.actualizarUrl();
   }
 
@@ -98,11 +129,13 @@ export class CatalogoComponent implements OnInit {
   }
 
   private actualizarUrl() {
-    const queryParams: any = {};
+    const queryParams: Params = {};
     if (this.busqueda)      queryParams['busqueda']    = this.busqueda;
     if (this.marcaId)       queryParams['marcaId']     = this.marcaId;
     if (this.categoriaId)   queryParams['categoriaId'] = this.categoriaId;
     if (this.paginaActual > 1) queryParams['pagina']   = this.paginaActual;
+    if (this.precioMin) queryParams['precioMin'] = this.precioMin;
+    if (this.precioMax) queryParams['precioMax'] = this.precioMax;
     this.router.navigate([], { queryParams, replaceUrl: true });
   }
 
@@ -110,12 +143,12 @@ export class CatalogoComponent implements OnInit {
     !!this.busqueda || !!this.marcaId || !!this.categoriaId || !!this.precioMin || !!this.precioMax
   );
 
-  formatearPrecio(precio: number): string {
+  formatearPrecio(precio: number | string): string {
     return new Intl.NumberFormat('es-PE', {
       style: 'currency',
       currency: 'PEN',
       minimumFractionDigits: 0,
-    }).format(precio);
+    }).format(Number(precio));
   }
 
   imagenPrincipal(producto: Producto): string {

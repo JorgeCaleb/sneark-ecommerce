@@ -1,10 +1,13 @@
 import {
+  BadGatewayException,
   Injectable,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
+import { nombreCarpetaCloudinary } from '../cloudinary/nombre-carpeta.util.js';
 import { CrearProductoDto } from './dto/crear-producto.dto.js';
 import { ActualizarProductoDto } from './dto/actualizar-producto.dto.js';
 import { FiltrarProductosDto } from './dto/filtrar-productos.dto.js';
@@ -58,7 +61,7 @@ export class ProductosService {
       limite = 12,
     } = filtros;
 
-    const where: any = { activo: true };
+    const where: Prisma.ProductoWhereInput = { activo: true };
 
     if (busqueda) {
       where.nombre = { contains: busqueda };
@@ -137,10 +140,13 @@ export class ProductosService {
           },
         });
         const nombresSolicitados = new Set(
-          tallasNormalizadas.map((talla) => this.normalizarNombreTalla(talla.talla)),
+          tallasNormalizadas.map((talla) =>
+            this.normalizarNombreTalla(talla.talla),
+          ),
         );
         const tallasQuitadas = tallasActuales.filter(
-          (talla) => !nombresSolicitados.has(this.normalizarNombreTalla(talla.talla)),
+          (talla) =>
+            !nombresSolicitados.has(this.normalizarNombreTalla(talla.talla)),
         );
         const tallasEnUso = tallasQuitadas.filter(
           (talla) =>
@@ -151,7 +157,9 @@ export class ProductosService {
           throw new BadRequestException(
             `No se pueden quitar las tallas ${tallasEnUso
               .map((talla) => talla.talla)
-              .join(', ')} porque están en carritos o pedidos. Conservá esas tallas y asignales stock 0.`,
+              .join(
+                ', ',
+              )} porque están en carritos o pedidos. Conservá esas tallas y asignales stock 0.`,
           );
         }
 
@@ -224,23 +232,44 @@ export class ProductosService {
   // ─── Imágenes ────────────────────────────────────────────────────────────────
 
   async subirImagenes(id: number, archivos: Express.Multer.File[]) {
-    await this.buscarPorId(id);
+    const producto = await this.buscarPorId(id);
 
     if (!archivos?.length) {
       throw new BadRequestException('Debe enviar al menos una imagen');
     }
 
-    // Subir todas las imágenes a Cloudinary en paralelo
-    const subidas = await Promise.all(
+    const resultados = await Promise.allSettled(
       archivos.map((archivo) =>
-        this.cloudinary.subirImagen(archivo, `sneark/productos/${id}`),
+        this.cloudinary.subirImagen(
+          archivo,
+          `sneark/productos/${nombreCarpetaCloudinary(producto.nombre)}`,
+        ),
       ),
     );
+    const subidas = resultados.flatMap((resultado) =>
+      resultado.status === 'fulfilled' ? [resultado.value] : [],
+    );
+    const falloSubida = resultados.find(
+      (resultado) => resultado.status === 'rejected',
+    );
 
-    // Guardar las URLs en la base de datos
-    await this.prisma.imagenProducto.createMany({
-      data: subidas.map((s) => ({ url: s.url, publicId: s.publicId, productoId: id })),
-    });
+    if (falloSubida?.status === 'rejected') {
+      await this.limpiarImagenesCloudinary(subidas);
+      throw falloSubida.reason;
+    }
+
+    try {
+      await this.prisma.imagenProducto.createMany({
+        data: subidas.map((subida) => ({
+          url: subida.url,
+          publicId: subida.publicId,
+          productoId: id,
+        })),
+      });
+    } catch (error) {
+      await this.limpiarImagenesCloudinary(subidas);
+      throw error;
+    }
 
     return this.buscarPorId(id);
   }
@@ -254,13 +283,43 @@ export class ProductosService {
       throw new NotFoundException('Imagen no encontrada');
     }
 
-    // Eliminar de Cloudinary y de la BD en paralelo
-    await Promise.all([
-      this.cloudinary.eliminarImagen(imagen.publicId),
-      this.prisma.imagenProducto.delete({ where: { id: imagenId } }),
-    ]);
+    await this.prisma.imagenProducto.delete({ where: { id: imagenId } });
+    try {
+      await this.cloudinary.eliminarImagen(imagen.publicId);
+    } catch (error) {
+      const detalle =
+        error instanceof Error ? error.message : 'Error desconocido';
+      throw new BadGatewayException(
+        `La imagen se quitó del producto, pero no se pudo eliminar de Cloudinary: ${detalle}`,
+      );
+    }
 
     return { mensaje: 'Imagen eliminada correctamente' };
+  }
+
+  private async limpiarImagenesCloudinary(
+    imagenes: { publicId: string }[],
+  ): Promise<void> {
+    const resultados = await Promise.allSettled(
+      imagenes.map((imagen) =>
+        this.cloudinary.eliminarImagen(imagen.publicId),
+      ),
+    );
+    const errores = resultados.flatMap((resultado) =>
+      resultado.status === 'rejected'
+        ? [
+            resultado.reason instanceof Error
+              ? resultado.reason.message
+              : 'Error desconocido',
+          ]
+        : [],
+    );
+
+    if (errores.length) {
+      throw new BadGatewayException(
+        `No se pudieron guardar las imágenes y falló la limpieza de Cloudinary: ${errores.join('; ')}`,
+      );
+    }
   }
 
   // ─── Tallas ──────────────────────────────────────────────────────────────────

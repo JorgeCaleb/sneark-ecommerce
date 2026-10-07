@@ -110,11 +110,11 @@ export class ComprobanteComponent implements OnInit {
     });
   }
 
-  formatearPrecio(precio: number): string {
+  formatearPrecio(precio: number | string): string {
     return new Intl.NumberFormat('es-PE', {
       style: 'currency',
       currency: 'PEN',
       minimumFractionDigits: 0,
-    }).format(precio);
+    }).format(Number(precio));
   }
 }

@@ -1,4 +1,5 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { ProductosService, Producto } from '../../core/services/productos.service';
 import { MarcasService, Marca } from '../../core/services/marcas.service';
@@ -11,36 +12,47 @@ import { MarcasService, Marca } from '../../core/services/marcas.service';
   styleUrl: './home.component.css',
 })
 export class HomeComponent implements OnInit {
+  private destroyRef = inject(DestroyRef);
   private productosService = inject(ProductosService);
   private marcasService = inject(MarcasService);
 
   readonly destacados = signal<Producto[]>([]);
   readonly marcas = signal<Marca[]>([]);
   readonly cargando = signal(true);
+  readonly errorCarga = signal(false);
 
   ngOnInit() {
-    // Cargar productos destacados (los 8 más recientes)
-    this.productosService.buscarTodos({ limite: 8 }).subscribe({
-      next: (res) => {
-        this.destacados.set(res.datos);
-        this.cargando.set(false);
-      },
-      error: () => this.cargando.set(false),
-    });
+    this.cargarDestacados();
 
-    // Cargar marcas para la sección de marcas
     this.marcasService.buscarTodas().subscribe({
       next: (marcas) => this.marcas.set(marcas),
     });
   }
 
+  cargarDestacados() {
+    this.cargando.set(true);
+    this.errorCarga.set(false);
+    this.productosService.buscarTodos({ limite: 8 })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.destacados.set(res.datos);
+          this.cargando.set(false);
+        },
+        error: () => {
+          this.errorCarga.set(true);
+          this.cargando.set(false);
+        },
+      });
+  }
+
   // Formatea precio en soles peruanos
-  formatearPrecio(precio: number): string {
+  formatearPrecio(precio: number | string): string {
     return new Intl.NumberFormat('es-PE', {
       style: 'currency',
       currency: 'PEN',
       minimumFractionDigits: 0,
-    }).format(precio);
+    }).format(Number(precio));
   }
 
   // Verifica si el producto tiene stock disponible

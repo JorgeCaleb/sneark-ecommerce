@@ -23,6 +23,18 @@ export class MarcasService {
     return this.http.get<Marca>(`${this.API}/${id}`);
   }
 
+  crear(nombre: string) {
+    return this.http.post<Marca>(this.API, { nombre });
+  }
+
+  actualizar(id: number, nombre: string) {
+    return this.http.patch<Marca>(`${this.API}/${id}`, { nombre });
+  }
+
+  eliminar(id: number) {
+    return this.http.delete(`${this.API}/${id}`);
+  }
+
   subirLogo(id: number, archivo: File) {
     const data = new FormData();
     data.append('logo', archivo);

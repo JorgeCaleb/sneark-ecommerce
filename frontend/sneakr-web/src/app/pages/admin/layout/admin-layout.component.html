@@ -1,7 +1,12 @@
-<div class="admin-shell">
+<div class="admin-shell" (keydown.escape)="cerrarSidebar()">
 
   <!-- ── Sidebar ──────────────────────────────────────────── -->
-  <aside class="admin-sidebar" [class.admin-sidebar--open]="sidebarAbierto()">
+  <aside
+    id="admin-sidebar"
+    class="admin-sidebar"
+    [class.admin-sidebar--open]="sidebarAbierto()"
+    aria-label="Menú de administración"
+  >
 
     <!-- Logo -->
     <div class="admin-sidebar__brand">
@@ -92,7 +97,12 @@
 
   <!-- Overlay mobile -->
   @if (sidebarAbierto()) {
-    <div class="admin-overlay" (click)="cerrarSidebar()"></div>
+    <button
+      class="admin-overlay"
+      type="button"
+      aria-label="Cerrar menú de administración"
+      (click)="cerrarSidebar()"
+    ></button>
   }
 
   <!-- ── Contenido principal ─────────────────────────────── -->
@@ -100,7 +110,14 @@
 
     <!-- Topbar mobile -->
     <header class="admin-topbar">
-      <button class="admin-topbar__menu" (click)="toggleSidebar()" aria-label="Abrir menú">
+      <button
+        class="admin-topbar__menu"
+        type="button"
+        (click)="toggleSidebar()"
+        [attr.aria-expanded]="sidebarAbierto()"
+        aria-controls="admin-sidebar"
+        [attr.aria-label]="sidebarAbierto() ? 'Cerrar menú' : 'Abrir menú'"
+      >
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="3" y1="6" x2="21" y2="6"/>

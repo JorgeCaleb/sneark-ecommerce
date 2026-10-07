@@ -55,12 +55,12 @@ export class CarritoComponent implements OnInit {
     this.carritoService.vaciar().subscribe();
   }
 
-  formatearPrecio(precio: number): string {
+  formatearPrecio(precio: number | string): string {
     return new Intl.NumberFormat('es-PE', {
       style: 'currency',
       currency: 'PEN',
       minimumFractionDigits: 0,
-    }).format(precio);
+    }).format(Number(precio));
   }
 
   imagenItem(item: ItemCarrito): string {

@@ -1,7 +1,10 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { tap } from 'rxjs/operators';
+import { finalize, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import type { ValorMonetario } from '../models/valor-monetario';
+
+export type { ValorMonetario } from '../models/valor-monetario';
 
 export interface ImagenProducto {
   id: number;
@@ -19,7 +22,7 @@ export interface Producto {
   id: number;
   nombre: string;
   descripcion: string | null;
-  precio: number;
+  precio: ValorMonetario;
   activo: boolean;
   creadoEn: string;
   actualizadoEn: string;
@@ -51,6 +54,15 @@ export interface FiltrosProducto {
   limite?: number;
 }
 
+export interface ProductoInput {
+  nombre: string;
+  descripcion?: string;
+  precio: number;
+  marcaId: number;
+  categoriaId: number;
+  tallas?: { talla: string; stock: number }[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class ProductosService {
   private readonly API = `${environment.apiUrl}/productos`;
@@ -59,28 +71,37 @@ export class ProductosService {
   readonly productos = signal<Producto[]>([]);
   readonly meta = signal<PaginacionMeta | null>(null);
   readonly cargando = signal(false);
+  private busquedaActiva = 0;
 
   constructor(private http: HttpClient) {}
 
   buscarTodos(filtros: FiltrosProducto = {}) {
+    const busqueda = ++this.busquedaActiva;
     this.cargando.set(true);
+    return this.buscarPagina(filtros).pipe(
+      tap((res) => {
+        if (busqueda !== this.busquedaActiva) return;
+        this.productos.set(res.datos);
+        this.meta.set(res.meta);
+      }),
+      finalize(() => {
+        if (busqueda === this.busquedaActiva) this.cargando.set(false);
+      }),
+    );
+  }
+
+  buscarPagina(filtros: FiltrosProducto = {}) {
     let params = new HttpParams();
 
     if (filtros.busqueda) params = params.set('busqueda', filtros.busqueda);
-    if (filtros.marcaId)  params = params.set('marcaId', filtros.marcaId);
+    if (filtros.marcaId) params = params.set('marcaId', filtros.marcaId);
     if (filtros.categoriaId) params = params.set('categoriaId', filtros.categoriaId);
     if (filtros.precioMin !== undefined) params = params.set('precioMin', filtros.precioMin);
     if (filtros.precioMax !== undefined) params = params.set('precioMax', filtros.precioMax);
-    if (filtros.pagina)  params = params.set('pagina', filtros.pagina);
-    if (filtros.limite)  params = params.set('limite', filtros.limite);
+    if (filtros.pagina) params = params.set('pagina', filtros.pagina);
+    if (filtros.limite) params = params.set('limite', filtros.limite);
 
-    return this.http.get<ProductosPaginados>(this.API, { params }).pipe(
-      tap((res) => {
-        this.productos.set(res.datos);
-        this.meta.set(res.meta);
-        this.cargando.set(false);
-      }),
-    );
+    return this.http.get<ProductosPaginados>(this.API, { params });
   }
 
   buscarPorId(id: number) {
@@ -88,11 +109,11 @@ export class ProductosService {
   }
 
   // Solo ADMIN
-  crear(data: FormData) {
+  crear(data: ProductoInput) {
     return this.http.post<Producto>(this.API, data);
   }
 
-  actualizar(id: number, data: Partial<Producto>) {
+  actualizar(id: number, data: Partial<ProductoInput> & { activo?: boolean }) {
     return this.http.patch<Producto>(`${this.API}/${id}`, data);
   }
 

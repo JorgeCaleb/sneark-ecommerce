@@ -7,10 +7,7 @@ export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  if (auth.estaAutenticado()) return true;
-
-  router.navigate(['/auth/login']);
-  return false;
+  return auth.sesionValida() ? true : router.createUrlTree(['/auth/login']);
 };
 
 // Guard funcional para rutas exclusivas de ADMIN
@@ -18,8 +15,5 @@ export const adminGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  if (auth.esAdmin()) return true;
-
-  router.navigate(['/']);
-  return false;
+  return auth.sesionValida() && auth.esAdmin() ? true : router.createUrlTree(['/']);
 };

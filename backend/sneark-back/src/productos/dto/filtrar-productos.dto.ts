@@ -1,11 +1,11 @@
 import { Type } from 'class-transformer';
 import {
-  IsBoolean,
   IsInt,
   IsNumber,
   IsOptional,
   IsPositive,
   IsString,
+  Max,
   Min,
 } from 'class-validator';
 
@@ -49,5 +49,6 @@ export class FiltrarProductosDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   limite?: number = 12;
 }

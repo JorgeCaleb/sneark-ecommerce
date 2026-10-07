@@ -37,12 +37,12 @@ export class MisPedidosComponent implements OnInit {
     this.pedidoAbierto.update((actual) => (actual === id ? null : id));
   }
 
-  formatearPrecio(precio: number): string {
+  formatearPrecio(precio: number | string): string {
     return new Intl.NumberFormat('es-PE', {
       style: 'currency',
       currency: 'PEN',
       minimumFractionDigits: 0,
-    }).format(precio);
+    }).format(Number(precio));
   }
 
   formatearFecha(fecha: string): string {

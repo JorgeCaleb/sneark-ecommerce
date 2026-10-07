@@ -4,7 +4,7 @@
   <div class="admin-page__header">
     <div>
       <h1 class="admin-page__title">Pedidos</h1>
-      <p class="admin-page__sub">{{ todosLosPedidos().length }} pedidos en total</p>
+      <p class="admin-page__sub">{{ totalPedidos() }} pedidos en total</p>
     </div>
     <button class="btn-secondary admin-refresh" (click)="cargar()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -19,19 +19,17 @@
   <!-- Filtros por estado -->
   <div class="filtros-estado">
     <button class="filtro-btn" [class.filtro-btn--activo]="filtroEstado === ''"
+            [attr.aria-pressed]="filtroEstado === ''"
             (click)="filtroEstado = ''; filtrar()">
       Todos
-      <span class="filtro-btn__count">{{ todosLosPedidos().length }}</span>
     </button>
     @for (estado of estados; track estado) {
       <button class="filtro-btn"
               [class.filtro-btn--activo]="filtroEstado === estado"
+              [attr.aria-pressed]="filtroEstado === estado"
               (click)="filtroEstado = estado; filtrar()">
         <span class="filtro-dot filtro-dot--{{ estadoConfig[estado].color }}"></span>
         {{ estadoConfig[estado].label }}
-        <span class="filtro-btn__count">
-          {{ todosLosPedidos().filter(p => p.estado === estado).length }}
-        </span>
       </button>
     }
   </div>
@@ -47,7 +45,12 @@
 
   <!-- Tabla -->
   @if (!cargando()) {
-    @if (pedidosFiltrados().length === 0) {
+    @if (errorCarga()) {
+      <div class="admin-empty" role="alert">
+        <p>No se pudieron cargar los pedidos.</p>
+        <button class="btn-secondary" type="button" (click)="cargar()">Reintentar</button>
+      </div>
+    } @else if (pedidosFiltrados().length === 0) {
       <div class="admin-empty">
         <p>No hay pedidos con ese filtro.</p>
       </div>
@@ -119,6 +122,28 @@
           </tbody>
         </table>
       </div>
+    }
+
+    @if (!errorCarga() && totalPaginas() > 1) {
+      <nav class="pedidos-paginacion" aria-label="Paginación de pedidos">
+        <button
+          class="btn-secondary"
+          type="button"
+          [disabled]="pagina() === 1"
+          (click)="irAPagina(pagina() - 1)"
+        >
+          Anterior
+        </button>
+        <span aria-live="polite">Página {{ pagina() }} de {{ totalPaginas() }}</span>
+        <button
+          class="btn-secondary"
+          type="button"
+          [disabled]="pagina() === totalPaginas()"
+          (click)="irAPagina(pagina() + 1)"
+        >
+          Siguiente
+        </button>
+      </nav>
     }
   }
 
@@ -242,6 +267,9 @@
             Confirmar cambio
           }
         </button>
+        @if (errorEstado()) {
+          <p class="form-error" role="alert">{{ errorEstado() }}</p>
+        }
       </div>
 
     </div>

@@ -1,34 +1,34 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import type { ValorMonetario } from '../models/valor-monetario';
 
 export interface ItemPedido {
   id: number;
   nombreProducto: string;
   talla: string;
   cantidad: number;
-  precio: number;
-  subtotal: number;
+  precio: ValorMonetario;
+  subtotal: ValorMonetario;
   tallaProducto: {
     producto: {
+      id: number;
+      nombre: string;
+      precio: ValorMonetario;
+      marca: { nombre: string };
       imagenes: { url: string }[];
     };
   };
 }
 
 export type EstadoPedido =
-  | 'PENDIENTE'
-  | 'PAGO_VERIFICADO'
-  | 'EN_PREPARACION'
-  | 'ENVIADO'
-  | 'ENTREGADO'
-  | 'CANCELADO';
+  'PENDIENTE' | 'PAGO_VERIFICADO' | 'EN_PREPARACION' | 'ENVIADO' | 'ENTREGADO' | 'CANCELADO';
 
 export type MetodoPago = 'YAPE' | 'PLIN';
 
 export interface Pedido {
   id: number;
-  total: number;
+  total: ValorMonetario;
   estado: EstadoPedido;
   metodoPago: MetodoPago;
   comprobante: string | null;
@@ -46,6 +46,32 @@ export interface CrearPedidoData {
   telefono: string;
   ciudad: string;
   direccion: string;
+}
+
+export interface PedidosPaginados {
+  datos: Pedido[];
+  meta: {
+    total: number;
+    pagina: number;
+    limite: number;
+    totalPaginas: number;
+  };
+}
+
+export interface ResumenPedidosDashboard {
+  totalPedidos: number;
+  pedidosRecientes: Pedido[];
+  totalVentasPeriodo: number;
+  ventasPeriodoAnterior: number;
+  ventasDiarias: { fecha: string; total: number }[];
+  productosMasVendidos: {
+    id: number;
+    nombre: string;
+    marca: string;
+    imagen: string | null;
+    precio: number;
+    cantidad: number;
+  }[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -74,10 +100,23 @@ export class PedidosService {
     return this.http.patch<Pedido>(`${this.API}/${pedidoId}/cancelar`, {});
   }
 
-  // Solo ADMIN
-  buscarTodos(estado?: EstadoPedido) {
-    const url = estado ? `${this.API}?estado=${estado}` : this.API;
-    return this.http.get<Pedido[]>(url);
+  buscarPagina(pagina: number, limite = 25, estado?: EstadoPedido) {
+    let params = new HttpParams()
+      .set('pagina', pagina)
+      .set('limite', limite);
+    if (estado) params = params.set('estado', estado);
+    return this.http.get<PedidosPaginados>(`${this.API}/admin/list`, { params });
+  }
+
+  resumenDashboard(inicioAnterior: Date, inicioActual: Date, finActual: Date) {
+    const params = new HttpParams()
+      .set('inicioAnterior', inicioAnterior.toISOString())
+      .set('inicioActual', inicioActual.toISOString())
+      .set('finActual', finActual.toISOString())
+      .set('desfaseZonaHoraria', -inicioActual.getTimezoneOffset());
+    return this.http.get<ResumenPedidosDashboard>(`${this.API}/admin/dashboard`, {
+      params,
+    });
   }
 
   actualizarEstado(pedidoId: number, estado: EstadoPedido) {

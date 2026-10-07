@@ -37,7 +37,7 @@ describe('MarcasService logos', () => {
     );
   });
 
-  it('borra el logo de Cloudinary antes de eliminar la marca', async () => {
+  it('elimina primero la marca y luego su logo de Cloudinary', async () => {
     prisma.marca.findUnique.mockResolvedValue({
       id: 7,
       nombre: 'Nike',
@@ -52,8 +52,8 @@ describe('MarcasService logos', () => {
       'sneark/marcas/7/nike',
     );
     expect(prisma.marca.delete).toHaveBeenCalledWith({ where: { id: 7 } });
-    expect(cloudinary.eliminarImagen.mock.invocationCallOrder[0]).toBeLessThan(
-      prisma.marca.delete.mock.invocationCallOrder[0],
+    expect(prisma.marca.delete.mock.invocationCallOrder[0]).toBeLessThan(
+      cloudinary.eliminarImagen.mock.invocationCallOrder[0],
     );
   });
 
@@ -117,6 +117,78 @@ describe('MarcasService logos', () => {
     });
     expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
       'sneark/marcas/7/old',
+    );
+  });
+
+  it('sube los logos a una carpeta basada solo en el nombre de la marca', async () => {
+    const archivo = { buffer: Buffer.from('logo') } as Express.Multer.File;
+    prisma.marca.findUnique.mockResolvedValue({
+      id: 7,
+      nombre: 'Nike Perú',
+      logo: null,
+      logoPublicId: null,
+    });
+    cloudinary.subirLogo.mockResolvedValue({
+      url: 'https://res.cloudinary.com/demo/image/upload/v2/sneark/marcas/nike-peru/logo.svg',
+      publicId: 'sneark/marcas/nike-peru/logo',
+    });
+    prisma.marca.update.mockResolvedValue({ id: 7 });
+
+    await service.subirLogo(7, archivo);
+
+    expect(cloudinary.subirLogo).toHaveBeenCalledWith(
+      archivo,
+      'sneark/marcas/nike-peru',
+    );
+  });
+
+  it('elimina el logo recién subido si falla su persistencia en la base de datos', async () => {
+    const errorPersistencia = new Error('Database unavailable');
+    prisma.marca.findUnique.mockResolvedValue({
+      id: 7,
+      nombre: 'Nike',
+      logo: null,
+      logoPublicId: null,
+    });
+    cloudinary.subirLogo.mockResolvedValue({
+      url: 'https://res.cloudinary.com/demo/image/upload/v2/sneark/marcas/nike/logo.svg',
+      publicId: 'sneark/marcas/nike/logo',
+    });
+    prisma.marca.update.mockRejectedValue(errorPersistencia);
+
+    await expect(
+      service.subirLogo(7, {
+        buffer: Buffer.from('logo'),
+      } as Express.Multer.File),
+    ).rejects.toBe(errorPersistencia);
+
+    expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
+      'sneark/marcas/nike/logo',
+    );
+  });
+
+  it('expone si no puede limpiar el logo tras fallar la persistencia', async () => {
+    prisma.marca.findUnique.mockResolvedValue({
+      id: 7,
+      nombre: 'Nike',
+      logo: null,
+      logoPublicId: null,
+    });
+    cloudinary.subirLogo.mockResolvedValue({
+      url: 'https://res.cloudinary.com/demo/image/upload/v2/sneark/marcas/nike/logo.svg',
+      publicId: 'sneark/marcas/nike/logo',
+    });
+    prisma.marca.update.mockRejectedValue(new Error('Database unavailable'));
+    cloudinary.eliminarImagen.mockRejectedValue(
+      new Error('Delete queued for retry'),
+    );
+
+    await expect(
+      service.subirLogo(7, {
+        buffer: Buffer.from('logo'),
+      } as Express.Multer.File),
+    ).rejects.toThrow(
+      'No se pudo guardar el logo y tampoco eliminar el archivo subido: Delete queued for retry',
     );
   });
 });

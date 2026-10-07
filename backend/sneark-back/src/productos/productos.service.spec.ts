@@ -6,13 +6,24 @@ import { ProductosService } from './productos.service.js';
 describe('ProductosService actualizar tallas', () => {
   let service: ProductosService;
   let tx: {
-    producto: { findUnique: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
+    producto: {
+      findUnique: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
+    };
     tallaProducto: {
       findMany: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
       create: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
     };
+  };
+  let prisma: {
+    producto: { findUnique: ReturnType<typeof vi.fn> };
+    imagenProducto: { createMany: ReturnType<typeof vi.fn> };
+  };
+  let cloudinary: {
+    subirImagen: ReturnType<typeof vi.fn>;
+    eliminarImagen: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -28,12 +39,18 @@ describe('ProductosService actualizar tallas', () => {
         deleteMany: vi.fn(),
       },
     };
-    const prisma = {
+    prisma = {
       $transaction: vi.fn((callback) => callback(tx)),
+      producto: { findUnique: vi.fn() },
+      imagenProducto: { createMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    } as unknown as typeof prisma;
+    cloudinary = {
+      subirImagen: vi.fn(),
+      eliminarImagen: vi.fn().mockResolvedValue(undefined),
     };
     service = new ProductosService(
       prisma as unknown as PrismaService,
-      {} as CloudinaryService,
+      cloudinary as unknown as CloudinaryService,
     );
   });
 
@@ -106,5 +123,82 @@ describe('ProductosService actualizar tallas', () => {
     ).rejects.toThrow(BadRequestException);
 
     expect(tx.producto.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('sube las fotos juntas en una carpeta basada en el nombre del producto', async () => {
+    const archivo = { buffer: Buffer.from('image') } as Express.Multer.File;
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
+      id: 3,
+      nombre: 'Nike Air Max 90 Rojo',
+    } as Awaited<ReturnType<typeof service.buscarPorId>>);
+    cloudinary.subirImagen.mockResolvedValue({
+      url: 'https://res.cloudinary.com/demo/image/upload/v2/sneark/productos/nike-air-max-90-rojo/photo.jpg',
+      publicId: 'sneark/productos/nike-air-max-90-rojo/photo',
+    });
+
+    await service.subirImagenes(3, [archivo]);
+
+    expect(cloudinary.subirImagen).toHaveBeenCalledWith(
+      archivo,
+      'sneark/productos/nike-air-max-90-rojo',
+    );
+    expect(prisma.imagenProducto.createMany).toHaveBeenCalledWith({
+      data: [
+        {
+          url: 'https://res.cloudinary.com/demo/image/upload/v2/sneark/productos/nike-air-max-90-rojo/photo.jpg',
+          publicId: 'sneark/productos/nike-air-max-90-rojo/photo',
+          productoId: 3,
+        },
+      ],
+    });
+  });
+
+  it('limpia las subidas completadas cuando falla una carga parcial', async () => {
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
+      id: 3,
+      nombre: 'Nike Air Max 90 Rojo',
+    } as Awaited<ReturnType<typeof service.buscarPorId>>);
+    cloudinary.subirImagen
+      .mockResolvedValueOnce({
+        url: 'https://example.test/image.jpg',
+        publicId: 'sneark/productos/nike/image',
+      })
+      .mockRejectedValueOnce(new Error('Cloudinary unavailable'));
+
+    await expect(
+      service.subirImagenes(3, [
+        { buffer: Buffer.from('first') },
+        { buffer: Buffer.from('second') },
+      ] as Express.Multer.File[]),
+    ).rejects.toThrow('Cloudinary unavailable');
+
+    expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
+      'sneark/productos/nike/image',
+    );
+    expect(prisma.imagenProducto.createMany).not.toHaveBeenCalled();
+  });
+
+  it('limpia los archivos subidos si falla su persistencia en la base de datos', async () => {
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
+      id: 3,
+      nombre: 'Nike Air Max 90 Rojo',
+    } as Awaited<ReturnType<typeof service.buscarPorId>>);
+    cloudinary.subirImagen.mockResolvedValue({
+      url: 'https://example.test/image.jpg',
+      publicId: 'sneark/productos/nike/image',
+    });
+    prisma.imagenProducto.createMany.mockRejectedValue(
+      new Error('Database unavailable'),
+    );
+
+    await expect(
+      service.subirImagenes(3, [
+        { buffer: Buffer.from('first') },
+      ] as Express.Multer.File[]),
+    ).rejects.toThrow('Database unavailable');
+
+    expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
+      'sneark/productos/nike/image',
+    );
   });
 });

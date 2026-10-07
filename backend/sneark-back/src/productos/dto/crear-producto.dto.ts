@@ -1,7 +1,6 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
-  IsBoolean,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -15,6 +14,7 @@ import {
 
 // DTO para cada talla dentro del producto
 export class TallaDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty({ message: 'La talla es obligatoria' })
   @MaxLength(20)
@@ -35,7 +35,10 @@ export class CrearProductoDto {
   @IsString()
   descripcion?: string;
 
-  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El precio debe ser un número válido' })
+  @IsNumber(
+    { maxDecimalPlaces: 2 },
+    { message: 'El precio debe ser un número válido' },
+  )
   @IsPositive({ message: 'El precio debe ser mayor a 0' })
   @Type(() => Number)
   precio: number;

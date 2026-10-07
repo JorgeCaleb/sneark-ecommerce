@@ -3,9 +3,11 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AgregarItemDto } from './dto/agregar-item.dto.js';
 import { ActualizarItemDto } from './dto/actualizar-item.dto.js';
+import { INCLUDE_PRODUCTO_RESUMEN } from '../prisma/selecciones.js';
 
 // Campos que siempre se incluyen al devolver el carrito
 const INCLUDE_CARRITO = {
@@ -15,18 +17,18 @@ const INCLUDE_CARRITO = {
         include: {
           producto: {
             include: {
-              imagenes: {
-                take: 1, // Solo la primera imagen en el carrito
-                select: { url: true },
-              },
-              marca: { select: { nombre: true } },
+              ...INCLUDE_PRODUCTO_RESUMEN,
             },
           },
         },
       },
     },
   },
-};
+} satisfies Prisma.CarritoInclude;
+
+type CarritoIncluido = Prisma.CarritoGetPayload<{
+  include: typeof INCLUDE_CARRITO;
+}>;
 
 @Injectable()
 export class CarritoService {
@@ -185,26 +187,20 @@ export class CarritoService {
   }
 
   // Calcula subtotales y total del carrito
-  private calcularTotales(carrito: any) {
-    const items = carrito.items.map((item: any) => {
+  private calcularTotales(carrito: CarritoIncluido) {
+    const items = carrito.items.map((item) => {
       const precio = Number(item.tallaProducto.producto.precio);
       const subtotal = precio * item.cantidad;
       return { ...item, subtotal };
     });
 
-    const total = items.reduce(
-      (acc: number, item: any) => acc + item.subtotal,
-      0,
-    );
+    const total = items.reduce((acc, item) => acc + item.subtotal, 0);
 
     return {
       ...carrito,
       items,
       total: Number(total.toFixed(2)),
-      cantidadItems: items.reduce(
-        (acc: number, item: any) => acc + item.cantidad,
-        0,
-      ),
+      cantidadItems: items.reduce((acc, item) => acc + item.cantidad, 0),
     };
   }
 }

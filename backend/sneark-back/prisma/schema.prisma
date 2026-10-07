@@ -172,7 +172,8 @@ model Pedido {
   metodoPago MetodoPago
 
   // URL de Cloudinary del comprobante de Yape/Plin
-  comprobante     String? @db.VarChar(500)
+  comprobante         String? @db.VarChar(500)
+  comprobantePublicId String? @db.VarChar(255)
   // Código de operación del comprobante (ayuda a verificar y detectar repetidos)
   numeroOperacion String? @db.VarChar(50)
 
@@ -187,8 +188,21 @@ model Pedido {
   @@index([usuarioId])
   @@index([estado])
   @@index([creadoEn])
-  @@index([numeroOperacion])
+  @@unique([numeroOperacion])
   @@map("pedidos")
+}
+
+model CloudinaryDeleteJob {
+  id               Int      @id @default(autoincrement())
+  publicId         String   @unique @db.VarChar(255)
+  attempts         Int      @default(0)
+  nextAttemptAt    DateTime @default(now())
+  lastError        String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([nextAttemptAt])
+  @@map("cloudinary_delete_jobs")
 }
 
 model ItemPedido {

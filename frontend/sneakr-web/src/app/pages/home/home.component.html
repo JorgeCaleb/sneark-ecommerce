@@ -114,7 +114,14 @@
 
     <!-- Grid de productos -->
     @if (!cargando()) {
-      @if (destacados().length === 0) {
+      @if (errorCarga()) {
+        <div class="destacados__empty" role="alert">
+          <p>No se pudieron cargar los productos destacados.</p>
+          <button class="btn-primary" type="button" (click)="cargarDestacados()">
+            Reintentar
+          </button>
+        </div>
+      } @else if (destacados().length === 0) {
         <div class="destacados__empty">
           <p>Pronto habrá productos disponibles.</p>
           <a routerLink="/catalogo" class="btn-primary" style="margin-top: 1rem">
