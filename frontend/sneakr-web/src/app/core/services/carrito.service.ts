@@ -20,8 +20,12 @@ export interface ItemCarrito {
   subtotal: ValorMonetario;
   tallaProductoId: number;
   tallaProducto: {
+    genero: 'M' | 'W' | 'X';
+    colorId: number;
+    color: { id: number; nombre: string; codigo: string };
     talla: string;
     stock: number;
+    sku: string;
     producto: {
       id: number;
       nombre: string;

@@ -15,6 +15,7 @@ const INCLUDE_CARRITO = {
     include: {
       tallaProducto: {
         include: {
+          color: true,
           producto: {
             include: {
               ...INCLUDE_PRODUCTO_RESUMEN,
@@ -49,6 +50,15 @@ export class CarritoService {
     }
 
     return this.calcularTotales(carrito);
+  }
+
+  async obtenerEnTransaccion(tx: Prisma.TransactionClient, usuarioId: number) {
+    const carrito = await tx.carrito.findUnique({
+      where: { usuarioId },
+      include: INCLUDE_CARRITO,
+    });
+
+    return carrito ? this.calcularTotales(carrito) : null;
   }
 
   async agregar(usuarioId: number, dto: AgregarItemDto) {
@@ -139,24 +149,53 @@ export class CarritoService {
     itemId: number,
     dto: ActualizarItemDto,
   ) {
-    const item = await this.verificarItemDelUsuario(usuarioId, itemId);
+    await this.prisma.$transaction(async (tx) => {
+      const carrito = await tx.carrito.findUnique({
+        where: { usuarioId },
+        select: { id: true },
+      });
 
-    if (!item.tallaProducto.producto.activo) {
-      throw new BadRequestException('Este producto no está disponible');
-    }
+      if (!carrito) {
+        throw new NotFoundException('Carrito no encontrado');
+      }
 
-    // Verificar stock disponible
-    const talla = item.tallaProducto;
+      const item = await tx.itemCarrito.findFirst({
+        where: { id: itemId, carritoId: carrito.id },
+        include: {
+          tallaProducto: {
+            include: { producto: true },
+          },
+        },
+      });
 
-    if (!talla || talla.stock < dto.cantidad) {
-      throw new BadRequestException(
-        `Stock insuficiente. Solo hay ${talla?.stock ?? 0} unidades disponibles`,
-      );
-    }
+      if (!item) {
+        throw new NotFoundException('Item no encontrado en el carrito');
+      }
 
-    await this.prisma.itemCarrito.update({
-      where: { id: itemId },
-      data: { cantidad: dto.cantidad },
+      if (!item.tallaProducto.producto.activo) {
+        throw new BadRequestException('Este producto no está disponible');
+      }
+
+      if (item.tallaProducto.stock < dto.cantidad) {
+        throw new BadRequestException(
+          `Stock insuficiente. Solo hay ${item.tallaProducto.stock} unidades disponibles`,
+        );
+      }
+
+      const actualizado = await tx.itemCarrito.updateMany({
+        where: {
+          id: itemId,
+          carritoId: carrito.id,
+          cantidad: item.cantidad,
+        },
+        data: { cantidad: dto.cantidad },
+      });
+
+      if (actualizado.count !== 1) {
+        throw new BadRequestException(
+          'El carrito cambió durante la actualización. Revísalo e inténtalo nuevamente.',
+        );
+      }
     });
 
     return this.obtener(usuarioId);

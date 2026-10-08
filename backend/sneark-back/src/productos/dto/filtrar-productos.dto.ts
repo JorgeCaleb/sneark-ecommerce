@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsInt,
+  IsIn,
   IsNumber,
   IsOptional,
   IsPositive,
@@ -14,6 +15,16 @@ export class FiltrarProductosDto {
   @IsOptional()
   @IsString()
   busqueda?: string; // Búsqueda por nombre
+
+  @IsOptional()
+  @IsIn(['M', 'W', 'X'])
+  genero?: 'M' | 'W' | 'X';
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  colorId?: number;
 
   @IsOptional()
   @IsInt()

@@ -11,6 +11,7 @@ import { CategoriasModule } from './categorias/categorias.module.js';
 import { ProductosModule } from './productos/productos.module.js';
 import { CarritoModule } from './carrito/carrito.module.js';
 import { PedidosModule } from './pedidos/pedidos.module.js';
+import { ColoresModule } from './colores/colores.module.js';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { PedidosModule } from './pedidos/pedidos.module.js';
     ProductosModule,
     CarritoModule,
     PedidosModule,
+    ColoresModule,
   ],
   controllers: [AppController],
   providers: [AppService],

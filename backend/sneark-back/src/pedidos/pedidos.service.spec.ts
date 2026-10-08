@@ -3,6 +3,7 @@ import { EstadoPedido, Prisma } from '@prisma/client';
 import { CarritoService } from '../carrito/carrito.service.js';
 import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { MetodoPagoDto } from './dto/crear-pedido.dto.js';
 import { PedidosService } from './pedidos.service.js';
 
 describe('PedidosService ownership lookup', () => {
@@ -44,10 +45,14 @@ describe('PedidosService ownership lookup', () => {
 
 describe('PedidosService order creation inventory reservation', () => {
   const item = {
+    id: 14,
     tallaProductoId: 21,
     cantidad: 2,
     subtotal: 200,
     tallaProducto: {
+      genero: 'M',
+      sku: 'SN-ONE-M-BK-42',
+      color: { nombre: 'Negro', codigo: 'BK' },
       talla: '42',
       producto: { id: 13, nombre: 'Sneark One', precio: 100, activo: true },
     },
@@ -57,14 +62,16 @@ describe('PedidosService order creation inventory reservation', () => {
   let actualizarStock: ReturnType<typeof vi.fn>;
   let crearPedido: ReturnType<typeof vi.fn>;
   let vaciarCarrito: ReturnType<typeof vi.fn>;
-  let carritoService: { obtener: ReturnType<typeof vi.fn> };
+  let contarArticulosRestantes: ReturnType<typeof vi.fn>;
+  let carritoService: { obtenerEnTransaccion: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     actualizarStock = vi.fn();
     crearPedido = vi.fn().mockResolvedValue({ id: 35 });
     vaciarCarrito = vi.fn().mockResolvedValue({ count: 1 });
+    contarArticulosRestantes = vi.fn().mockResolvedValue(0);
     carritoService = {
-      obtener: vi.fn().mockResolvedValue({
+      obtenerEnTransaccion: vi.fn().mockResolvedValue({
         id: 9,
         total: 200,
         items: [item],
@@ -74,7 +81,10 @@ describe('PedidosService order creation inventory reservation', () => {
       tallaProducto: { updateMany: actualizarStock },
       producto: { findMany: vi.fn().mockResolvedValue([]) },
       pedido: { create: crearPedido },
-      itemCarrito: { deleteMany: vaciarCarrito },
+      itemCarrito: {
+        deleteMany: vaciarCarrito,
+        count: contarArticulosRestantes,
+      },
     };
     const prisma = {
       $transaction: vi.fn(
@@ -89,12 +99,35 @@ describe('PedidosService order creation inventory reservation', () => {
     );
   });
 
+  it('reports serialization conflicts as a retryable checkout error', async () => {
+    const transaction = vi.fn().mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Transaction conflict', {
+        code: 'P2034',
+        clientVersion: 'test',
+      }),
+    );
+    const service = new PedidosService(
+      { $transaction: transaction } as unknown as PrismaService,
+      {} as CloudinaryService,
+      {} as CarritoService,
+    );
+
+    await expect(
+      service.crear(7, {
+        metodoPago: MetodoPagoDto.YAPE,
+        telefono: '999999999',
+        ciudad: 'Lima',
+        direccion: 'Calle 1',
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
   it('conditionally reserves stock before creating the order', async () => {
     actualizarStock.mockResolvedValue({ count: 1 });
 
     await expect(
       service.crear(7, {
-        metodoPago: 'YAPE',
+        metodoPago: MetodoPagoDto.YAPE,
         telefono: '999999999',
         ciudad: 'Lima',
         direccion: 'Calle 1',
@@ -105,11 +138,33 @@ describe('PedidosService order creation inventory reservation', () => {
       where: { id: 21, stock: { gte: 2 } },
       data: { stock: { decrement: 2 } },
     });
-    expect(vaciarCarrito).toHaveBeenCalledWith({ where: { carritoId: 9 } });
+    expect(vaciarCarrito).toHaveBeenCalledWith({
+      where: {
+        carritoId: 9,
+        OR: [{ id: 14, cantidad: 2 }],
+      },
+    });
+    expect(contarArticulosRestantes).toHaveBeenCalledWith({
+      where: { carritoId: 9 },
+    });
     expect(vaciarCarrito.mock.invocationCallOrder[0]).toBeLessThan(
       actualizarStock.mock.invocationCallOrder[0],
     );
     expect(crearPedido).toHaveBeenCalledOnce();
+    expect(crearPedido.mock.calls[0][0].data.items.create).toEqual([
+      {
+        tallaProductoId: 21,
+        nombreProducto: 'Sneark One',
+        genero: 'M',
+        nombreColor: 'Negro',
+        codigoColor: 'BK',
+        sku: 'SN-ONE-M-BK-42',
+        talla: '42',
+        cantidad: 2,
+        precio: 100,
+        subtotal: 200,
+      },
+    ]);
   });
 
   it('rejects a concurrent request that can no longer consume the cart', async () => {
@@ -117,7 +172,24 @@ describe('PedidosService order creation inventory reservation', () => {
 
     await expect(
       service.crear(7, {
-        metodoPago: 'YAPE',
+        metodoPago: MetodoPagoDto.YAPE,
+        telefono: '999999999',
+        ciudad: 'Lima',
+        direccion: 'Calle 1',
+      }),
+    ).rejects.toThrow('El carrito cambió durante la compra');
+
+    expect(actualizarStock).not.toHaveBeenCalled();
+    expect(crearPedido).not.toHaveBeenCalled();
+  });
+
+  it('rejects checkout if another item remains after consuming the snapshot', async () => {
+    actualizarStock.mockResolvedValue({ count: 1 });
+    contarArticulosRestantes.mockResolvedValue(1);
+
+    await expect(
+      service.crear(7, {
+        metodoPago: MetodoPagoDto.YAPE,
         telefono: '999999999',
         ciudad: 'Lima',
         direccion: 'Calle 1',
@@ -136,7 +208,10 @@ describe('PedidosService order creation inventory reservation', () => {
     const crearPedido = vi.fn();
     const tx = {
       producto: { findMany: encontrarInactivos },
-      itemCarrito: { deleteMany: carritoConsumido },
+      itemCarrito: {
+        deleteMany: carritoConsumido,
+        count: vi.fn().mockResolvedValue(0),
+      },
       tallaProducto: { updateMany: reservarStock },
       pedido: { create: crearPedido },
     };
@@ -144,7 +219,7 @@ describe('PedidosService order creation inventory reservation', () => {
       $transaction: vi.fn((callback) => callback(tx)),
     };
     const carritoService = {
-      obtener: vi.fn().mockResolvedValue({
+      obtenerEnTransaccion: vi.fn().mockResolvedValue({
         id: 9,
         total: 200,
         items: [item],
@@ -158,7 +233,7 @@ describe('PedidosService order creation inventory reservation', () => {
 
     await expect(
       service.crear(7, {
-        metodoPago: 'YAPE',
+        metodoPago: MetodoPagoDto.YAPE,
         telefono: '999999999',
         ciudad: 'Lima',
         direccion: 'Calle 1',
@@ -175,13 +250,14 @@ describe('PedidosService order creation inventory reservation', () => {
   });
 
   it('aborts the transaction if a later size has insufficient stock', async () => {
-    carritoService.obtener.mockResolvedValue({
+    carritoService.obtenerEnTransaccion.mockResolvedValue({
       id: 9,
       total: 400,
       items: [
         item,
         {
           ...item,
+          id: 15,
           tallaProductoId: 22,
           tallaProducto: {
             talla: '43',
@@ -202,7 +278,7 @@ describe('PedidosService order creation inventory reservation', () => {
 
     await expect(
       service.crear(7, {
-        metodoPago: 'YAPE',
+        metodoPago: MetodoPagoDto.YAPE,
         telefono: '999999999',
         ciudad: 'Lima',
         direccion: 'Calle 1',

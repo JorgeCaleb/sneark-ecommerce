@@ -5,8 +5,7 @@ export const routes: Routes = [
   // ─── Públicas ────────────────────────────────────────────────────────────────
   {
     path: '',
-    loadComponent: () =>
-      import('./pages/home/home.component').then((m) => m.HomeComponent),
+    loadComponent: () => import('./pages/home/home.component').then((m) => m.HomeComponent),
   },
   {
     path: 'catalogo',
@@ -24,8 +23,7 @@ export const routes: Routes = [
   // ─── Auth ────────────────────────────────────────────────────────────────────
   {
     path: 'auth/login',
-    loadComponent: () =>
-      import('./pages/auth/login/login.component').then((m) => m.LoginComponent),
+    loadComponent: () => import('./pages/auth/login/login.component').then((m) => m.LoginComponent),
   },
   {
     path: 'auth/registro',
@@ -64,9 +62,7 @@ export const routes: Routes = [
     path: 'admin',
     canActivate: [authGuard, adminGuard],
     loadComponent: () =>
-      import('./pages/admin/layout/admin-layout.component').then(
-        (m) => m.AdminLayoutComponent,
-      ),
+      import('./pages/admin/layout/admin-layout.component').then((m) => m.AdminLayoutComponent),
     children: [
       {
         path: '',
@@ -83,6 +79,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'clientes',
+        loadComponent: () =>
+          import('./pages/admin/clientes/admin-clientes.component').then(
+            (m) => m.AdminClientesComponent,
+          ),
+      },
+      {
         path: 'productos',
         loadComponent: () =>
           import('./pages/admin/productos/admin-productos.component').then(
@@ -92,15 +95,29 @@ export const routes: Routes = [
       {
         path: 'marcas',
         loadComponent: () =>
-          import('./pages/admin/marcas/admin-marcas.component').then(
-            (m) => m.AdminMarcasComponent,
-          ),
+          import('./pages/admin/marcas/admin-marcas.component').then((m) => m.AdminMarcasComponent),
       },
       {
         path: 'categorias',
         loadComponent: () =>
           import('./pages/admin/categorias/admin-categorias.component').then(
             (m) => m.AdminCategoriasComponent,
+          ),
+      },
+      {
+        path: 'inventario',
+        data: { soloStockBajo: false },
+        loadComponent: () =>
+          import('./pages/admin/inventario/admin-inventario.component').then(
+            (m) => m.AdminInventarioComponent,
+          ),
+      },
+      {
+        path: 'stock-bajo',
+        data: { soloStockBajo: true },
+        loadComponent: () =>
+          import('./pages/admin/inventario/admin-inventario.component').then(
+            (m) => m.AdminInventarioComponent,
           ),
       },
     ],

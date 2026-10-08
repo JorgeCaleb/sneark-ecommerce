@@ -47,3 +47,58 @@ describe('UsuariosService crear', () => {
     ).rejects.toBe(databaseError);
   });
 });
+
+describe('UsuariosService buscarClientes', () => {
+  it('returns a paginated customer directory without password fields', async () => {
+    const clientes = [
+      {
+        id: 8,
+        nombre: 'Cliente',
+        email: 'cliente@example.test',
+        creadoEn: new Date('2026-01-01'),
+        _count: { pedidos: 2 },
+      },
+    ];
+    const findMany = vi.fn().mockResolvedValue(clientes);
+    const count = vi.fn().mockResolvedValue(1);
+    const service = new UsuariosService({
+      usuario: { findMany, count },
+    } as unknown as PrismaService);
+
+    await expect(
+      service.buscarClientes({ busqueda: 'cliente', pagina: 2, limite: 10 }),
+    ).resolves.toEqual({
+      datos: clientes,
+      meta: { total: 1, pagina: 2, limite: 10, totalPaginas: 1 },
+    });
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        rol: 'CLIENTE',
+        OR: [
+          { nombre: { contains: 'cliente' } },
+          { email: { contains: 'cliente' } },
+        ],
+      },
+      select: {
+        id: true,
+        nombre: true,
+        email: true,
+        creadoEn: true,
+        _count: { select: { pedidos: true } },
+      },
+      orderBy: { creadoEn: 'desc' },
+      skip: 10,
+      take: 10,
+    });
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        rol: 'CLIENTE',
+        OR: [
+          { nombre: { contains: 'cliente' } },
+          { email: { contains: 'cliente' } },
+        ],
+      },
+    });
+    expect(JSON.stringify(clientes)).not.toContain('password');
+  });
+});

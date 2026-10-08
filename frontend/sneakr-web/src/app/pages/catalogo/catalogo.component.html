@@ -12,6 +12,34 @@
         }
       </div>
 
+      <div class="filtros__grupo">
+        <h3 class="filtros__grupo-title">Género</h3>
+        <div class="filtros__opciones">
+          <button class="filtros__opcion" [class.filtros__opcion--activa]="!genero"
+                  (click)="genero = ''; aplicarFiltros()">Todos</button>
+          <button class="filtros__opcion" [class.filtros__opcion--activa]="genero === 'M'"
+                  (click)="genero = 'M'; aplicarFiltros()">Hombre</button>
+          <button class="filtros__opcion" [class.filtros__opcion--activa]="genero === 'W'"
+                  (click)="genero = 'W'; aplicarFiltros()">Mujer</button>
+          <button class="filtros__opcion" [class.filtros__opcion--activa]="genero === 'X'"
+                  (click)="genero = 'X'; aplicarFiltros()">Unisex</button>
+        </div>
+      </div>
+
+      <div class="filtros__grupo">
+        <h3 class="filtros__grupo-title">Color</h3>
+        <div class="filtros__opciones">
+          <button class="filtros__opcion" [class.filtros__opcion--activa]="!colorId"
+                  (click)="colorId = 0; aplicarFiltros()">Todos</button>
+          @for (color of colores(); track color.id) {
+            <button class="filtros__opcion" [class.filtros__opcion--activa]="colorId === color.id"
+                    (click)="colorId = color.id; aplicarFiltros()">
+              {{ color.nombre }} ({{ color.codigo }})
+            </button>
+          }
+        </div>
+      </div>
+
       <!-- Búsqueda -->
       <div class="catalogo__search-wrap">
         <svg class="catalogo__search-icon" width="18" height="18" viewBox="0 0 24 24"

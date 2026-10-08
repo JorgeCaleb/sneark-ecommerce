@@ -22,8 +22,12 @@ function itemCarrito() {
     subtotal: 25,
     tallaProductoId: 10,
     tallaProducto: {
+      genero: 'M' as const,
+      colorId: 3,
+      color: { id: 3, nombre: 'Negro', codigo: 'BK' },
       talla: '42',
       stock: 5,
+      sku: 'SN-M-BK-42',
       producto: {
         id: 8,
         nombre: 'Sneark',

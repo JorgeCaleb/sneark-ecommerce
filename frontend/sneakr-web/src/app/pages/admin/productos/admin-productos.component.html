@@ -20,7 +20,7 @@
 
   @if (errorDependencias()) {
     <div class="admin-empty" role="alert">
-      <p>No se pudieron cargar las marcas o categorías.</p>
+      <p>No se pudieron cargar las marcas, categorías o colores.</p>
       <button class="btn-secondary" type="button" (click)="cargarDependencias()">
         Reintentar
       </button>
@@ -65,7 +65,7 @@
             <th class="tabla__th">Categoría</th>
             <th class="tabla__th tabla__th--right">Precio</th>
             <th class="tabla__th">Estado</th>
-            <th class="tabla__th">Tallas</th>
+            <th class="tabla__th">Variantes</th>
             <th class="tabla__th tabla__th--right">Acciones</th>
           </tr>
         </thead>
@@ -84,7 +84,7 @@
                   </div>
                 </div>
               </td>
-              <td class="tabla__td tabla__td--muted">{{ p.marca.nombre }}</td>
+              <td class="tabla__td tabla__td--muted">{{ p.marca.nombre }} · {{ p.marca.codigo }}</td>
               <td class="tabla__td tabla__td--muted">{{ p.categoria.nombre }}</td>
               <td class="tabla__td tabla__td--right tabla__td--bold">
                 {{ formatearPrecio(p.precio) }}
@@ -99,8 +99,9 @@
               <td class="tabla__td">
                 <div class="tallas-list">
                   @for (t of p.tallas.slice(0, 4); track t.id) {
-                    <span class="talla-chip" [class.talla-chip--agotada]="t.stock === 0">
-                      {{ t.talla }}
+                    <span class="talla-chip" [class.talla-chip--agotada]="t.stock === 0"
+                          [title]="t.sku">
+                      {{ t.genero }} · {{ t.color.nombre }} · {{ t.talla }}
                     </span>
                   }
                   @if (p.tallas.length > 4) {
@@ -144,6 +145,16 @@
           }
         </tbody>
       </table>
+    </div>
+
+    <div class="form-field">
+      <label class="form-label" for="producto-modelo">
+        Código de modelo <span class="form-req">*</span>
+      </label>
+      <input type="text" class="form-input" [(ngModel)]="form.codigoModelo"
+             id="producto-modelo" placeholder="Ej. AF1" maxlength="20"
+             autocomplete="off" [readonly]="!!productoEditar()?.tallas.length"
+             (blur)="actualizarSkus()" />
     </div>
 
     <!-- Paginación -->
@@ -231,7 +242,8 @@
             Marca <span class="form-req">*</span>
           </label>
           <select class="form-input" id="producto-marca" [(ngModel)]="form.marcaId"
-                  [disabled]="cargandoDependencias() || errorDependencias()">
+                  [disabled]="cargandoDependencias() || errorDependencias() || !!productoEditar()?.tallas.length"
+                  (ngModelChange)="actualizarSkus()">
             <option [value]="0" disabled>Seleccioná una marca</option>
             @for (m of marcas(); track m.id) {
               <option [value]="m.id">{{ m.nombre }}</option>
@@ -260,21 +272,37 @@
                     rows="3"></textarea>
         </div>
 
-        <!-- Tallas -->
+        <!-- Variantes -->
         <div class="form-field form-field--full">
           <div class="tallas-header">
-            <label class="form-label">Tallas y stock</label>
+            <label class="form-label">Variantes</label>
             <button type="button" class="tallas-agregar" (click)="agregarTalla()">
-              + Agregar talla
+              + Agregar variante
             </button>
           </div>
           <div class="tallas-form-list">
             @for (t of form.tallas; track $index; let i = $index) {
               <div class="talla-row">
+                <select class="form-input" [(ngModel)]="t.genero" aria-label="Género"
+                        (ngModelChange)="actualizarSku(i)">
+                  <option value="M">Hombre (M)</option>
+                  <option value="W">Mujer (W)</option>
+                  <option value="X">Unisex (X)</option>
+                </select>
+                <select class="form-input" [(ngModel)]="t.colorId" aria-label="Color"
+                        (ngModelChange)="actualizarSku(i)">
+                  <option [ngValue]="0" disabled>Seleccionar color</option>
+                  @for (color of colores(); track color.id) {
+                    <option [ngValue]="color.id">{{ color.nombre }} ({{ color.codigo }})</option>
+                  }
+                </select>
                 <input type="text" class="form-input talla-input" [(ngModel)]="t.talla"
-                       placeholder="Talla (ej: 42)" maxlength="20" />
+                       placeholder="Talla (ej: 42.5)" maxlength="20"
+                       (blur)="actualizarSku(i)" />
                 <input type="number" class="form-input stock-input" [(ngModel)]="t.stock"
                        placeholder="Stock" min="0" />
+                <input type="text" class="form-input" [value]="t.sku ?? 'Completa la variante para generar SKU'"
+                       readonly aria-label="SKU generado por el servidor" />
                 <button type="button" class="talla-quitar" (click)="quitarTalla(i)">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -284,8 +312,15 @@
               </div>
             }
             @if (form.tallas.length === 0) {
-              <p class="tallas-hint">No hay tallas agregadas. El producto se creará sin tallas.</p>
+              <p class="tallas-hint">No hay variantes agregadas. El producto se creará sin inventario.</p>
             }
+          </div>
+          <div class="color-inline">
+            <input type="text" class="form-input" [(ngModel)]="form.nuevoColorNombre"
+                   placeholder="Nuevo color" maxlength="50" aria-label="Nombre del nuevo color" />
+            <input type="text" class="form-input" [(ngModel)]="form.nuevoColorCodigo"
+                   placeholder="Código (ej. BK)" maxlength="10" aria-label="Código del nuevo color" />
+            <button type="button" class="btn-secondary" (click)="crearColor()">Agregar color</button>
           </div>
         </div>
 

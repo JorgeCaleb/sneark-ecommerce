@@ -78,7 +78,11 @@
                        class="carrito-item__nombre">
                       {{ item.tallaProducto.producto.nombre }}
                     </a>
-                    <p class="carrito-item__talla">Talla: {{ item.tallaProducto.talla }}</p>
+                    <p class="carrito-item__talla">
+                      {{ item.tallaProducto.genero }} · {{ item.tallaProducto.color.nombre }}
+                      · Talla {{ item.tallaProducto.talla }}
+                    </p>
+                    <small>SKU: {{ item.tallaProducto.sku }}</small>
                     @if (!item.tallaProducto.producto.activo) {
                       <p class="carrito-item__disponibilidad">No disponible</p>
                     }

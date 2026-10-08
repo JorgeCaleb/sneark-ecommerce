@@ -15,6 +15,7 @@ import { SubirComprobanteDto } from './dto/subir-comprobante.dto.js';
 import { FiltrarPedidosDto } from './dto/filtrar-pedidos.dto.js';
 import { DashboardPedidosDto } from './dto/dashboard-pedidos.dto.js';
 import { INCLUDE_PRODUCTO_RESUMEN } from '../prisma/selecciones.js';
+import { publicIdDesdeUrlCloudinary } from '../cloudinary/public-id-cloudinary.util.js';
 
 // Campos incluidos al devolver un pedido
 const INCLUDE_PEDIDO = {
@@ -47,91 +48,121 @@ export class PedidosService {
 
   // ─── Crear pedido desde el carrito ───────────────────────────────────────────
   async crear(usuarioId: number, dto: CrearPedidoDto) {
-    // Obtener carrito con totales calculados
-    const carrito = await this.carritoService.obtener(usuarioId);
-
-    if (!carrito.items.length) {
-      throw new BadRequestException('El carrito está vacío');
-    }
-
-    // Crear el pedido y sus items en una transacción atómica
-    const pedido = await this.prisma.$transaction(
-      async (tx) => {
-        const productosNoDisponibles = await tx.producto.findMany({
-          where: {
-            id: {
-              in: [
-                ...new Set(
-                  carrito.items.map((item) => item.tallaProducto.producto.id),
-                ),
-              ],
-            },
-            activo: false,
-          },
-          select: { nombre: true },
-        });
-
-        if (productosNoDisponibles.length) {
-          throw new BadRequestException(
-            `Productos no disponibles: ${productosNoDisponibles.map((producto) => `"${producto.nombre}"`).join(', ')}`,
+    try {
+      // Crear el pedido y sus items en una transacción atómica
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const carrito = await this.carritoService.obtenerEnTransaccion(
+            tx,
+            usuarioId,
           );
-        }
 
-        const carritoConsumido = await tx.itemCarrito.deleteMany({
-          where: { carritoId: carrito.id },
-        });
-        if (carritoConsumido.count !== carrito.items.length) {
-          throw new BadRequestException(
-            'El carrito cambió durante la compra. Revísalo e inténtalo nuevamente.',
-          );
-        }
+          if (!carrito?.items.length) {
+            throw new BadRequestException('El carrito está vacío');
+          }
 
-        // Reservar cada talla de forma condicional para evitar sobreventa concurrente.
-        for (const item of carrito.items) {
-          const actualizacion = await tx.tallaProducto.updateMany({
+          const productosNoDisponibles = await tx.producto.findMany({
             where: {
-              id: item.tallaProductoId,
-              stock: { gte: item.cantidad },
+              id: {
+                in: [
+                  ...new Set(
+                    carrito.items.map((item) => item.tallaProducto.producto.id),
+                  ),
+                ],
+              },
+              activo: false,
             },
-            data: { stock: { decrement: item.cantidad } },
+            select: { nombre: true },
           });
 
-          if (actualizacion.count !== 1) {
+          if (productosNoDisponibles.length) {
             throw new BadRequestException(
-              `Stock insuficiente para "${item.tallaProducto.producto.nombre}" talla ${item.tallaProducto.talla}`,
+              `Productos no disponibles: ${productosNoDisponibles.map((producto) => `"${producto.nombre}"`).join(', ')}`,
             );
           }
-        }
 
-        // Crear el pedido solo después de reservar correctamente todas las tallas.
-        return tx.pedido.create({
-          data: {
-            usuarioId,
-            total: carrito.total,
-            metodoPago:
-              dto.metodoPago === 'YAPE' ? MetodoPago.YAPE : MetodoPago.PLIN,
-            telefono: dto.telefono,
-            ciudad: dto.ciudad,
-            direccion: dto.direccion,
-            // Crear todos los items del pedido como snapshot
-            items: {
-              create: carrito.items.map((item) => ({
-                tallaProductoId: item.tallaProductoId,
-                nombreProducto: item.tallaProducto.producto.nombre,
-                talla: item.tallaProducto.talla,
+          const carritoConsumido = await tx.itemCarrito.deleteMany({
+            where: {
+              carritoId: carrito.id,
+              OR: carrito.items.map((item) => ({
+                id: item.id,
                 cantidad: item.cantidad,
-                precio: item.tallaProducto.producto.precio,
-                subtotal: item.subtotal,
               })),
             },
-          },
-          include: INCLUDE_PEDIDO,
-        });
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+          });
+          if (carritoConsumido.count !== carrito.items.length) {
+            throw new BadRequestException(
+              'El carrito cambió durante la compra. Revísalo e inténtalo nuevamente.',
+            );
+          }
+          const articulosRestantes = await tx.itemCarrito.count({
+            where: { carritoId: carrito.id },
+          });
+          if (articulosRestantes !== 0) {
+            throw new BadRequestException(
+              'El carrito cambió durante la compra. Revísalo e inténtalo nuevamente.',
+            );
+          }
 
-    return pedido;
+          // Reservar cada talla de forma condicional para evitar sobreventa concurrente.
+          for (const item of carrito.items) {
+            const actualizacion = await tx.tallaProducto.updateMany({
+              where: {
+                id: item.tallaProductoId,
+                stock: { gte: item.cantidad },
+              },
+              data: { stock: { decrement: item.cantidad } },
+            });
+
+            if (actualizacion.count !== 1) {
+              throw new BadRequestException(
+                `Stock insuficiente para "${item.tallaProducto.producto.nombre}" talla ${item.tallaProducto.talla}`,
+              );
+            }
+          }
+
+          // Crear el pedido solo después de reservar correctamente todas las tallas.
+          return tx.pedido.create({
+            data: {
+              usuarioId,
+              total: carrito.total,
+              metodoPago:
+                dto.metodoPago === 'YAPE' ? MetodoPago.YAPE : MetodoPago.PLIN,
+              telefono: dto.telefono,
+              ciudad: dto.ciudad,
+              direccion: dto.direccion,
+              // Crear todos los items del pedido como snapshot
+              items: {
+                create: carrito.items.map((item) => ({
+                  tallaProductoId: item.tallaProductoId,
+                  nombreProducto: item.tallaProducto.producto.nombre,
+                  genero: item.tallaProducto.genero,
+                  nombreColor: item.tallaProducto.color.nombre,
+                  codigoColor: item.tallaProducto.color.codigo,
+                  sku: item.tallaProducto.sku,
+                  talla: item.tallaProducto.talla,
+                  cantidad: item.cantidad,
+                  precio: item.tallaProducto.producto.precio,
+                  subtotal: item.subtotal,
+                })),
+              },
+            },
+            include: INCLUDE_PEDIDO,
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2034'
+      ) {
+        throw new BadRequestException(
+          'El carrito o el inventario cambió durante la compra. Revísalo e inténtalo nuevamente.',
+        );
+      }
+      throw error;
+    }
   }
 
   // ─── Subir comprobante Yape/Plin ─────────────────────────────────────────────
@@ -560,30 +591,6 @@ export class PedidosService {
     comprobante: string | null,
     pedidoId: number,
   ): string | null {
-    if (!comprobante) return null;
-
-    let pathname: string;
-    try {
-      const url = new URL(comprobante);
-      if (url.hostname !== 'res.cloudinary.com') return null;
-      pathname = url.pathname;
-    } catch {
-      return null;
-    }
-
-    const segmentos = pathname.split('/').filter(Boolean);
-    const uploadIndex = segmentos.indexOf('upload');
-    if (uploadIndex < 0) return null;
-
-    const assetSegments = segmentos.slice(uploadIndex + 1);
-    if (assetSegments[0]?.match(/^v\d+$/)) assetSegments.shift();
-
-    const publicIdConExtension = assetSegments.join('/');
-    const carpeta = `sneark/comprobantes/${pedidoId}/`;
-    if (!publicIdConExtension.startsWith(carpeta)) return null;
-
-    const extensionIndex = publicIdConExtension.lastIndexOf('.');
-    if (extensionIndex <= carpeta.length) return null;
-    return publicIdConExtension.slice(0, extensionIndex);
+    return publicIdDesdeUrlCloudinary(comprobante, `sneark/comprobantes/${pedidoId}`);
   }
 }

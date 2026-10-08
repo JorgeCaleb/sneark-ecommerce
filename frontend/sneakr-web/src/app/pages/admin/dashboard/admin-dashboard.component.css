@@ -657,6 +657,13 @@
   white-space: nowrap;
 }
 
+.low-stock-item__size small {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--color-muted);
+  font-size: 0.62rem;
+}
+
 .stock-count {
   color: var(--color-accent);
   font-size: var(--text-xs);

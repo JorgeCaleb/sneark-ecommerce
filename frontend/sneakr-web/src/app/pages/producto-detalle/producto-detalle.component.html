@@ -87,31 +87,75 @@
 
         <div class="detalle__divider"></div>
 
-        <!-- Tallas -->
+        <!-- Selección de variante -->
         <div class="detalle__tallas-section">
           <div class="detalle__tallas-header">
-            <span class="detalle__label">Talla</span>
-            @if (tallaSeleccionada()) {
-              <span class="detalle__talla-stock">
-                {{ stockDisponible() }} en stock
-              </span>
-            }
+            <span class="detalle__label">Género</span>
           </div>
-
           <div class="detalle__tallas">
-            @for (talla of producto()!.tallas; track talla.id) {
+            @for (genero of generosDisponibles(); track genero) {
               <button
                 class="talla-btn"
-                [class.talla-btn--activa]="tallaSeleccionada()?.id === talla.id"
-                [class.talla-btn--agotada]="talla.stock === 0"
-                [disabled]="talla.stock === 0"
-                (click)="seleccionarTalla(talla)"
-                [attr.aria-label]="'Talla ' + talla.talla + (talla.stock === 0 ? ' - Agotada' : '')"
+                [class.talla-btn--activa]="generoSeleccionado() === genero"
+                (click)="seleccionarGenero(genero)"
               >
-                {{ talla.talla }}
+                {{ etiquetaGenero(genero) }}
               </button>
             }
           </div>
+
+          @if (generoSeleccionado()) {
+            <div class="detalle__tallas-header">
+              <span class="detalle__label">Color</span>
+            </div>
+            <div class="detalle__tallas">
+              @for (color of coloresDisponibles(); track color.id) {
+                <button
+                  class="talla-btn"
+                  [class.talla-btn--activa]="colorSeleccionadoId() === color.id"
+                  [class.talla-btn--agotada]="color.stock === 0"
+                  [disabled]="color.stock === 0"
+                  (click)="seleccionarColor(color.id)"
+                  [attr.aria-label]="color.nombre + ' (' + color.codigo + ')' + (color.stock === 0 ? ' - Agotado' : '')"
+                >
+                  {{ color.nombre }}
+                </button>
+              }
+            </div>
+            @if (coloresDisponibles().length === 0) {
+              <p class="detalle__talla-stock">No hay colores para este género.</p>
+            }
+          }
+
+          @if (colorSeleccionadoId()) {
+            <div class="detalle__tallas-header">
+              <span class="detalle__label">Talla</span>
+              @if (tallaSeleccionada()) {
+                <span class="detalle__talla-stock">{{ stockDisponible() }} en stock</span>
+              }
+            </div>
+            <div class="detalle__tallas">
+              @for (variante of tallasDisponibles(); track variante.id) {
+                <button
+                  class="talla-btn"
+                  [class.talla-btn--activa]="tallaSeleccionada()?.id === variante.id"
+                  [class.talla-btn--agotada]="variante.stock === 0"
+                  [disabled]="variante.stock === 0"
+                  (click)="seleccionarTalla(variante)"
+                  [attr.aria-label]="'Talla ' + variante.talla + (variante.stock === 0 ? ' - Agotada' : '')"
+                >
+                  {{ variante.talla }}
+                </button>
+              }
+            </div>
+            @if (tallasDisponibles().length === 0) {
+              <p class="detalle__talla-stock">No hay tallas para esta combinación.</p>
+            }
+          }
+
+          @if (tallaSeleccionada(); as variante) {
+            <p class="detalle__talla-stock">SKU: {{ variante.sku }}</p>
+          }
         </div>
 
         <!-- Cantidad -->

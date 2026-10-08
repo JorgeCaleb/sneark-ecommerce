@@ -48,7 +48,7 @@
               }
             </div>
             <div class="marca-card__info">
-              <p class="marca-card__nombre">{{ marca.nombre }}</p>
+              <p class="marca-card__nombre">{{ marca.nombre }} · {{ marca.codigo }}</p>
               <p class="marca-card__productos">
                 {{ marca._count?.productos ?? 0 }} producto(s)
               </p>
@@ -126,6 +126,15 @@
         <input type="text" class="form-input" [(ngModel)]="form.nombre"
                id="marca-nombre" placeholder="Ej. Nike" maxlength="100"
                autocomplete="organization" />
+      </div>
+
+      <div class="form-field">
+        <label class="form-label" for="marca-codigo">
+          Código de marca <span class="form-req">*</span>
+        </label>
+        <input type="text" class="form-input" [(ngModel)]="form.codigo"
+               id="marca-codigo" placeholder="Ej. NK" maxlength="10"
+               autocomplete="off" />
       </div>
 
       <div class="form-field">

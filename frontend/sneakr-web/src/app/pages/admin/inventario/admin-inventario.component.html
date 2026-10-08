@@ -1,0 +1,176 @@
+<section class="admin-page">
+  <header class="admin-page__header">
+    <div>
+      <p class="admin-page__eyebrow">INVENTARIO / VARIANTES</p>
+      <h1 class="admin-page__title">
+        {{ soloStockBajo ? 'Stock bajo' : 'Inventario' }}
+      </h1>
+      <p class="admin-page__sub">
+        @if (soloStockBajo) {
+          Variantes activas con entre 1 y 5 unidades disponibles
+        } @else {
+          {{ total() }} variantes de productos activos
+        }
+      </p>
+    </div>
+    <button class="btn-secondary" type="button" (click)="cargar()" [disabled]="cargando()">
+      Actualizar
+    </button>
+  </header>
+
+  <form class="inventario-filters" (ngSubmit)="buscar()">
+    <label class="inventario-search" for="inventario-search">
+      Buscar por producto, color, talla o SKU
+      <input
+        id="inventario-search"
+        type="search"
+        name="busqueda"
+        [(ngModel)]="busqueda"
+        placeholder="Nombre del producto o SKU"
+      />
+    </label>
+    @if (!soloStockBajo) {
+      <label class="inventario-status" for="inventario-status">
+        Disponibilidad
+        <select
+          id="inventario-status"
+          [ngModel]="estado()"
+          (ngModelChange)="cambiarEstado($event)"
+          name="estado"
+        >
+          <option value="todos">Todos los estados</option>
+          <option value="disponible">Disponible (más de 5)</option>
+          <option value="bajo">Stock bajo (1–5)</option>
+          <option value="agotado">Agotado</option>
+        </select>
+      </label>
+    }
+    <button class="btn-primary" type="submit">Buscar</button>
+  </form>
+
+  @if (cargando()) {
+    <div class="inventario-state" role="status">Cargando variantes…</div>
+  } @else if (errorCarga()) {
+    <div class="inventario-state inventario-state--error" role="alert">
+      <p>No se pudo cargar el inventario.</p>
+      <button class="btn-secondary" type="button" (click)="cargar()">Reintentar</button>
+    </div>
+  } @else if (!variantes().length) {
+    <div class="inventario-state">
+      {{
+        soloStockBajo
+          ? 'No hay variantes con stock bajo.'
+          : 'No hay variantes que coincidan con los filtros.'
+      }}
+    </div>
+  } @else {
+    <div class="inventario-table-wrap">
+      <table class="inventario-table">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Variante</th>
+            <th>SKU</th>
+            <th>Stock</th>
+            <th>Actualizar</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (variante of variantes(); track variante.id) {
+            <tr>
+              <td>
+                <div class="inventario-product">
+                  @if (variante.producto.imagen) {
+                    <img [src]="variante.producto.imagen" [alt]="variante.producto.nombre" />
+                  } @else {
+                    <span class="inventario-product__placeholder" aria-hidden="true">S</span>
+                  }
+                  <span>
+                    <strong>{{ variante.producto.nombre }}</strong>
+                    <small>{{ variante.producto.marca }}</small>
+                  </span>
+                </div>
+              </td>
+              <td>
+                <span>{{
+                  variante.genero === 'M' ? 'Hombre' : variante.genero === 'W' ? 'Mujer' : 'Unisex'
+                }}</span>
+                <small class="inventario-variant-detail">
+                  {{ variante.color.nombre }} ({{ variante.color.codigo }}) · Talla
+                  {{ variante.talla }}
+                </small>
+              </td>
+              <td>
+                <code>{{ variante.sku }}</code>
+              </td>
+              <td>
+                <span
+                  class="stock-badge"
+                  [class.stock-badge--low]="variante.stock > 0 && variante.stock <= 5"
+                  [class.stock-badge--empty]="variante.stock === 0"
+                >
+                  {{ variante.stock === 0 ? 'Agotado' : variante.stock + ' uds.' }}
+                </span>
+              </td>
+              <td>
+                <div class="stock-editor">
+                  <label class="sr-only" [for]="'stock-' + variante.id">
+                    Nuevo stock para {{ variante.sku }}
+                  </label>
+                  <input
+                    [id]="'stock-' + variante.id"
+                    type="number"
+                    min="0"
+                    step="1"
+                    [ngModel]="stockDraft()[variante.id]"
+                    (ngModelChange)="cambiarStock(variante.id, $event)"
+                    [name]="'stock-' + variante.id"
+                  />
+                  <button
+                    class="btn-secondary"
+                    type="button"
+                    [disabled]="
+                      guardandoIds().has(variante.id) ||
+                      stockDraft()[variante.id] === variante.stock
+                    "
+                    (click)="guardarStock(variante)"
+                  >
+                    {{ guardandoIds().has(variante.id) ? 'Guardando…' : 'Guardar' }}
+                  </button>
+                </div>
+                @if (erroresStock()[variante.id]) {
+                  <small class="stock-feedback stock-feedback--error" role="alert">
+                    {{ erroresStock()[variante.id] }}
+                  </small>
+                } @else if (actualizadoId() === variante.id) {
+                  <small class="stock-feedback">Stock actualizado.</small>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (totalPaginas() > 1) {
+      <nav class="inventario-pagination" aria-label="Paginación de inventario">
+        <button
+          class="btn-secondary"
+          type="button"
+          [disabled]="pagina() === 1"
+          (click)="irAPagina(pagina() - 1)"
+        >
+          Anterior
+        </button>
+        <span aria-live="polite">Página {{ pagina() }} de {{ totalPaginas() }}</span>
+        <button
+          class="btn-secondary"
+          type="button"
+          [disabled]="pagina() === totalPaginas()"
+          (click)="irAPagina(pagina() + 1)"
+        >
+          Siguiente
+        </button>
+      </nav>
+    }
+  }
+</section>

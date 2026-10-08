@@ -19,6 +19,8 @@ import { CrearProductoDto } from './dto/crear-producto.dto.js';
 import { ActualizarProductoDto } from './dto/actualizar-producto.dto.js';
 import { ActualizarStockTallaDto } from './dto/actualizar-stock-talla.dto.js';
 import { FiltrarProductosDto } from './dto/filtrar-productos.dto.js';
+import { PrevisualizarSkuDto } from './dto/previsualizar-sku.dto.js';
+import { FiltrarInventarioDto } from './dto/filtrar-inventario.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
@@ -32,6 +34,27 @@ export class ProductosController {
   @Get()
   buscarTodos(@Query() filtros: FiltrarProductosDto) {
     return this.productosService.buscarTodos(filtros);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Get('sku-preview')
+  previsualizarSku(@Query() dto: PrevisualizarSkuDto) {
+    return this.productosService.previsualizarSku(dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Get('admin/inventario')
+  resumenInventarioActivo() {
+    return this.productosService.resumenInventarioActivo();
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @Get('admin/variantes')
+  buscarVariantesInventario(@Query() filtros: FiltrarInventarioDto) {
+    return this.productosService.buscarVariantesInventario(filtros);
   }
 
   // GET /api/productos/:id — público

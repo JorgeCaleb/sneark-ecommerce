@@ -173,7 +173,10 @@
                 </div>
                 <div class="checkout-item__info">
                   <p class="checkout-item__nombre">{{ item.tallaProducto.producto.nombre }}</p>
-                  <p class="checkout-item__talla">Talla {{ item.tallaProducto.talla }}</p>
+                  <p class="checkout-item__talla">
+                    {{ item.tallaProducto.genero }} · {{ item.tallaProducto.color.nombre }}
+                    · Talla {{ item.tallaProducto.talla }}
+                  </p>
                 </div>
                 <p class="checkout-item__precio">{{ formatearPrecio(item.subtotal) }}</p>
               </div>

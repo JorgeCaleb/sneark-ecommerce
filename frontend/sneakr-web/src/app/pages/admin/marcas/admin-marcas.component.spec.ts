@@ -40,7 +40,7 @@ describe('AdminMarcasComponent request errors', () => {
   });
 
   it('explains that the brand was created when the logo upload fails', async () => {
-    const marca = { id: 4, nombre: 'Nike', logo: null };
+    const marca = { id: 4, nombre: 'Nike', codigo: 'NK', logo: null };
     marcasService.crear.mockReturnValue(of(marca));
     marcasService.subirLogo.mockReturnValue(
       throwError(() => new Error('Cloudinary unavailable')),
@@ -53,7 +53,7 @@ describe('AdminMarcasComponent request errors', () => {
 
     const fixture = TestBed.createComponent(AdminMarcasComponent);
     const component = fixture.componentInstance;
-    component.form = { nombre: 'Nike' };
+    component.form = { nombre: 'Nike', codigo: 'NK' };
     component.archivoLogo.set(new File(['logo'], 'logo.png', { type: 'image/png' }));
     fixture.detectChanges();
 

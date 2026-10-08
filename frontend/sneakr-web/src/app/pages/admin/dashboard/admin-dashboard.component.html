@@ -366,6 +366,10 @@
           <span>Agrega productos para ver su disponibilidad.</span>
         </div>
       } @else {
+        <p class="inventory-note">
+          {{ inventarioResumen().stockTotal }} unidades en
+          {{ inventarioResumen().variantesTotales }} variantes activas
+        </p>
         <div class="inventory-stats">
           <div class="inventory-stat">
             <span class="inventory-stat__dot inventory-stat__dot--available"></span>
@@ -383,7 +387,7 @@
             <strong>{{ inventarioResumen().agotados }}</strong>
           </div>
         </div>
-        <p class="inventory-note">Conteo de variantes por talla</p>
+        <p class="inventory-note">Solo productos activos · disponibilidad por variante</p>
       }
     </article>
   </section>
@@ -430,7 +434,7 @@
       </div>
     } @else {
       <div class="low-stock-list" role="region" aria-label="Variantes con stock bajo" tabindex="0">
-        @for (variante of variantesStockBajo(); track variante.productoId + '-' + variante.talla) {
+        @for (variante of variantesStockBajo(); track variante.id) {
           <a routerLink="/admin/productos" class="low-stock-item">
             <span class="product-thumb product-thumb--small">
               @if (variante.imagen) {
@@ -452,7 +456,10 @@
               <strong>{{ variante.producto }}</strong>
               <span>{{ variante.marca }}</span>
             </span>
-            <span class="low-stock-item__size">Talla {{ variante.talla }}</span>
+            <span class="low-stock-item__size">
+              {{ variante.genero }} · {{ variante.color }} · Talla {{ variante.talla }}
+              <small>{{ variante.sku }}</small>
+            </span>
             <span class="stock-count" [class.stock-count--critical]="variante.stock <= 2">
               {{ variante.stock }} <small>uds.</small>
             </span>

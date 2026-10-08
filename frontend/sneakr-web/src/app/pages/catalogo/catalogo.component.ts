@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ProductosService, Producto, FiltrosProducto } from '../../core/services/productos.service';
 import { MarcasService, Marca } from '../../core/services/marcas.service';
 import { CategoriasService, Categoria } from '../../core/services/categorias.service';
+import { ColoresService, Color } from '../../core/services/colores.service';
 
 @Component({
   selector: 'app-catalogo',
@@ -18,6 +19,7 @@ export class CatalogoComponent implements OnInit {
   private productosService = inject(ProductosService);
   private marcasService    = inject(MarcasService);
   private categoriasService = inject(CategoriasService);
+  private coloresService = inject(ColoresService);
   private router  = inject(Router);
   private route   = inject(ActivatedRoute);
 
@@ -27,6 +29,7 @@ export class CatalogoComponent implements OnInit {
 
   readonly marcas     = signal<Marca[]>([]);
   readonly categorias = signal<Categoria[]>([]);
+  readonly colores = signal<Color[]>([]);
   readonly filtrosPanelAbierto = signal(false);
   readonly errorCarga = signal(false);
   private queryParamsInicializados = false;
@@ -37,6 +40,8 @@ export class CatalogoComponent implements OnInit {
   categoriaId = 0;
   precioMin  = 0;
   precioMax  = 0;
+  genero: 'M' | 'W' | 'X' | '' = '';
+  colorId = 0;
   paginaActual = 1;
   readonly LIMITE = 12;
 
@@ -57,6 +62,12 @@ export class CatalogoComponent implements OnInit {
           pagina: Number(params['pagina']) || 1,
           precioMin: Number(params['precioMin']) || 0,
           precioMax: Number(params['precioMax']) || 0,
+          genero: (params['genero'] === 'M' ||
+          params['genero'] === 'W' ||
+          params['genero'] === 'X'
+            ? params['genero']
+            : '') as 'M' | 'W' | 'X' | '',
+          colorId: Number(params['colorId']) || 0,
         };
         const cambiaronFiltros =
           !this.queryParamsInicializados ||
@@ -66,6 +77,8 @@ export class CatalogoComponent implements OnInit {
           filtros.pagina !== this.paginaActual ||
           filtros.precioMin !== this.precioMin ||
           filtros.precioMax !== this.precioMax;
+        const cambiaronVariantes =
+          filtros.genero !== this.genero || filtros.colorId !== this.colorId;
 
         this.marcaId = filtros.marcaId;
         this.categoriaId = filtros.categoriaId;
@@ -73,13 +86,16 @@ export class CatalogoComponent implements OnInit {
         this.paginaActual = filtros.pagina;
         this.precioMin = filtros.precioMin;
         this.precioMax = filtros.precioMax;
+        this.genero = filtros.genero;
+        this.colorId = filtros.colorId;
         this.queryParamsInicializados = true;
 
-        if (cambiaronFiltros) this.cargarProductos();
+        if (cambiaronFiltros || cambiaronVariantes) this.cargarProductos();
       });
 
     this.marcasService.buscarTodas().subscribe((m) => this.marcas.set(m));
     this.categoriasService.buscarTodas().subscribe((c) => this.categorias.set(c));
+    this.coloresService.buscarTodos().subscribe((c) => this.colores.set(c));
   }
 
   cargarProductos() {
@@ -93,6 +109,8 @@ export class CatalogoComponent implements OnInit {
     if (this.categoriaId) filtros.categoriaId = this.categoriaId;
     if (this.precioMin)   filtros.precioMin   = this.precioMin;
     if (this.precioMax)   filtros.precioMax   = this.precioMax;
+    if (this.genero) filtros.genero = this.genero;
+    if (this.colorId) filtros.colorId = this.colorId;
 
     this.productosService
       .buscarTodos(filtros)
@@ -113,6 +131,8 @@ export class CatalogoComponent implements OnInit {
     this.categoriaId = 0;
     this.precioMin   = 0;
     this.precioMax   = 0;
+    this.genero = '';
+    this.colorId = 0;
     this.paginaActual = 1;
     this.cargarProductos();
   }
@@ -136,11 +156,14 @@ export class CatalogoComponent implements OnInit {
     if (this.paginaActual > 1) queryParams['pagina']   = this.paginaActual;
     if (this.precioMin) queryParams['precioMin'] = this.precioMin;
     if (this.precioMax) queryParams['precioMax'] = this.precioMax;
+    if (this.genero) queryParams['genero'] = this.genero;
+    if (this.colorId) queryParams['colorId'] = this.colorId;
     this.router.navigate([], { queryParams, replaceUrl: true });
   }
 
   hayFiltrosActivos = computed(() =>
-    !!this.busqueda || !!this.marcaId || !!this.categoriaId || !!this.precioMin || !!this.precioMax
+    !!this.busqueda || !!this.marcaId || !!this.categoriaId || !!this.precioMin ||
+    !!this.precioMax || !!this.genero || !!this.colorId
   );
 
   formatearPrecio(precio: number | string): string {

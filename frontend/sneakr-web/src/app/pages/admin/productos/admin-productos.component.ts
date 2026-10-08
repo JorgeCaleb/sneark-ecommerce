@@ -10,19 +10,27 @@ import {
 } from '../../../core/services/productos.service';
 import { MarcasService, Marca } from '../../../core/services/marcas.service';
 import { CategoriasService, Categoria } from '../../../core/services/categorias.service';
+import { ColoresService, Color } from '../../../core/services/colores.service';
 
 interface TallaForm {
+  id?: number;
+  genero: 'M' | 'W' | 'X';
+  colorId: number;
   talla: string;
   stock: number;
+  sku?: string;
 }
 
 interface ProductoForm {
   nombre: string;
+  codigoModelo: string;
   descripcion: string;
   precio: number | null;
   marcaId: number;
   categoriaId: number;
   tallas: TallaForm[];
+  nuevoColorNombre: string;
+  nuevoColorCodigo: string;
 }
 
 @Component({
@@ -36,6 +44,7 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
   private productosService = inject(ProductosService);
   private marcasService = inject(MarcasService);
   private categoriasService = inject(CategoriasService);
+  private coloresService = inject(ColoresService);
 
   readonly productos = this.productosService.productos;
   readonly metaProd = this.productosService.meta;
@@ -47,6 +56,7 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
   readonly desactivandoId = signal<number | null>(null);
   readonly marcas = signal<Marca[]>([]);
   readonly categorias = signal<Categoria[]>([]);
+  readonly colores = signal<Color[]>([]);
 
   // Modal crear/editar
   readonly modalAbierto = signal(false);
@@ -108,11 +118,18 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
           return of(null);
         }),
       ),
+      colores: this.coloresService.buscarTodos().pipe(
+        catchError(() => {
+          this.errorDependencias.set(true);
+          return of(null);
+        }),
+      ),
     })
       .pipe(finalize(() => this.cargandoDependencias.set(false)))
-      .subscribe(({ marcas, categorias }) => {
+      .subscribe(({ marcas, categorias, colores }) => {
         if (marcas) this.marcas.set(marcas);
         if (categorias) this.categorias.set(categorias);
+        if (colores) this.colores.set(colores);
       });
   }
 
@@ -140,11 +157,21 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
     this.productoEditar.set(p);
     this.form = {
       nombre: p.nombre,
+      codigoModelo: p.codigoModelo,
       descripcion: p.descripcion ?? '',
       precio: Number(p.precio),
       marcaId: p.marca.id,
       categoriaId: p.categoria.id,
-      tallas: p.tallas.map((t) => ({ talla: t.talla, stock: t.stock })),
+      tallas: p.tallas.map((t) => ({
+        id: t.id,
+        genero: t.genero,
+        colorId: t.colorId,
+        talla: t.talla,
+        stock: t.stock,
+        sku: t.sku,
+      })),
+      nuevoColorNombre: '',
+      nuevoColorCodigo: '',
     };
     this.errorForm.set('');
     this.modalAbierto.set(true);
@@ -155,7 +182,48 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
   }
 
   agregarTalla() {
-    this.form.tallas.push({ talla: '', stock: 0 });
+    this.form.tallas.push({
+      genero: 'M',
+      colorId: this.colores()[0]?.id ?? 0,
+      talla: '',
+      stock: 0,
+    });
+  }
+
+  actualizarSku(indice: number) {
+    const variante = this.form.tallas[indice];
+    if (!variante) return;
+    variante.sku = undefined;
+    const marcaId = Number(this.form.marcaId);
+    const colorId = Number(variante.colorId);
+    if (
+      !marcaId ||
+      !colorId ||
+      !this.form.codigoModelo.trim() ||
+      !variante.talla.trim()
+    ) {
+      return;
+    }
+    this.productosService
+      .previsualizarSku({
+        marcaId,
+        codigoModelo: this.form.codigoModelo,
+        genero: variante.genero,
+        colorId,
+        talla: variante.talla,
+      })
+      .subscribe({
+        next: ({ sku }) => {
+          if (this.form.tallas[indice] === variante) variante.sku = sku;
+        },
+        error: () => {
+          if (this.form.tallas[indice] === variante) variante.sku = undefined;
+        },
+      });
+  }
+
+  actualizarSkus() {
+    this.form.tallas.forEach((_, indice) => this.actualizarSku(indice));
   }
 
   quitarTalla(i: number) {
@@ -163,7 +231,7 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
   }
 
   guardar() {
-    if (!this.form.nombre || !this.form.precio || !this.form.marcaId || !this.form.categoriaId) {
+    if (!this.form.nombre || !this.form.codigoModelo || !this.form.precio || !this.form.marcaId || !this.form.categoriaId) {
       this.errorForm.set('Completá todos los campos obligatorios.');
       return;
     }
@@ -180,11 +248,18 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
 
     const data: ProductoInput = {
       nombre: this.form.nombre,
+      codigoModelo: this.form.codigoModelo,
       descripcion: this.form.descripcion || undefined,
       precio,
       marcaId: this.form.marcaId,
       categoriaId: this.form.categoriaId,
-      tallas: this.form.tallas.filter((t) => t.talla.trim()),
+      tallas: this.form.tallas.filter((t) => t.talla.trim()).map((t) => ({
+        ...(t.id ? { id: t.id } : {}),
+        genero: t.genero,
+        colorId: t.colorId,
+        talla: t.talla.trim(),
+        stock: Number(t.stock),
+      })),
     };
 
     const editando = this.productoEditar();
@@ -202,6 +277,24 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
         this.guardando.set(false);
         this.errorForm.set(err?.error?.message ?? 'Error al guardar.');
       },
+    });
+  }
+
+  crearColor() {
+    const nombre = this.form.nuevoColorNombre.trim();
+    const codigo = this.form.nuevoColorCodigo.trim().toUpperCase();
+    if (!nombre || !codigo) {
+      this.errorForm.set('El nombre y código del color son obligatorios.');
+      return;
+    }
+    this.coloresService.crear(nombre, codigo).subscribe({
+      next: (color) => {
+        this.colores.update((actuales) => [...actuales, color].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+        this.form.nuevoColorNombre = '';
+        this.form.nuevoColorCodigo = '';
+        this.errorForm.set('');
+      },
+      error: (err) => this.errorForm.set(err?.error?.message ?? 'No se pudo crear el color.'),
     });
   }
 
@@ -348,7 +441,17 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
   }
 
   private formVacio(): ProductoForm {
-    return { nombre: '', descripcion: '', precio: null, marcaId: 0, categoriaId: 0, tallas: [] };
+    return {
+      nombre: '',
+      codigoModelo: '',
+      descripcion: '',
+      precio: null,
+      marcaId: 0,
+      categoriaId: 0,
+      tallas: [],
+      nuevoColorNombre: '',
+      nuevoColorCodigo: '',
+    };
   }
 
   get paginasArray(): number[] {

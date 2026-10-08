@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 export interface Marca {
   id: number;
   nombre: string;
+  codigo: string;
   logo: string | null;
   _count?: { productos: number };
 }
@@ -23,12 +24,12 @@ export class MarcasService {
     return this.http.get<Marca>(`${this.API}/${id}`);
   }
 
-  crear(nombre: string) {
-    return this.http.post<Marca>(this.API, { nombre });
+  crear(nombre: string, codigo: string) {
+    return this.http.post<Marca>(this.API, { nombre, codigo });
   }
 
-  actualizar(id: number, nombre: string) {
-    return this.http.patch<Marca>(`${this.API}/${id}`, { nombre });
+  actualizar(id: number, nombre: string, codigo: string) {
+    return this.http.patch<Marca>(`${this.API}/${id}`, { nombre, codigo });
   }
 
   eliminar(id: number) {

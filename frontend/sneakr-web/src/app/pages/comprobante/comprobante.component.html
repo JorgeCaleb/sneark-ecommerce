@@ -257,7 +257,10 @@
               </div>
               <div class="resumen-item__info">
                 <p class="resumen-item__nombre">{{ item.nombreProducto }}</p>
-                <p class="resumen-item__talla">Talla {{ item.talla }}</p>
+                <p class="resumen-item__talla">
+                  {{ item.genero }} · {{ item.nombreColor }} · Talla {{ item.talla }}
+                </p>
+                <small>SKU: {{ item.sku }}</small>
               </div>
               <p class="resumen-item__precio">{{ formatearPrecio(item.subtotal) }}</p>
             </div>

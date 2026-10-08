@@ -4,6 +4,7 @@ import { MarcasService, Marca } from '../../../core/services/marcas.service';
 
 interface MarcaForm {
   nombre: string;
+  codigo: string;
 }
 
 @Component({
@@ -27,7 +28,7 @@ export class AdminMarcasComponent implements OnInit, OnDestroy {
   readonly vistaPreviaLogo = signal<string | null>(null);
   private urlVistaPreviaLogo: string | null = null;
 
-  form: MarcaForm = { nombre: '' };
+  form: MarcaForm = { nombre: '', codigo: '' };
 
   ngOnInit() {
     this.cargar();
@@ -54,7 +55,7 @@ export class AdminMarcasComponent implements OnInit, OnDestroy {
 
   abrirCrear() {
     this.marcaEditar.set(null);
-    this.form = { nombre: '' };
+    this.form = { nombre: '', codigo: '' };
     this.limpiarSeleccionLogo();
     this.errorForm.set('');
     this.modalAbierto.set(true);
@@ -62,7 +63,7 @@ export class AdminMarcasComponent implements OnInit, OnDestroy {
 
   abrirEditar(m: Marca) {
     this.marcaEditar.set(m);
-    this.form = { nombre: m.nombre };
+    this.form = { nombre: m.nombre, codigo: m.codigo };
     this.limpiarSeleccionLogo();
     this.errorForm.set('');
     this.modalAbierto.set(true);
@@ -109,20 +110,23 @@ export class AdminMarcasComponent implements OnInit, OnDestroy {
   }
 
   guardar() {
-    if (!this.form.nombre.trim()) {
-      this.errorForm.set('El nombre es obligatorio.');
+    if (!this.form.nombre.trim() || !this.form.codigo.trim()) {
+      this.errorForm.set('El nombre y el código son obligatorios.');
       return;
     }
 
     this.guardando.set(true);
     this.errorForm.set('');
     const archivoLogo = this.archivoLogo();
-    const data = { nombre: this.form.nombre.trim() };
+    const data = {
+      nombre: this.form.nombre.trim(),
+      codigo: this.form.codigo.trim().toUpperCase(),
+    };
 
     const marcaActual = this.marcaEditar();
     const req$ = marcaActual
-      ? this.marcasService.actualizar(marcaActual.id, data.nombre)
-      : this.marcasService.crear(data.nombre);
+      ? this.marcasService.actualizar(marcaActual.id, data.nombre, data.codigo)
+      : this.marcasService.crear(data.nombre, data.codigo);
     const creandoMarca = !marcaActual;
 
     req$.subscribe({

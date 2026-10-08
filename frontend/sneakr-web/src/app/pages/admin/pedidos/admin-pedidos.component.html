@@ -208,7 +208,11 @@
               </div>
               <div class="detalle-item__info">
                 <p class="detalle-item__nombre">{{ item.nombreProducto }}</p>
-                <p class="detalle-item__sub">Talla {{ item.talla }} · ×{{ item.cantidad }}</p>
+                <p class="detalle-item__sub">
+                  {{ item.genero }} · {{ item.nombreColor }} · Talla {{ item.talla }}
+                  · ×{{ item.cantidad }}
+                </p>
+                <small>SKU: {{ item.sku }}</small>
               </div>
               <p class="detalle-item__precio">{{ formatearPrecio(item.subtotal) }}</p>
             </div>

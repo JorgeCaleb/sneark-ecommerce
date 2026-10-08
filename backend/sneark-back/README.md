@@ -19,6 +19,7 @@ Configura en `.env`:
 
 - `DATABASE_URL`: conexión a MySQL.
 - `JWT_SECRET`: secreto aleatorio para firmar tokens.
+- `JWT_EXPIRES_IN`: duración del token (entero positivo seguido de `s`, `m`, `h`, `d`, `w` o `y`; por defecto `7d`).
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET`: credenciales de Cloudinary.
 - `PORT` (opcional, por defecto `3000`) y `FRONTEND_ORIGIN` (por defecto `http://localhost:4200`).
 

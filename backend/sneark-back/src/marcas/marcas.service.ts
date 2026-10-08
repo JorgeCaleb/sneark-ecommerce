@@ -10,6 +10,7 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
 import { nombreCarpetaCloudinary } from '../cloudinary/nombre-carpeta.util.js';
 import { CrearMarcaDto } from './dto/crear-marca.dto.js';
 import { ActualizarMarcaDto } from './dto/actualizar-marca.dto.js';
+import { publicIdDesdeUrlCloudinary } from '../cloudinary/public-id-cloudinary.util.js';
 
 @Injectable()
 export class MarcasService {
@@ -19,6 +20,12 @@ export class MarcasService {
   ) {}
 
   async crear(dto: CrearMarcaDto) {
+    const codigo = dto.codigo.trim().toUpperCase();
+    const datos = {
+      nombre: dto.nombre,
+      codigo,
+      ...(dto.logo !== undefined ? { logo: dto.logo } : {}),
+    };
     const existe = await this.prisma.marca.findUnique({
       where: { nombre: dto.nombre },
     });
@@ -28,9 +35,9 @@ export class MarcasService {
     }
 
     try {
-      return await this.prisma.marca.create({ data: dto });
+      return await this.prisma.marca.create({ data: datos });
     } catch (error) {
-      this.lanzarConflictoNombreDuplicado(error, dto.nombre);
+      this.lanzarConflictoDuplicado(error, dto.nombre, codigo);
     }
   }
 
@@ -57,25 +64,52 @@ export class MarcasService {
   }
 
   async actualizar(id: number, dto: ActualizarMarcaDto) {
-    await this.buscarPorId(id); // lanza 404 si no existe
-
-    // Si viene un nuevo nombre, verificar que no esté en uso por otra marca
-    if (dto.nombre) {
-      const duplicado = await this.prisma.marca.findFirst({
-        where: { nombre: dto.nombre, NOT: { id } },
-      });
-      if (duplicado) {
-        throw new ConflictException(`La marca "${dto.nombre}" ya existe`);
-      }
-    }
+    const codigo = dto.codigo?.trim().toUpperCase();
 
     try {
-      return await this.prisma.marca.update({
-        where: { id },
-        data: dto,
-      });
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const marca = await tx.marca.findUnique({
+            where: { id },
+            select: { id: true, codigo: true },
+          });
+          if (!marca) {
+            throw new NotFoundException(`Marca con id ${id} no encontrada`);
+          }
+
+          if (codigo && codigo !== marca.codigo) {
+            const variantes = await tx.tallaProducto.count({
+              where: { producto: { marcaId: id } },
+            });
+            if (variantes > 0) {
+              throw new ConflictException(
+                'No se puede cambiar el código de una marca con variantes asociadas',
+              );
+            }
+          }
+
+          if (dto.nombre) {
+            const duplicado = await tx.marca.findFirst({
+              where: { nombre: dto.nombre, NOT: { id } },
+            });
+            if (duplicado) {
+              throw new ConflictException(`La marca "${dto.nombre}" ya existe`);
+            }
+          }
+
+          return tx.marca.update({
+            where: { id },
+            data: {
+              ...(dto.nombre !== undefined ? { nombre: dto.nombre } : {}),
+              ...(codigo ? { codigo } : {}),
+              ...(dto.logo !== undefined ? { logo: dto.logo } : {}),
+            },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
     } catch (error) {
-      this.lanzarConflictoNombreDuplicado(error, dto.nombre);
+      this.lanzarConflictoDuplicado(error, dto.nombre, codigo);
     }
   }
 
@@ -161,58 +195,25 @@ export class MarcasService {
     return eliminada;
   }
 
-  private lanzarConflictoNombreDuplicado(
+  private lanzarConflictoDuplicado(
     error: unknown,
     nombre?: string,
+    codigo?: string,
   ): never {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
     ) {
       throw new ConflictException(
-        `La marca${nombre ? ` "${nombre}"` : ''} ya existe`,
+        error.meta?.target?.toString().includes('codigo')
+          ? `El código de marca${codigo ? ` "${codigo}"` : ''} ya existe`
+          : `La marca${nombre ? ` "${nombre}"` : ''} ya existe`,
       );
     }
     throw error;
   }
 
   private publicIdDesdeLogoCloudinary(logo: string | null): string | null {
-    if (!logo) {
-      return null;
-    }
-
-    let pathname: string;
-    try {
-      const url = new URL(logo);
-      if (url.hostname !== 'res.cloudinary.com') {
-        return null;
-      }
-      pathname = url.pathname;
-    } catch {
-      return null;
-    }
-
-    const segmentos = pathname.split('/').filter(Boolean);
-    const uploadIndex = segmentos.indexOf('upload');
-    if (uploadIndex < 0) {
-      return null;
-    }
-
-    const assetSegments = segmentos.slice(uploadIndex + 1);
-    if (assetSegments[0]?.match(/^v\d+$/)) {
-      assetSegments.shift();
-    }
-
-    const publicIdConExtension = assetSegments.join('/');
-    if (!publicIdConExtension.startsWith('sneark/marcas/')) {
-      return null;
-    }
-
-    const extensionIndex = publicIdConExtension.lastIndexOf('.');
-    if (extensionIndex <= 'sneark/marcas/'.length) {
-      return null;
-    }
-
-    return publicIdConExtension.slice(0, extensionIndex);
+    return publicIdDesdeUrlCloudinary(logo, 'sneark/marcas');
   }
 }

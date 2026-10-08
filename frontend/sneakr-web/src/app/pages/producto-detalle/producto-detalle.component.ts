@@ -25,6 +25,8 @@ export class ProductoDetalleComponent implements OnChanges {
   readonly cargando      = signal(true);
   readonly imagenActiva  = signal(0);
   readonly tallaSeleccionada = signal<TallaProducto | null>(null);
+  readonly generoSeleccionado = signal<'M' | 'W' | 'X' | null>(null);
+  readonly colorSeleccionadoId = signal<number | null>(null);
   readonly cantidad      = signal(1);
   readonly agregando     = signal(false);
   readonly mensajeExito  = signal(false);
@@ -33,6 +35,31 @@ export class ProductoDetalleComponent implements OnChanges {
   readonly stockDisponible = computed(() =>
     this.tallaSeleccionada()?.stock ?? 0
   );
+  readonly generosDisponibles = computed(() => [
+    ...new Set(this.producto()?.tallas.map((variante) => variante.genero) ?? []),
+  ]);
+  readonly coloresDisponibles = computed(() => {
+    const genero = this.generoSeleccionado();
+    if (!genero) return [];
+    const variantes = this.producto()?.tallas.filter((v) => v.genero === genero) ?? [];
+    const colores = new Map<number, { id: number; nombre: string; codigo: string; stock: number }>();
+    for (const variante of variantes) {
+      const color = colores.get(variante.color.id);
+      colores.set(variante.color.id, {
+        ...variante.color,
+        stock: (color?.stock ?? 0) + variante.stock,
+      });
+    }
+    return [...colores.values()];
+  });
+  readonly tallasDisponibles = computed(() => {
+    const genero = this.generoSeleccionado();
+    const colorId = this.colorSeleccionadoId();
+    if (!genero || !colorId) return [];
+    return (this.producto()?.tallas ?? [])
+      .filter((v) => v.genero === genero && v.colorId === colorId)
+      .sort((a, b) => Number(a.talla) - Number(b.talla));
+  });
 
   readonly puedeAgregar = computed(() =>
     !!this.tallaSeleccionada() &&
@@ -46,6 +73,8 @@ export class ProductoDetalleComponent implements OnChanges {
     this.cargando.set(true);
     this.imagenActiva.set(0);
     this.tallaSeleccionada.set(null);
+    this.generoSeleccionado.set(null);
+    this.colorSeleccionadoId.set(null);
     this.cantidad.set(1);
     this.mensajeExito.set(false);
     this.error.set('');
@@ -73,6 +102,23 @@ export class ProductoDetalleComponent implements OnChanges {
     this.tallaSeleccionada.set(talla);
     this.cantidad.set(1);
     this.error.set('');
+  }
+
+  seleccionarGenero(genero: 'M' | 'W' | 'X') {
+    this.generoSeleccionado.set(genero);
+    this.colorSeleccionadoId.set(null);
+    this.tallaSeleccionada.set(null);
+    this.error.set('');
+  }
+
+  seleccionarColor(colorId: number) {
+    this.colorSeleccionadoId.set(colorId);
+    this.tallaSeleccionada.set(null);
+    this.error.set('');
+  }
+
+  etiquetaGenero(genero: 'M' | 'W' | 'X') {
+    return { M: 'Hombre', W: 'Mujer', X: 'Unisex' }[genero];
   }
 
   incrementar() {

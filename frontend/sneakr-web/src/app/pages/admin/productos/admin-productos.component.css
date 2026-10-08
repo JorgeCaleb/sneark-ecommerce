@@ -495,9 +495,16 @@
 
 .talla-row {
   display: grid;
-  grid-template-columns: 1fr 100px 32px;
+  grid-template-columns: 1fr 1fr 100px 100px 1.4fr 32px;
   gap: var(--space-sm);
   align-items: center;
+}
+
+.color-inline {
+  display: grid;
+  grid-template-columns: 1fr 120px auto;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
 }
 
 .talla-quitar {

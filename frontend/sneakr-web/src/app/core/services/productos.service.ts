@@ -14,19 +14,24 @@ export interface ImagenProducto {
 
 export interface TallaProducto {
   id: number;
+  genero: 'M' | 'W' | 'X';
+  colorId: number;
+  color: { id: number; nombre: string; codigo: string };
   talla: string;
   stock: number;
+  sku: string;
 }
 
 export interface Producto {
   id: number;
   nombre: string;
+  codigoModelo: string;
   descripcion: string | null;
   precio: ValorMonetario;
   activo: boolean;
   creadoEn: string;
   actualizadoEn: string;
-  marca: { id: number; nombre: string; logo: string | null };
+  marca: { id: number; nombre: string; codigo: string; logo: string | null };
   categoria: { id: number; nombre: string };
   imagenes: ImagenProducto[];
   tallas: TallaProducto[];
@@ -50,17 +55,68 @@ export interface FiltrosProducto {
   categoriaId?: number;
   precioMin?: number;
   precioMax?: number;
+  genero?: 'M' | 'W' | 'X';
+  colorId?: number;
   pagina?: number;
   limite?: number;
 }
 
 export interface ProductoInput {
   nombre: string;
+  codigoModelo: string;
   descripcion?: string;
   precio: number;
   marcaId: number;
   categoriaId: number;
-  tallas?: { talla: string; stock: number }[];
+  tallas?: {
+    id?: number;
+    genero: 'M' | 'W' | 'X';
+    colorId: number;
+    talla: string;
+    stock: number;
+  }[];
+}
+
+export interface InventarioActivo {
+  productosActivos: number;
+  stockTotal: number;
+  variantesTotales: number;
+  disponibles: number;
+  bajas: number;
+  agotadas: number;
+  variantesStockBajo: {
+    id: number;
+    productoId: number;
+    producto: string;
+    marca: string;
+    imagen: string | null;
+    genero: 'M' | 'W' | 'X';
+    color: string;
+    codigoColor: string;
+    talla: string;
+    sku: string;
+    stock: number;
+  }[];
+}
+
+export interface VarianteInventario {
+  id: number;
+  genero: 'M' | 'W' | 'X';
+  talla: string;
+  stock: number;
+  sku: string;
+  color: { id: number; nombre: string; codigo: string };
+  producto: {
+    id: number;
+    nombre: string;
+    marca: string;
+    imagen: string | null;
+  };
+}
+
+export interface VariantesInventarioPaginadas {
+  datos: VarianteInventario[];
+  meta: PaginacionMeta;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -98,6 +154,8 @@ export class ProductosService {
     if (filtros.categoriaId) params = params.set('categoriaId', filtros.categoriaId);
     if (filtros.precioMin !== undefined) params = params.set('precioMin', filtros.precioMin);
     if (filtros.precioMax !== undefined) params = params.set('precioMax', filtros.precioMax);
+    if (filtros.genero) params = params.set('genero', filtros.genero);
+    if (filtros.colorId) params = params.set('colorId', filtros.colorId);
     if (filtros.pagina) params = params.set('pagina', filtros.pagina);
     if (filtros.limite) params = params.set('limite', filtros.limite);
 
@@ -106,6 +164,38 @@ export class ProductosService {
 
   buscarPorId(id: number) {
     return this.http.get<Producto>(`${this.API}/${id}`);
+  }
+
+  inventarioActivo() {
+    return this.http.get<InventarioActivo>(`${this.API}/admin/inventario`);
+  }
+
+  buscarVariantesInventario(
+    pagina: number,
+    limite = 25,
+    busqueda = '',
+    estado?: 'bajo' | 'agotado' | 'disponible',
+  ) {
+    let params = new HttpParams().set('pagina', pagina).set('limite', limite);
+    if (busqueda.trim()) params = params.set('busqueda', busqueda.trim());
+    if (estado) params = params.set('estado', estado);
+    return this.http.get<VariantesInventarioPaginadas>(`${this.API}/admin/variantes`, { params });
+  }
+
+  previsualizarSku(variant: {
+    marcaId: number;
+    codigoModelo: string;
+    genero: 'M' | 'W' | 'X';
+    colorId: number;
+    talla: string;
+  }) {
+    const params = new HttpParams()
+      .set('marcaId', variant.marcaId)
+      .set('codigoModelo', variant.codigoModelo)
+      .set('genero', variant.genero)
+      .set('colorId', variant.colorId)
+      .set('talla', variant.talla);
+    return this.http.get<{ sku: string }>(`${this.API}/sku-preview`, { params });
   }
 
   // Solo ADMIN
@@ -123,5 +213,12 @@ export class ProductosService {
 
   eliminarImagen(productoId: number, imagenId: number) {
     return this.http.delete(`${this.API}/${productoId}/imagenes/${imagenId}`);
+  }
+
+  actualizarStockTalla(productoId: number, tallaId: number, stock: number) {
+    return this.http.patch<{
+      id: number;
+      stock: number;
+    }>(`${this.API}/${productoId}/tallas/${tallaId}`, { stock });
   }
 }

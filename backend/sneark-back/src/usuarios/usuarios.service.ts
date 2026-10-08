@@ -8,6 +8,12 @@ import { CrearUsuarioDto } from './dto/crear-usuario.dto.js';
 import * as bcrypt from 'bcrypt';
 import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
 
+export interface FiltrosClientes {
+  busqueda?: string;
+  pagina: number;
+  limite: number;
+}
+
 @Injectable()
 export class UsuariosService {
   constructor(private readonly prisma: PrismaService) {}
@@ -68,5 +74,46 @@ export class UsuariosService {
     }
 
     return usuario;
+  }
+
+  async buscarClientes({ busqueda, pagina, limite }: FiltrosClientes) {
+    const where = {
+      rol: 'CLIENTE' as const,
+      ...(busqueda
+        ? {
+            OR: [
+              { nombre: { contains: busqueda } },
+              { email: { contains: busqueda } },
+            ],
+          }
+        : {}),
+    };
+
+    const [datos, total] = await Promise.all([
+      this.prisma.usuario.findMany({
+        where,
+        select: {
+          id: true,
+          nombre: true,
+          email: true,
+          creadoEn: true,
+          _count: { select: { pedidos: true } },
+        },
+        orderBy: { creadoEn: 'desc' },
+        skip: (pagina - 1) * limite,
+        take: limite,
+      }),
+      this.prisma.usuario.count({ where }),
+    ]);
+
+    return {
+      datos,
+      meta: {
+        total,
+        pagina,
+        limite,
+        totalPaginas: Math.ceil(total / limite),
+      },
+    };
   }
 }

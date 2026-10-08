@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { CategoriasService } from '../../../core/services/categorias.service';
+import { ColoresService } from '../../../core/services/colores.service';
 import { MarcasService } from '../../../core/services/marcas.service';
 import { ProductosService } from '../../../core/services/productos.service';
 import { AdminProductosComponent } from './admin-productos.component';
@@ -16,6 +17,7 @@ describe('AdminProductosComponent request errors', () => {
   };
   let marcasService: { buscarTodas: ReturnType<typeof vi.fn> };
   let categoriasService: { buscarTodas: ReturnType<typeof vi.fn> };
+  let coloresService: { buscarTodos: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     productosService = {
@@ -32,6 +34,7 @@ describe('AdminProductosComponent request errors', () => {
     };
     marcasService = { buscarTodas: vi.fn().mockReturnValue(of([])) };
     categoriasService = { buscarTodas: vi.fn().mockReturnValue(of([])) };
+    coloresService = { buscarTodos: vi.fn().mockReturnValue(of([])) };
 
     await TestBed.configureTestingModule({
       imports: [AdminProductosComponent],
@@ -39,6 +42,7 @@ describe('AdminProductosComponent request errors', () => {
         { provide: ProductosService, useValue: productosService },
         { provide: MarcasService, useValue: marcasService },
         { provide: CategoriasService, useValue: categoriasService },
+        { provide: ColoresService, useValue: coloresService },
       ],
     }).compileComponents();
   });
@@ -54,7 +58,7 @@ describe('AdminProductosComponent request errors', () => {
     expect(fixture.componentInstance.errorDependencias()).toBe(true);
     expect(fixture.componentInstance.cargandoDependencias()).toBe(false);
     expect(fixture.nativeElement.textContent).toContain(
-      'No se pudieron cargar las marcas o categorías.',
+      'No se pudieron cargar las marcas, categorías o colores.',
     );
     const nuevoProducto = fixture.nativeElement.querySelector(
       '.admin-page__header button',

@@ -6,6 +6,10 @@ import type { ValorMonetario } from '../models/valor-monetario';
 export interface ItemPedido {
   id: number;
   nombreProducto: string;
+  genero: 'M' | 'W' | 'X';
+  nombreColor: string;
+  codigoColor: string;
+  sku: string;
   talla: string;
   cantidad: number;
   precio: ValorMonetario;

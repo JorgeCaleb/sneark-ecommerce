@@ -101,8 +101,10 @@
                       <div class="pedido-item__info">
                         <p class="pedido-item__nombre">{{ item.nombreProducto }}</p>
                         <p class="pedido-item__detalle">
-                          Talla {{ item.talla }} · Cantidad {{ item.cantidad }}
+                          {{ item.genero }} · {{ item.nombreColor }} ({{ item.codigoColor }})
+                          · Talla {{ item.talla }} · Cantidad {{ item.cantidad }}
                         </p>
+                        <small>SKU: {{ item.sku }}</small>
                       </div>
                       <p class="pedido-item__precio">{{ formatearPrecio(item.subtotal) }}</p>
                     </div>

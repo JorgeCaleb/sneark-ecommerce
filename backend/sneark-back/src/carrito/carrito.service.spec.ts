@@ -174,17 +174,26 @@ describe('CarritoService actualizar artículo inactivo', () => {
       },
     };
     const itemFindFirst = vi.fn().mockResolvedValue(item);
-    const itemUpdate = vi.fn();
+    const itemUpdateMany = vi.fn();
     const itemDelete = vi.fn();
     const cartFindUnique = vi.fn().mockResolvedValue({
       id: 2,
       items: [],
     });
+    const transaction = vi.fn((callback) =>
+      callback({
+        carrito: { findUnique: vi.fn().mockResolvedValue({ id: 2 }) },
+        itemCarrito: {
+          findFirst: itemFindFirst,
+          updateMany: itemUpdateMany,
+        },
+      }),
+    );
     const service = new CarritoService({
+      $transaction: transaction,
       carrito: { findUnique: cartFindUnique },
       itemCarrito: {
         findFirst: itemFindFirst,
-        update: itemUpdate,
         delete: itemDelete,
       },
     } as unknown as PrismaService);
@@ -192,11 +201,42 @@ describe('CarritoService actualizar artículo inactivo', () => {
     await expect(service.actualizarItem(7, 5, { cantidad: 2 })).rejects.toThrow(
       'Este producto no está disponible',
     );
-    expect(itemUpdate).not.toHaveBeenCalled();
+    expect(itemUpdateMany).not.toHaveBeenCalled();
 
     await expect(service.eliminarItem(7, 5)).resolves.toMatchObject({
       items: [],
     });
     expect(itemDelete).toHaveBeenCalledWith({ where: { id: 5 } });
+  });
+
+  it('rejects a quantity update if the cart row changed concurrently', async () => {
+    const item = {
+      id: 5,
+      cantidad: 1,
+      tallaProducto: {
+        stock: 3,
+        producto: { activo: true },
+      },
+    };
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const service = new CarritoService({
+      $transaction: vi.fn((callback) =>
+        callback({
+          carrito: { findUnique: vi.fn().mockResolvedValue({ id: 2 }) },
+          itemCarrito: {
+            findFirst: vi.fn().mockResolvedValue(item),
+            updateMany,
+          },
+        }),
+      ),
+    } as unknown as PrismaService);
+
+    await expect(service.actualizarItem(7, 5, { cantidad: 2 })).rejects.toThrow(
+      'El carrito cambió durante la actualización',
+    );
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 5, carritoId: 2, cantidad: 1 },
+      data: { cantidad: 2 },
+    });
   });
 });

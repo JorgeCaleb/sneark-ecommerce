@@ -1,8 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { forkJoin, of, Subscription } from 'rxjs';
-import { catchError, map, switchMap } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import {
   EstadoPedido,
   Pedido,
@@ -10,13 +9,11 @@ import {
   ResumenPedidosDashboard,
 } from '../../../core/services/pedidos.service';
 import {
-  Producto,
-  ProductosPaginados,
+  InventarioActivo,
   ProductosService,
 } from '../../../core/services/productos.service';
 
 const DIAS_GRAFICO = 30;
-const LIMITE_PAGINA_PRODUCTOS = 100;
 
 interface MetricaDashboard {
   label: string;
@@ -31,15 +28,21 @@ interface PuntoVenta {
 }
 
 interface VarianteInventario {
+  id: number;
   productoId: number;
   producto: string;
   marca: string;
   imagen: string | null;
   talla: string;
+  genero: 'M' | 'W' | 'X';
+  color: string;
+  sku: string;
   stock: number;
 }
 
 interface InventarioResumen {
+  stockTotal: number;
+  variantesTotales: number;
   disponibles: number;
   bajos: number;
   agotados: number;
@@ -65,8 +68,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   readonly productosMasVendidos = computed(
     () => this.resumenPedidos()?.productosMasVendidos ?? [],
   );
-  readonly productos = signal<Producto[]>([]);
-  readonly totalProductos = signal<number | null>(null);
+  readonly inventario = signal<InventarioActivo | null>(null);
+  readonly totalProductos = computed(
+    () => this.inventario()?.productosActivos ?? null,
+  );
   private pedidosSubscription?: Subscription;
   private productosSubscription?: Subscription;
   readonly pedidosRecientes = computed(() => this.pedidos());
@@ -149,33 +154,20 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return puntos.filter((_, indice) => indice % 5 === 0 || indice === 29);
   });
 
-  readonly variantesInventario = computed<VarianteInventario[]>(() =>
-    this.productos().flatMap((producto) =>
-      producto.tallas.map((talla) => ({
-        productoId: producto.id,
-        producto: producto.nombre,
-        marca: producto.marca.nombre,
-        imagen: producto.imagenes[0]?.url ?? null,
-        talla: talla.talla,
-        stock: talla.stock,
-      })),
-    ),
+  readonly variantesStockBajo = computed<VarianteInventario[]>(
+    () => this.inventario()?.variantesStockBajo ?? [],
   );
 
   readonly inventarioResumen = computed<InventarioResumen>(() => {
-    const variantes = this.variantesInventario();
+    const resumen = this.inventario();
     return {
-      disponibles: variantes.filter((variante) => variante.stock > 5).length,
-      bajos: variantes.filter((variante) => variante.stock >= 1 && variante.stock <= 5).length,
-      agotados: variantes.filter((variante) => variante.stock === 0).length,
+      stockTotal: resumen?.stockTotal ?? 0,
+      variantesTotales: resumen?.variantesTotales ?? 0,
+      disponibles: resumen?.disponibles ?? 0,
+      bajos: resumen?.bajas ?? 0,
+      agotados: resumen?.agotadas ?? 0,
     };
   });
-
-  readonly variantesStockBajo = computed(() =>
-    this.variantesInventario()
-      .filter((variante) => variante.stock >= 1 && variante.stock <= 5)
-      .sort((a, b) => a.stock - b.stock || a.producto.localeCompare(b.producto)),
-  );
 
   readonly metricas = computed<MetricaDashboard[]>(() => [
     {
@@ -265,43 +257,17 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.productosSubscription?.unsubscribe();
     this.cargandoProductos.set(true);
     this.errorProductos.set(false);
-    this.productosService
-      .buscarPagina({ pagina: 1, limite: LIMITE_PAGINA_PRODUCTOS })
-      .pipe(
-        switchMap((primeraPagina) => {
-          const paginasRestantes = Array.from(
-            { length: Math.max(0, primeraPagina.meta.totalPaginas - 1) },
-            (_, indice) =>
-              this.productosService.buscarPagina({
-                pagina: indice + 2,
-                limite: LIMITE_PAGINA_PRODUCTOS,
-              }),
-          );
-          return paginasRestantes.length
-            ? forkJoin(paginasRestantes).pipe(
-                map((resto) => ({
-                  primeraPagina,
-                  resto,
-                })),
-              )
-            : of({ primeraPagina, resto: [] as ProductosPaginados[] });
-        }),
-        map(({ primeraPagina, resto }) => ({
-          total: primeraPagina.meta.total,
-          productos: [...primeraPagina.datos, ...resto.flatMap((pagina) => pagina.datos)],
-        })),
-        catchError(() => {
-          this.errorProductos.set(true);
-          return of(null);
-        }),
-      )
-      .subscribe((resultado) => {
-        if (resultado) {
-          this.totalProductos.set(resultado.total);
-          this.productos.set(resultado.productos);
-        }
+    this.productosSubscription = this.productosService.inventarioActivo().subscribe({
+      next: (resumen) => {
+        this.inventario.set(resumen);
         this.cargandoProductos.set(false);
-      });
+      },
+      error: () => {
+        this.inventario.set(null);
+        this.errorProductos.set(true);
+        this.cargandoProductos.set(false);
+      },
+    });
   }
 
   etiquetaEstado(estado: EstadoPedido): string {

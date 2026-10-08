@@ -1,0 +1,86 @@
+<section class="admin-page">
+  <header class="admin-page__header">
+    <div>
+      <p class="admin-page__eyebrow">VENTAS / CLIENTES</p>
+      <h1 class="admin-page__title">Clientes</h1>
+      <p class="admin-page__sub">{{ total() }} clientes registrados</p>
+    </div>
+    <button class="btn-secondary" type="button" (click)="cargar()" [disabled]="cargando()">
+      Actualizar
+    </button>
+  </header>
+
+  <form class="clientes-search" (ngSubmit)="buscar()">
+    <label for="clientes-search">Buscar clientes</label>
+    <div class="clientes-search__controls">
+      <input
+        id="clientes-search"
+        type="search"
+        name="busqueda"
+        [(ngModel)]="busqueda"
+        placeholder="Nombre o correo electrónico"
+      />
+      <button class="btn-primary" type="submit">Buscar</button>
+    </div>
+  </form>
+
+  @if (cargando()) {
+    <div class="clientes-state" role="status">Cargando clientes…</div>
+  } @else if (errorCarga()) {
+    <div class="clientes-state clientes-state--error" role="alert">
+      <p>No se pudieron cargar los clientes.</p>
+      <button class="btn-secondary" type="button" (click)="cargar()">Reintentar</button>
+    </div>
+  } @else if (!clientes().length) {
+    <div class="clientes-state">No hay clientes que coincidan con la búsqueda.</div>
+  } @else {
+    <div class="clientes-table-wrap">
+      <table class="clientes-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Correo electrónico</th>
+            <th>Pedidos</th>
+            <th>Registrado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (cliente of clientes(); track cliente.id) {
+            <tr>
+              <td>
+                <span class="cliente-avatar" aria-hidden="true">
+                  {{ cliente.nombre.charAt(0).toUpperCase() }}
+                </span>
+                <span class="cliente-name">{{ cliente.nombre }}</span>
+              </td>
+              <td>{{ cliente.email }}</td>
+              <td>{{ cliente._count.pedidos }}</td>
+              <td>{{ formatearFecha(cliente.creadoEn) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (totalPaginas() > 1) {
+      <nav class="clientes-pagination" aria-label="Paginación de clientes">
+        <button
+          class="btn-secondary"
+          type="button"
+          [disabled]="pagina() === 1"
+          (click)="irAPagina(pagina() - 1)"
+        >
+          Anterior
+        </button>
+        <span aria-live="polite">Página {{ pagina() }} de {{ totalPaginas() }}</span>
+        <button
+          class="btn-secondary"
+          type="button"
+          [disabled]="pagina() === totalPaginas()"
+          (click)="irAPagina(pagina() + 1)"
+        >
+          Siguiente
+        </button>
+      </nav>
+    }
+  }
+</section>
