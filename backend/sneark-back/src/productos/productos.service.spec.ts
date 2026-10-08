@@ -202,3 +202,73 @@ describe('ProductosService actualizar tallas', () => {
     );
   });
 });
+
+describe('ProductosService actualizar stock de talla', () => {
+  it.each([-1, 1.5])(
+    'rejects invalid stock %p before accessing the database',
+    async (stock) => {
+      const findFirst = vi.fn();
+      const update = vi.fn();
+      const service = new ProductosService(
+        { tallaProducto: { findFirst, update } } as unknown as PrismaService,
+        {} as CloudinaryService,
+      );
+      vi.spyOn(service, 'buscarPorId').mockResolvedValue({
+        id: 3,
+      } as Awaited<ReturnType<typeof service.buscarPorId>>);
+
+      await expect(service.actualizarStockTalla(3, 10, stock)).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(findFirst).not.toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([0, 8])('persists valid non-negative stock %i', async (stock) => {
+    const findFirst = vi.fn().mockResolvedValue({ id: 10 });
+    const update = vi.fn().mockResolvedValue({ id: 10, stock });
+    const service = new ProductosService(
+      { tallaProducto: { findFirst, update } } as unknown as PrismaService,
+      {} as CloudinaryService,
+    );
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
+      id: 3,
+    } as Awaited<ReturnType<typeof service.buscarPorId>>);
+
+    await expect(service.actualizarStockTalla(3, 10, stock)).resolves.toEqual({
+      id: 10,
+      stock,
+    });
+  });
+
+  describe('ProductosService búsqueda pública por id', () => {
+    it('returns an active product', async () => {
+      const producto = { id: 3, activo: true };
+      const findFirst = vi.fn().mockResolvedValue(producto);
+      const service = new ProductosService(
+        { producto: { findFirst } } as unknown as PrismaService,
+        {} as CloudinaryService,
+      );
+
+      await expect(service.buscarPorIdPublico(3)).resolves.toBe(producto);
+      expect(findFirst).toHaveBeenCalledWith({
+        where: { id: 3, activo: true },
+        include: expect.any(Object),
+      });
+    });
+
+    it('does not expose an inactive product', async () => {
+      const findFirst = vi.fn().mockResolvedValue(null);
+      const service = new ProductosService(
+        { producto: { findFirst } } as unknown as PrismaService,
+        {} as CloudinaryService,
+      );
+
+      await expect(service.buscarPorIdPublico(3)).rejects.toThrow(
+        'Producto con id 3 no encontrado',
+      );
+    });
+  });
+});

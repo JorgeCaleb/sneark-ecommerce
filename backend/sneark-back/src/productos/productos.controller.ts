@@ -17,6 +17,7 @@ import { memoryStorage } from 'multer';
 import { ProductosService } from './productos.service.js';
 import { CrearProductoDto } from './dto/crear-producto.dto.js';
 import { ActualizarProductoDto } from './dto/actualizar-producto.dto.js';
+import { ActualizarStockTallaDto } from './dto/actualizar-stock-talla.dto.js';
 import { FiltrarProductosDto } from './dto/filtrar-productos.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
@@ -36,7 +37,7 @@ export class ProductosController {
   // GET /api/productos/:id — público
   @Get(':id')
   buscarPorId(@Param('id', ParseIntPipe) id: number) {
-    return this.productosService.buscarPorId(id);
+    return this.productosService.buscarPorIdPublico(id);
   }
 
   // POST /api/productos — solo ADMIN
@@ -115,8 +116,8 @@ export class ProductosController {
   actualizarStockTalla(
     @Param('id', ParseIntPipe) id: number,
     @Param('tallaId', ParseIntPipe) tallaId: number,
-    @Body('stock', ParseIntPipe) stock: number,
+    @Body() dto: ActualizarStockTallaDto,
   ) {
-    return this.productosService.actualizarStockTalla(id, tallaId, stock);
+    return this.productosService.actualizarStockTalla(id, tallaId, dto.stock);
   }
 }

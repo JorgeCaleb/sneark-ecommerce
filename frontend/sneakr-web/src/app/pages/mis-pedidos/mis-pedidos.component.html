@@ -8,6 +8,12 @@
       </a>
     </div>
 
+    @if (errorCancelacion()) {
+      <div class="pedidos-error" role="alert">
+        {{ errorCancelacion() }}
+      </div>
+    }
+
     <!-- Skeleton -->
     @if (cargando()) {
       <div class="pedidos-list">

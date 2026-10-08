@@ -54,7 +54,11 @@
           </div>
 
           @for (item of carrito()!.items; track item.id) {
-            <div class="carrito-item" [class.carrito-item--cargando]="actualizando() === item.id">
+            <div
+              class="carrito-item"
+              [class.carrito-item--cargando]="actualizando().has(item.id)"
+              [class.carrito-item--no-disponible]="!item.tallaProducto.producto.activo"
+            >
 
               <!-- Imagen -->
               <a [routerLink]="['/producto', item.tallaProducto.producto.id]"
@@ -75,6 +79,9 @@
                       {{ item.tallaProducto.producto.nombre }}
                     </a>
                     <p class="carrito-item__talla">Talla: {{ item.tallaProducto.talla }}</p>
+                    @if (!item.tallaProducto.producto.activo) {
+                      <p class="carrito-item__disponibilidad">No disponible</p>
+                    }
                   </div>
                   <!-- Eliminar -->
                   <button class="carrito-item__eliminar" (click)="eliminar(item)"
@@ -91,13 +98,13 @@
                   <!-- Cantidad -->
                   <div class="cantidad-ctrl">
                     <button class="cantidad-ctrl__btn" (click)="decrementar(item)"
-                            [disabled]="item.cantidad === 1 || actualizando() === item.id">
+                            [disabled]="!item.tallaProducto.producto.activo || item.cantidad === 1 || actualizando().has(item.id)">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                            stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     </button>
                     <span class="cantidad-ctrl__num">{{ item.cantidad }}</span>
                     <button class="cantidad-ctrl__btn" (click)="incrementar(item)"
-                            [disabled]="item.cantidad >= item.tallaProducto.stock || actualizando() === item.id">
+                            [disabled]="!item.tallaProducto.producto.activo || item.cantidad >= item.tallaProducto.stock || actualizando().has(item.id)">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                            stroke-width="2.5" stroke-linecap="round">
                         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>

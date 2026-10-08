@@ -52,67 +52,86 @@ export class CarritoService {
   }
 
   async agregar(usuarioId: number, dto: AgregarItemDto) {
-    // Verificar que la talla existe y tiene stock suficiente
-    const talla = await this.prisma.tallaProducto.findUnique({
-      where: { id: dto.tallaProductoId },
-      include: { producto: true },
-    });
+    try {
+      await this.agregarTransaccional(usuarioId, dto);
+    } catch (error) {
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== 'P2002'
+      ) {
+        throw error;
+      }
 
-    if (!talla) {
-      throw new NotFoundException('Talla no encontrada');
+      // Otra solicitud creó primero el mismo artículo; reintentar como incremento condicional.
+      await this.agregarTransaccional(usuarioId, dto);
     }
 
-    if (!talla.producto.activo) {
-      throw new BadRequestException('Este producto no está disponible');
-    }
+    return this.obtener(usuarioId);
+  }
 
-    if (talla.stock < dto.cantidad) {
-      throw new BadRequestException(
-        `Stock insuficiente. Solo hay ${talla.stock} unidades disponibles`,
-      );
-    }
+  private async agregarTransaccional(usuarioId: number, dto: AgregarItemDto) {
+    await this.prisma.$transaction(async (tx) => {
+      const talla = await tx.tallaProducto.findUnique({
+        where: { id: dto.tallaProductoId },
+        include: { producto: true },
+      });
 
-    // Obtener o crear el carrito
-    const carrito = await this.prisma.carrito.upsert({
-      where: { usuarioId },
-      create: { usuarioId },
-      update: {},
-    });
+      if (!talla) {
+        throw new NotFoundException('Talla no encontrada');
+      }
 
-    // Si el item ya existe en el carrito, incrementar cantidad
-    const itemExistente = await this.prisma.itemCarrito.findUnique({
-      where: {
-        carritoId_tallaProductoId: {
-          carritoId: carrito.id,
-          tallaProductoId: dto.tallaProductoId,
-        },
-      },
-    });
+      if (!talla.producto.activo) {
+        throw new BadRequestException('Este producto no está disponible');
+      }
 
-    if (itemExistente) {
-      const nuevaCantidad = itemExistente.cantidad + dto.cantidad;
-
-      if (talla.stock < nuevaCantidad) {
+      if (talla.stock < dto.cantidad) {
         throw new BadRequestException(
           `Stock insuficiente. Solo hay ${talla.stock} unidades disponibles`,
         );
       }
 
-      await this.prisma.itemCarrito.update({
-        where: { id: itemExistente.id },
-        data: { cantidad: nuevaCantidad },
+      const carrito = await tx.carrito.upsert({
+        where: { usuarioId },
+        create: { usuarioId },
+        update: {},
       });
-    } else {
-      await this.prisma.itemCarrito.create({
+
+      const actualizado = await tx.itemCarrito.updateMany({
+        where: {
+          carritoId: carrito.id,
+          tallaProductoId: dto.tallaProductoId,
+          cantidad: { lte: talla.stock - dto.cantidad },
+        },
+        data: { cantidad: { increment: dto.cantidad } },
+      });
+
+      if (actualizado.count === 1) {
+        return;
+      }
+
+      const existente = await tx.itemCarrito.findUnique({
+        where: {
+          carritoId_tallaProductoId: {
+            carritoId: carrito.id,
+            tallaProductoId: dto.tallaProductoId,
+          },
+        },
+      });
+
+      if (existente) {
+        throw new BadRequestException(
+          `Stock insuficiente. Solo hay ${talla.stock} unidades disponibles`,
+        );
+      }
+
+      await tx.itemCarrito.create({
         data: {
           carritoId: carrito.id,
           tallaProductoId: dto.tallaProductoId,
           cantidad: dto.cantidad,
         },
       });
-    }
-
-    return this.obtener(usuarioId);
+    });
   }
 
   async actualizarItem(
@@ -122,10 +141,12 @@ export class CarritoService {
   ) {
     const item = await this.verificarItemDelUsuario(usuarioId, itemId);
 
+    if (!item.tallaProducto.producto.activo) {
+      throw new BadRequestException('Este producto no está disponible');
+    }
+
     // Verificar stock disponible
-    const talla = await this.prisma.tallaProducto.findUnique({
-      where: { id: item.tallaProductoId },
-    });
+    const talla = item.tallaProducto;
 
     if (!talla || talla.stock < dto.cantidad) {
       throw new BadRequestException(
@@ -177,6 +198,11 @@ export class CarritoService {
 
     const item = await this.prisma.itemCarrito.findFirst({
       where: { id: itemId, carritoId: carrito.id },
+      include: {
+        tallaProducto: {
+          include: { producto: true },
+        },
+      },
     });
 
     if (!item) {

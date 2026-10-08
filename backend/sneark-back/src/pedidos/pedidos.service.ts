@@ -32,6 +32,11 @@ const INCLUDE_PEDIDO = {
   usuario: { select: { id: true, nombre: true, email: true } },
 } satisfies Prisma.PedidoInclude;
 
+const ESTADOS_CANCELABLES: EstadoPedido[] = [
+  EstadoPedido.PENDIENTE,
+  EstadoPedido.PAGO_VERIFICADO,
+];
+
 @Injectable()
 export class PedidosService {
   constructor(
@@ -50,60 +55,81 @@ export class PedidosService {
     }
 
     // Crear el pedido y sus items en una transacción atómica
-    const pedido = await this.prisma.$transaction(async (tx) => {
-      const carritoConsumido = await tx.itemCarrito.deleteMany({
-        where: { carritoId: carrito.id },
-      });
-      if (carritoConsumido.count !== carrito.items.length) {
-        throw new BadRequestException(
-          'El carrito cambió durante la compra. Revísalo e inténtalo nuevamente.',
-        );
-      }
-
-      // Reservar cada talla de forma condicional para evitar sobreventa concurrente.
-      for (const item of carrito.items) {
-        const actualizacion = await tx.tallaProducto.updateMany({
+    const pedido = await this.prisma.$transaction(
+      async (tx) => {
+        const productosNoDisponibles = await tx.producto.findMany({
           where: {
-            id: item.tallaProductoId,
-            stock: { gte: item.cantidad },
+            id: {
+              in: [
+                ...new Set(
+                  carrito.items.map((item) => item.tallaProducto.producto.id),
+                ),
+              ],
+            },
+            activo: false,
           },
-          data: { stock: { decrement: item.cantidad } },
+          select: { nombre: true },
         });
 
-        if (actualizacion.count !== 1) {
+        if (productosNoDisponibles.length) {
           throw new BadRequestException(
-            `Stock insuficiente para "${item.tallaProducto.producto.nombre}" talla ${item.tallaProducto.talla}`,
+            `Productos no disponibles: ${productosNoDisponibles.map((producto) => `"${producto.nombre}"`).join(', ')}`,
           );
         }
-      }
 
-      // Crear el pedido solo después de reservar correctamente todas las tallas.
-      const nuevoPedido = await tx.pedido.create({
-        data: {
-          usuarioId,
-          total: carrito.total,
-          metodoPago:
-            dto.metodoPago === 'YAPE' ? MetodoPago.YAPE : MetodoPago.PLIN,
-          telefono: dto.telefono,
-          ciudad: dto.ciudad,
-          direccion: dto.direccion,
-          // Crear todos los items del pedido como snapshot
-          items: {
-            create: carrito.items.map((item) => ({
-              tallaProductoId: item.tallaProductoId,
-              nombreProducto: item.tallaProducto.producto.nombre,
-              talla: item.tallaProducto.talla,
-              cantidad: item.cantidad,
-              precio: item.tallaProducto.producto.precio,
-              subtotal: item.subtotal,
-            })),
+        const carritoConsumido = await tx.itemCarrito.deleteMany({
+          where: { carritoId: carrito.id },
+        });
+        if (carritoConsumido.count !== carrito.items.length) {
+          throw new BadRequestException(
+            'El carrito cambió durante la compra. Revísalo e inténtalo nuevamente.',
+          );
+        }
+
+        // Reservar cada talla de forma condicional para evitar sobreventa concurrente.
+        for (const item of carrito.items) {
+          const actualizacion = await tx.tallaProducto.updateMany({
+            where: {
+              id: item.tallaProductoId,
+              stock: { gte: item.cantidad },
+            },
+            data: { stock: { decrement: item.cantidad } },
+          });
+
+          if (actualizacion.count !== 1) {
+            throw new BadRequestException(
+              `Stock insuficiente para "${item.tallaProducto.producto.nombre}" talla ${item.tallaProducto.talla}`,
+            );
+          }
+        }
+
+        // Crear el pedido solo después de reservar correctamente todas las tallas.
+        return tx.pedido.create({
+          data: {
+            usuarioId,
+            total: carrito.total,
+            metodoPago:
+              dto.metodoPago === 'YAPE' ? MetodoPago.YAPE : MetodoPago.PLIN,
+            telefono: dto.telefono,
+            ciudad: dto.ciudad,
+            direccion: dto.direccion,
+            // Crear todos los items del pedido como snapshot
+            items: {
+              create: carrito.items.map((item) => ({
+                tallaProductoId: item.tallaProductoId,
+                nombreProducto: item.tallaProducto.producto.nombre,
+                talla: item.tallaProducto.talla,
+                cantidad: item.cantidad,
+                precio: item.tallaProducto.producto.precio,
+                subtotal: item.subtotal,
+              })),
+            },
           },
-        },
-        include: INCLUDE_PEDIDO,
-      });
-
-      return nuevoPedido;
-    });
+          include: INCLUDE_PEDIDO,
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
 
     return pedido;
   }
@@ -112,9 +138,15 @@ export class PedidosService {
   async subirComprobante(
     usuarioId: number,
     pedidoId: number,
-    archivo: Express.Multer.File,
+    archivo: Express.Multer.File | undefined,
     dto: SubirComprobanteDto,
   ) {
+    if (!archivo?.buffer) {
+      throw new BadRequestException(
+        'Debes adjuntar el archivo del comprobante',
+      );
+    }
+
     const pedido = await this.buscarPorId(pedidoId);
 
     // Solo el dueño del pedido puede subir el comprobante
@@ -295,7 +327,9 @@ export class PedidosService {
       duracionActual > 31 * 24 * 60 * 60_000 ||
       duracionAnterior > 31 * 24 * 60 * 60_000
     ) {
-      throw new BadRequestException('El intervalo de fechas del dashboard no es válido');
+      throw new BadRequestException(
+        'El intervalo de fechas del dashboard no es válido',
+      );
     }
 
     const estadosConfirmados = [
@@ -312,24 +346,30 @@ export class PedidosService {
       estado: { in: estadosConfirmados },
       creadoEn: { gte: inicioAnterior, lt: inicioActual },
     };
-    const [totalPedidos, pedidosRecientes, ventasActuales, ventasAnteriores, ventasDiarias, topProductos] =
-      await Promise.all([
-        this.prisma.pedido.count(),
-        this.prisma.pedido.findMany({
-          take: 5,
-          include: INCLUDE_PEDIDO,
-          orderBy: [{ creadoEn: 'desc' }, { id: 'desc' }],
-        }),
-        this.prisma.pedido.aggregate({
-          where: whereVentasActuales,
-          _sum: { total: true },
-        }),
-        this.prisma.pedido.aggregate({
-          where: whereVentasAnteriores,
-          _sum: { total: true },
-        }),
-        this.prisma.$queryRaw<{ fecha: string; total: Prisma.Decimal }[]>(
-          Prisma.sql`
+    const [
+      totalPedidos,
+      pedidosRecientes,
+      ventasActuales,
+      ventasAnteriores,
+      ventasDiarias,
+      topProductos,
+    ] = await Promise.all([
+      this.prisma.pedido.count(),
+      this.prisma.pedido.findMany({
+        take: 5,
+        include: INCLUDE_PEDIDO,
+        orderBy: [{ creadoEn: 'desc' }, { id: 'desc' }],
+      }),
+      this.prisma.pedido.aggregate({
+        where: whereVentasActuales,
+        _sum: { total: true },
+      }),
+      this.prisma.pedido.aggregate({
+        where: whereVentasAnteriores,
+        _sum: { total: true },
+      }),
+      this.prisma.$queryRaw<{ fecha: string; total: Prisma.Decimal }[]>(
+        Prisma.sql`
             SELECT DATE_FORMAT(
               DATE_ADD(\`creadoEn\`, INTERVAL ${filtros.desfaseZonaHoraria} MINUTE),
               '%Y-%m-%d'
@@ -342,9 +382,9 @@ export class PedidosService {
               AND \`creadoEn\` < ${finActual}
             GROUP BY fecha
           `,
-        ),
-        this.prisma.$queryRaw<{ productoId: number; cantidad: bigint }[]>(
-          Prisma.sql`
+      ),
+      this.prisma.$queryRaw<{ productoId: number; cantidad: bigint }[]>(
+        Prisma.sql`
             SELECT tallas.\`productoId\` AS productoId,
                    SUM(items.\`cantidad\`) AS cantidad
             FROM \`items_pedido\` AS items
@@ -359,22 +399,30 @@ export class PedidosService {
             ORDER BY cantidad DESC, productoId ASC
             LIMIT 5
           `,
-        ),
-      ]);
+      ),
+    ]);
 
     const productos = topProductos.length
       ? await this.prisma.producto.findMany({
-          where: { id: { in: topProductos.map((producto) => producto.productoId) } },
+          where: {
+            id: { in: topProductos.map((producto) => producto.productoId) },
+          },
           select: {
             id: true,
             nombre: true,
             precio: true,
             marca: { select: { nombre: true } },
-            imagenes: { select: { url: true }, take: 1, orderBy: { id: 'asc' } },
+            imagenes: {
+              select: { url: true },
+              take: 1,
+              orderBy: { id: 'asc' },
+            },
           },
         })
       : [];
-    const productosPorId = new Map(productos.map((producto) => [producto.id, producto]));
+    const productosPorId = new Map(
+      productos.map((producto) => [producto.id, producto]),
+    );
 
     return {
       totalPedidos,
@@ -406,13 +454,64 @@ export class PedidosService {
   // ─── Gestión ADMIN ────────────────────────────────────────────────────────────
 
   async actualizarEstado(id: number, dto: ActualizarEstadoDto) {
-    await this.buscarPorId(id);
+    const pedido = await this.buscarPorId(id);
 
-    return this.prisma.pedido.update({
-      where: { id },
-      data: { estado: dto.estado },
-      include: INCLUDE_PEDIDO,
+    if (pedido.estado === dto.estado) {
+      return pedido;
+    }
+
+    if (pedido.estado === EstadoPedido.CANCELADO) {
+      throw new BadRequestException(
+        'Un pedido cancelado no se puede reactivar',
+      );
+    }
+
+    if (
+      dto.estado === EstadoPedido.CANCELADO &&
+      !ESTADOS_CANCELABLES.includes(pedido.estado)
+    ) {
+      throw new BadRequestException(
+        `No se puede cancelar un pedido en estado ${pedido.estado}`,
+      );
+    }
+
+    const pedidoActualizado = await this.prisma.$transaction(async (tx) => {
+      const actualizacion = await tx.pedido.updateMany({
+        where: { id, estado: pedido.estado },
+        data: { estado: dto.estado },
+      });
+
+      if (actualizacion.count !== 1) {
+        return null;
+      }
+
+      if (dto.estado === EstadoPedido.CANCELADO) {
+        for (const item of pedido.items) {
+          await tx.tallaProducto.update({
+            where: { id: item.tallaProductoId },
+            data: { stock: { increment: item.cantidad } },
+          });
+        }
+      }
+
+      return tx.pedido.findUniqueOrThrow({
+        where: { id },
+        include: INCLUDE_PEDIDO,
+      });
     });
+
+    if (pedidoActualizado) {
+      return pedidoActualizado;
+    }
+
+    const estadoActual = await this.buscarPorId(id);
+    if (estadoActual.estado === dto.estado) {
+      return estadoActual;
+    }
+
+    throw new BadRequestException(
+      'El pedido cambió durante la actualización. Vuelve a cargarlo e inténtalo nuevamente.',
+    );
   }
 
   async cancelar(usuarioId: number, pedidoId: number) {
@@ -424,26 +523,34 @@ export class PedidosService {
     }
 
     // Solo se puede cancelar si está PENDIENTE o PAGO_VERIFICADO
-    const cancelables = ['PENDIENTE', 'PAGO_VERIFICADO'];
-    if (!cancelables.includes(pedido.estado)) {
+    if (!ESTADOS_CANCELABLES.includes(pedido.estado)) {
       throw new BadRequestException(
         `No se puede cancelar un pedido en estado ${pedido.estado}`,
       );
     }
 
-    // Devolver el stock al cancelar
     await this.prisma.$transaction(async (tx) => {
+      const actualizacion = await tx.pedido.updateMany({
+        where: {
+          id: pedidoId,
+          usuarioId,
+          estado: { in: ESTADOS_CANCELABLES },
+        },
+        data: { estado: EstadoPedido.CANCELADO },
+      });
+
+      if (actualizacion.count !== 1) {
+        throw new BadRequestException(
+          'El pedido cambió durante la cancelación. Vuelve a cargarlo e inténtalo nuevamente.',
+        );
+      }
+
       for (const item of pedido.items) {
         await tx.tallaProducto.update({
           where: { id: item.tallaProductoId },
           data: { stock: { increment: item.cantidad } },
         });
       }
-
-      await tx.pedido.update({
-        where: { id: pedidoId },
-        data: { estado: 'CANCELADO' },
-      });
     });
 
     return this.buscarPorId(pedidoId);

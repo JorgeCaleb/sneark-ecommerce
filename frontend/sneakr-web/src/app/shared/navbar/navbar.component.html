@@ -36,6 +36,8 @@
 
       <!-- Auth -->
       @if (auth.estaAutenticado()) {
+        <a routerLink="/mis-pedidos" routerLinkActive="navbar__link--active"
+           class="navbar__link">Mis pedidos</a>
         <div class="navbar__user">
           <span class="navbar__user-name">{{ auth.usuario()?.nombre?.split(' ')[0] }}</span>
           <button class="btn-secondary navbar__btn-logout" (click)="logout()">

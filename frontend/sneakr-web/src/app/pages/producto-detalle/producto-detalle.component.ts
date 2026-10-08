@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed, Input } from '@angular/core';
+import { Component, OnChanges, inject, signal, computed, Input } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ProductosService, Producto, TallaProducto } from '../../core/services/productos.service';
 import { CarritoService } from '../../core/services/carrito.service';
@@ -11,7 +11,7 @@ import { AuthService } from '../../core/services/auth.service';
   templateUrl: './producto-detalle.component.html',
   styleUrl: './producto-detalle.component.css',
 })
-export class ProductoDetalleComponent implements OnInit {
+export class ProductoDetalleComponent implements OnChanges {
   // El id llega como @Input gracias a withComponentInputBinding()
   @Input() id!: string;
 
@@ -19,6 +19,7 @@ export class ProductoDetalleComponent implements OnInit {
   private carritoService   = inject(CarritoService);
   private authService      = inject(AuthService);
   private router           = inject(Router);
+  private solicitudProducto = 0;
 
   readonly producto      = signal<Producto | null>(null);
   readonly cargando      = signal(true);
@@ -39,13 +40,24 @@ export class ProductoDetalleComponent implements OnInit {
     this.cantidad() <= this.tallaSeleccionada()!.stock
   );
 
-  ngOnInit() {
-    this.productosService.buscarPorId(+this.id).subscribe({
+  ngOnChanges() {
+    const solicitud = ++this.solicitudProducto;
+    this.producto.set(null);
+    this.cargando.set(true);
+    this.imagenActiva.set(0);
+    this.tallaSeleccionada.set(null);
+    this.cantidad.set(1);
+    this.mensajeExito.set(false);
+    this.error.set('');
+
+    this.productosService.buscarPorId(Number(this.id)).subscribe({
       next: (p) => {
+        if (solicitud !== this.solicitudProducto) return;
         this.producto.set(p);
         this.cargando.set(false);
       },
       error: () => {
+        if (solicitud !== this.solicitudProducto) return;
         this.cargando.set(false);
         this.router.navigate(['/catalogo']);
       },

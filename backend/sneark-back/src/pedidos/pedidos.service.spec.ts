@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { EstadoPedido, Prisma } from '@prisma/client';
 import { CarritoService } from '../carrito/carrito.service.js';
 import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -49,7 +49,7 @@ describe('PedidosService order creation inventory reservation', () => {
     subtotal: 200,
     tallaProducto: {
       talla: '42',
-      producto: { nombre: 'Sneark One', precio: 100 },
+      producto: { id: 13, nombre: 'Sneark One', precio: 100, activo: true },
     },
   };
 
@@ -72,6 +72,7 @@ describe('PedidosService order creation inventory reservation', () => {
     };
     const tx = {
       tallaProducto: { updateMany: actualizarStock },
+      producto: { findMany: vi.fn().mockResolvedValue([]) },
       pedido: { create: crearPedido },
       itemCarrito: { deleteMany: vaciarCarrito },
     };
@@ -127,6 +128,52 @@ describe('PedidosService order creation inventory reservation', () => {
     expect(crearPedido).not.toHaveBeenCalled();
   });
 
+  it('rejects disabled products inside the transaction without consuming the cart or stock', async () => {
+    const productosInactivos = [{ nombre: 'Sneark One' }];
+    const encontrarInactivos = vi.fn().mockResolvedValue(productosInactivos);
+    const carritoConsumido = vi.fn();
+    const reservarStock = vi.fn();
+    const crearPedido = vi.fn();
+    const tx = {
+      producto: { findMany: encontrarInactivos },
+      itemCarrito: { deleteMany: carritoConsumido },
+      tallaProducto: { updateMany: reservarStock },
+      pedido: { create: crearPedido },
+    };
+    const prisma = {
+      $transaction: vi.fn((callback) => callback(tx)),
+    };
+    const carritoService = {
+      obtener: vi.fn().mockResolvedValue({
+        id: 9,
+        total: 200,
+        items: [item],
+      }),
+    };
+    const service = new PedidosService(
+      prisma as unknown as PrismaService,
+      {} as CloudinaryService,
+      carritoService as unknown as CarritoService,
+    );
+
+    await expect(
+      service.crear(7, {
+        metodoPago: 'YAPE',
+        telefono: '999999999',
+        ciudad: 'Lima',
+        direccion: 'Calle 1',
+      }),
+    ).rejects.toThrow('Productos no disponibles: "Sneark One"');
+
+    expect(encontrarInactivos).toHaveBeenCalledWith({
+      where: { id: { in: [13] }, activo: false },
+      select: { nombre: true },
+    });
+    expect(carritoConsumido).not.toHaveBeenCalled();
+    expect(reservarStock).not.toHaveBeenCalled();
+    expect(crearPedido).not.toHaveBeenCalled();
+  });
+
   it('aborts the transaction if a later size has insufficient stock', async () => {
     carritoService.obtener.mockResolvedValue({
       id: 9,
@@ -138,7 +185,12 @@ describe('PedidosService order creation inventory reservation', () => {
           tallaProductoId: 22,
           tallaProducto: {
             talla: '43',
-            producto: { nombre: 'Sneark One', precio: 100 },
+            producto: {
+              id: 13,
+              nombre: 'Sneark One',
+              precio: 100,
+              activo: true,
+            },
           },
         },
       ],
@@ -160,6 +212,260 @@ describe('PedidosService order creation inventory reservation', () => {
     expect(actualizarStock).toHaveBeenCalledTimes(2);
     expect(crearPedido).not.toHaveBeenCalled();
     expect(vaciarCarrito).toHaveBeenCalledOnce();
+  });
+});
+
+describe('PedidosService admin order state transitions', () => {
+  const order = {
+    id: 42,
+    usuarioId: 7,
+    estado: EstadoPedido.PENDIENTE,
+    items: [{ tallaProductoId: 21, cantidad: 2 }],
+  };
+
+  let service: PedidosService;
+  let updateMany: ReturnType<typeof vi.fn>;
+  let updateStock: ReturnType<typeof vi.fn>;
+  let findUniqueOrThrow: ReturnType<typeof vi.fn>;
+  let transaction: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    updateStock = vi.fn().mockResolvedValue({});
+    findUniqueOrThrow = vi
+      .fn()
+      .mockResolvedValue({ ...order, estado: EstadoPedido.CANCELADO });
+    const tx = {
+      pedido: { updateMany, findUniqueOrThrow },
+      tallaProducto: { update: updateStock },
+    };
+    transaction = vi.fn((callback) => callback(tx));
+    service = new PedidosService(
+      { $transaction: transaction } as unknown as PrismaService,
+      {} as CloudinaryService,
+      {} as CarritoService,
+    );
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue(
+      order as Awaited<ReturnType<typeof service.buscarPorId>>,
+    );
+  });
+
+  it('cancels an eligible order and restores stock after claiming the state transition', async () => {
+    await expect(
+      service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
+    ).resolves.toEqual({ ...order, estado: EstadoPedido.CANCELADO });
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 42, estado: EstadoPedido.PENDIENTE },
+      data: { estado: EstadoPedido.CANCELADO },
+    });
+    expect(updateStock).toHaveBeenCalledWith({
+      where: { id: 21 },
+      data: { stock: { increment: 2 } },
+    });
+    expect(updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+      updateStock.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('treats a request for the current state as idempotent', async () => {
+    await expect(
+      service.actualizarEstado(42, { estado: EstadoPedido.PENDIENTE }),
+    ).resolves.toBe(order);
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(updateStock).not.toHaveBeenCalled();
+  });
+
+  it('does not restore stock when an already-cancelled state is requested again', async () => {
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
+      ...order,
+      estado: EstadoPedido.CANCELADO,
+    } as Awaited<ReturnType<typeof service.buscarPorId>>);
+
+    await expect(
+      service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
+    ).resolves.toMatchObject({ estado: EstadoPedido.CANCELADO });
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(updateStock).not.toHaveBeenCalled();
+  });
+
+  it('does not reactivate a cancelled order', async () => {
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
+      ...order,
+      estado: EstadoPedido.CANCELADO,
+    } as Awaited<ReturnType<typeof service.buscarPorId>>);
+
+    await expect(
+      service.actualizarEstado(42, { estado: EstadoPedido.PENDIENTE }),
+    ).rejects.toThrow('Un pedido cancelado no se puede reactivar');
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('does not change stock for other administrative state transitions', async () => {
+    findUniqueOrThrow.mockResolvedValue({
+      ...order,
+      estado: EstadoPedido.EN_PREPARACION,
+    });
+
+    await expect(
+      service.actualizarEstado(42, { estado: EstadoPedido.EN_PREPARACION }),
+    ).resolves.toMatchObject({ estado: EstadoPedido.EN_PREPARACION });
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 42, estado: EstadoPedido.PENDIENTE },
+      data: { estado: EstadoPedido.EN_PREPARACION },
+    });
+    expect(updateStock).not.toHaveBeenCalled();
+  });
+
+  it('does not cancel an order outside the allowed states', async () => {
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
+      ...order,
+      estado: EstadoPedido.EN_PREPARACION,
+    } as Awaited<ReturnType<typeof service.buscarPorId>>);
+
+    await expect(
+      service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
+    ).rejects.toThrow(
+      'No se puede cancelar un pedido en estado EN_PREPARACION',
+    );
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('does not restore stock if another request already changed the state', async () => {
+    updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
+    ).rejects.toThrow('El pedido cambió durante la actualización');
+
+    expect(updateStock).not.toHaveBeenCalled();
+    expect(findUniqueOrThrow).not.toHaveBeenCalled();
+  });
+
+  it('returns the current order when a concurrent request already applied the requested state', async () => {
+    updateMany.mockResolvedValue({ count: 0 });
+    vi.spyOn(service, 'buscarPorId')
+      .mockReset()
+      .mockResolvedValueOnce(
+        order as Awaited<ReturnType<typeof service.buscarPorId>>,
+      )
+      .mockResolvedValueOnce({
+        ...order,
+        estado: EstadoPedido.CANCELADO,
+      } as Awaited<ReturnType<typeof service.buscarPorId>>);
+
+    await expect(
+      service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
+    ).resolves.toMatchObject({ estado: EstadoPedido.CANCELADO });
+
+    expect(updateStock).not.toHaveBeenCalled();
+  });
+
+  it('aborts the state transition if restoring stock fails', async () => {
+    updateStock.mockRejectedValue(new Error('Inventory update failed'));
+
+    await expect(
+      service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
+    ).rejects.toThrow('Inventory update failed');
+
+    expect(updateMany).toHaveBeenCalledOnce();
+    expect(findUniqueOrThrow).not.toHaveBeenCalled();
+  });
+});
+
+describe('PedidosService customer order cancellation', () => {
+  const order = {
+    id: 42,
+    usuarioId: 7,
+    estado: EstadoPedido.PAGO_VERIFICADO,
+    usuario: { id: 7 },
+    items: [{ tallaProductoId: 21, cantidad: 2 }],
+  };
+
+  let service: PedidosService;
+  let updateMany: ReturnType<typeof vi.fn>;
+  let updateStock: ReturnType<typeof vi.fn>;
+  let transaction: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    updateStock = vi.fn().mockResolvedValue({});
+    const tx = {
+      pedido: { updateMany },
+      tallaProducto: { update: updateStock },
+    };
+    const prisma = {
+      $transaction: vi.fn((callback) => callback(tx)),
+    };
+    transaction = prisma.$transaction;
+    service = new PedidosService(
+      prisma as unknown as PrismaService,
+      {} as CloudinaryService,
+      {} as CarritoService,
+    );
+    vi.spyOn(service, 'buscarPorId')
+      .mockResolvedValueOnce(
+        order as Awaited<ReturnType<typeof service.buscarPorId>>,
+      )
+      .mockResolvedValueOnce({
+        ...order,
+        estado: EstadoPedido.CANCELADO,
+      } as Awaited<ReturnType<typeof service.buscarPorId>>);
+  });
+
+  it('conditionally changes the order state before restoring stock', async () => {
+    await expect(service.cancelar(7, 42)).resolves.toMatchObject({
+      estado: EstadoPedido.CANCELADO,
+    });
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 42,
+        usuarioId: 7,
+        estado: {
+          in: [EstadoPedido.PENDIENTE, EstadoPedido.PAGO_VERIFICADO],
+        },
+      },
+      data: { estado: EstadoPedido.CANCELADO },
+    });
+    expect(updateStock).toHaveBeenCalledWith({
+      where: { id: 21 },
+      data: { stock: { increment: 2 } },
+    });
+    expect(updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+      updateStock.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('does not restore stock when a concurrent cancellation already won', async () => {
+    updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(service.cancelar(7, 42)).rejects.toThrow(
+      'El pedido cambió durante la cancelación',
+    );
+
+    expect(updateStock).not.toHaveBeenCalled();
+  });
+
+  it('rejects customer cancellation from a non-cancellable state', async () => {
+    vi.spyOn(service, 'buscarPorId')
+      .mockReset()
+      .mockResolvedValue({
+        ...order,
+        estado: EstadoPedido.EN_PREPARACION,
+      } as Awaited<ReturnType<typeof service.buscarPorId>>);
+
+    await expect(service.cancelar(7, 42)).rejects.toThrow(
+      'No se puede cancelar un pedido en estado EN_PREPARACION',
+    );
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(updateStock).not.toHaveBeenCalled();
   });
 });
 
@@ -215,6 +521,28 @@ describe('PedidosService receipt replacement conflicts', () => {
     expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
       'sneark/comprobantes/42/receipt',
     );
+  });
+});
+
+describe('PedidosService missing receipt file', () => {
+  it('returns a client error before looking up the order or uploading to Cloudinary', async () => {
+    const buscarPorId = vi.fn();
+    const subirImagen = vi.fn();
+    const service = new PedidosService(
+      { pedido: { findFirst: buscarPorId } } as unknown as PrismaService,
+      { subirImagen } as unknown as CloudinaryService,
+      {} as CarritoService,
+    );
+    const lookup = vi.spyOn(service, 'buscarPorId');
+
+    await expect(
+      service.subirComprobante(7, 42, undefined, {
+        numeroOperacion: undefined,
+      }),
+    ).rejects.toThrow('Debes adjuntar el archivo del comprobante');
+
+    expect(lookup).not.toHaveBeenCalled();
+    expect(subirImagen).not.toHaveBeenCalled();
   });
 });
 

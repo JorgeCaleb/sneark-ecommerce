@@ -15,6 +15,7 @@ export class MisPedidosComponent implements OnInit {
   readonly pedidos      = signal<Pedido[]>([]);
   readonly cargando     = signal(true);
   readonly pedidoAbierto = signal<number | null>(null);
+  readonly errorCancelacion = signal('');
 
   // Mapa de labels y colores por estado
   readonly estadoConfig: Record<EstadoPedido, { label: string; color: string }> = {
@@ -65,10 +66,19 @@ export class MisPedidosComponent implements OnInit {
 
   cancelar(pedidoId: number) {
     if (!confirm('¿Estás seguro de cancelar este pedido?')) return;
+    this.errorCancelacion.set('');
     this.pedidosService.cancelar(pedidoId).subscribe({
       next: (pedidoActualizado) => {
         this.pedidos.update((lista) =>
           lista.map((p) => (p.id === pedidoId ? pedidoActualizado : p))
+        );
+      },
+      error: (err) => {
+        const mensaje = err?.error?.message;
+        this.errorCancelacion.set(
+          typeof mensaje === 'string'
+            ? mensaje
+            : 'No se pudo cancelar el pedido. Inténtalo nuevamente.',
         );
       },
     });

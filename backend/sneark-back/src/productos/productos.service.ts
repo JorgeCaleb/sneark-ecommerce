@@ -112,6 +112,19 @@ export class ProductosService {
     return producto;
   }
 
+  async buscarPorIdPublico(id: number) {
+    const producto = await this.prisma.producto.findFirst({
+      where: { id, activo: true },
+      include: INCLUDE_PRODUCTO,
+    });
+
+    if (!producto) {
+      throw new NotFoundException(`Producto con id ${id} no encontrado`);
+    }
+
+    return producto;
+  }
+
   async actualizar(id: number, dto: ActualizarProductoDto) {
     const { tallas, ...datos } = dto;
     const tallasNormalizadas = tallas?.map((talla) => ({
@@ -301,9 +314,7 @@ export class ProductosService {
     imagenes: { publicId: string }[],
   ): Promise<void> {
     const resultados = await Promise.allSettled(
-      imagenes.map((imagen) =>
-        this.cloudinary.eliminarImagen(imagen.publicId),
-      ),
+      imagenes.map((imagen) => this.cloudinary.eliminarImagen(imagen.publicId)),
     );
     const errores = resultados.flatMap((resultado) =>
       resultado.status === 'rejected'
@@ -329,6 +340,10 @@ export class ProductosService {
     tallaId: number,
     stock: number,
   ) {
+    if (!Number.isInteger(stock) || stock < 0) {
+      throw new BadRequestException('El stock debe ser un entero no negativo');
+    }
+
     await this.buscarPorId(productoId);
 
     const talla = await this.prisma.tallaProducto.findFirst({

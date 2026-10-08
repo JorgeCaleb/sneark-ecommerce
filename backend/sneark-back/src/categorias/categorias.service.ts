@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CrearCategoriaDto } from './dto/crear-categoria.dto.js';
 import { ActualizarCategoriaDto } from './dto/actualizar-categoria.dto.js';
+import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
 
 @Injectable()
 export class CategoriasService {
@@ -20,7 +21,14 @@ export class CategoriasService {
       throw new ConflictException(`La categoría "${dto.nombre}" ya existe`);
     }
 
-    return this.prisma.categoria.create({ data: dto });
+    try {
+      return await this.prisma.categoria.create({ data: dto });
+    } catch (error) {
+      if (esConflictoUnico(error)) {
+        throw new ConflictException(`La categoría "${dto.nombre}" ya existe`);
+      }
+      throw error;
+    }
   }
 
   async buscarTodas() {
@@ -59,10 +67,17 @@ export class CategoriasService {
       }
     }
 
-    return this.prisma.categoria.update({
-      where: { id },
-      data: dto,
-    });
+    try {
+      return await this.prisma.categoria.update({
+        where: { id },
+        data: dto,
+      });
+    } catch (error) {
+      if (esConflictoUnico(error) && dto.nombre) {
+        throw new ConflictException(`La categoría "${dto.nombre}" ya existe`);
+      }
+      throw error;
+    }
   }
 
   async eliminar(id: number) {

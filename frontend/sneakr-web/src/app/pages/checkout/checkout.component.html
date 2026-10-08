@@ -138,6 +138,26 @@
       <aside class="checkout-resumen">
         <h2 class="checkout-resumen__title">Tu pedido</h2>
 
+        @if (cargandoCarrito()) {
+          <p role="status">Cargando tu carrito…</p>
+        }
+
+        @if (errorCargaCarrito()) {
+          <div class="checkout-error" role="alert">
+            <p>{{ errorCargaCarrito() }}</p>
+            <button type="button" class="btn-primary" (click)="reintentarCarga()">
+              Reintentar
+            </button>
+          </div>
+        }
+
+        @if (carritoCargado() && carrito()?.items?.length === 0) {
+          <div class="checkout-error" role="status">
+            <p>Tu carrito está vacío. Agrega productos antes de confirmar el pedido.</p>
+            <a routerLink="/carrito">Volver al carrito</a>
+          </div>
+        }
+
         @if (carrito()) {
           <div class="checkout-resumen__items">
             @for (item of carrito()!.items; track item.id) {
@@ -170,7 +190,7 @@
         <button
           class="btn-primary checkout-resumen__confirmar"
           (click)="confirmar()"
-          [disabled]="enviando()"
+          [disabled]="confirmacionDeshabilitada()"
         >
           @if (enviando()) {
             <span class="checkout-spinner"></span>

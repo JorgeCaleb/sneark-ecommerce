@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CrearUsuarioDto } from './dto/crear-usuario.dto.js';
 import * as bcrypt from 'bcrypt';
+import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
 
 @Injectable()
 export class UsuariosService {
@@ -24,17 +25,24 @@ export class UsuariosService {
     // Hashear la contraseña antes de guardar
     const hash = await bcrypt.hash(dto.password, 10);
 
-    const usuario = await this.prisma.usuario.create({
-      data: {
-        nombre: dto.nombre,
-        email: dto.email,
-        password: hash,
-      },
-    });
+    try {
+      const usuario = await this.prisma.usuario.create({
+        data: {
+          nombre: dto.nombre,
+          email: dto.email,
+          password: hash,
+        },
+      });
 
-    // Nunca devolver el password, ni hasheado
-    const { password: _, ...resultado } = usuario;
-    return resultado;
+      // Nunca devolver el password, ni hasheado
+      const { password: _, ...resultado } = usuario;
+      return resultado;
+    } catch (error) {
+      if (esConflictoUnico(error)) {
+        throw new ConflictException('El email ya está registrado');
+      }
+      throw error;
+    }
   }
 
   async buscarPorEmail(email: string) {

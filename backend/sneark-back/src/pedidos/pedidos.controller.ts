@@ -87,7 +87,7 @@ export class PedidosController {
   subirComprobante(
     @Request() req: any,
     @Param('id', ParseIntPipe) id: number,
-    @UploadedFile() archivo: Express.Multer.File,
+    @UploadedFile() archivo: Express.Multer.File | undefined,
     @Body() dto: SubirComprobanteDto,
   ) {
     return this.pedidosService.subirComprobante(req.user.id, id, archivo, dto);

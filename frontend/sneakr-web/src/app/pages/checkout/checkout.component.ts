@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CarritoService } from '../../core/services/carrito.service';
@@ -20,6 +20,16 @@ export class CheckoutComponent implements OnInit {
   readonly total     = this.carritoService.total;
   readonly enviando  = signal(false);
   readonly error     = signal('');
+  readonly cargandoCarrito = signal(false);
+  readonly carritoCargado = signal(false);
+  readonly errorCargaCarrito = signal('');
+  readonly confirmacionDeshabilitada = computed(
+    () =>
+      this.cargandoCarrito() ||
+      !this.carritoCargado() ||
+      (this.carrito()?.items.length ?? 0) === 0 ||
+      this.enviando(),
+  );
 
   // Formulario
   telefono   = '';
@@ -28,14 +38,30 @@ export class CheckoutComponent implements OnInit {
   metodoPago: MetodoPago = 'YAPE';
 
   ngOnInit() {
-    // Si el carrito está vacío redirigir
-    if (!this.carrito() || this.carrito()!.items.length === 0) {
-      this.carritoService.obtener().subscribe({
-        next: (c) => {
-          if (c.items.length === 0) this.router.navigate(['/carrito']);
-        },
-      });
-    }
+    this.cargarCarrito();
+  }
+
+  cargarCarrito() {
+    this.cargandoCarrito.set(true);
+    this.carritoCargado.set(false);
+    this.errorCargaCarrito.set('');
+
+    this.carritoService.obtener().subscribe({
+      next: () => {
+        this.cargandoCarrito.set(false);
+        this.carritoCargado.set(true);
+      },
+      error: (err) => {
+        this.cargandoCarrito.set(false);
+        this.errorCargaCarrito.set(
+          err?.error?.message ?? 'No se pudo cargar el carrito. Inténtalo nuevamente.',
+        );
+      },
+    });
+  }
+
+  reintentarCarga() {
+    this.cargarCarrito();
   }
 
   seleccionarMetodo(metodo: MetodoPago) {
@@ -43,6 +69,8 @@ export class CheckoutComponent implements OnInit {
   }
 
   confirmar() {
+    if (this.confirmacionDeshabilitada()) return;
+
     if (!this.telefono || !this.ciudad || !this.direccion) {
       this.error.set('Por favor completá todos los campos.');
       return;
@@ -59,6 +87,7 @@ export class CheckoutComponent implements OnInit {
     }).subscribe({
       next: (pedido) => {
         this.enviando.set(false);
+        this.carritoService.limpiarLocal();
         this.router.navigate(['/comprobante', pedido.id]);
       },
       error: (err) => {
