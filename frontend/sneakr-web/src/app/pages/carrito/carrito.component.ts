@@ -1,11 +1,12 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CarritoService, ItemCarrito } from '../../core/services/carrito.service';
+import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'app-carrito',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, MonedaPipe],
   templateUrl: './carrito.component.html',
   styleUrl: './carrito.component.css',
 })
@@ -53,14 +54,6 @@ export class CarritoComponent implements OnInit {
 
   vaciar() {
     this.carritoService.vaciar().subscribe();
-  }
-
-  formatearPrecio(precio: number | string): string {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-      minimumFractionDigits: 0,
-    }).format(Number(precio));
   }
 
   imagenItem(item: ItemCarrito): string {

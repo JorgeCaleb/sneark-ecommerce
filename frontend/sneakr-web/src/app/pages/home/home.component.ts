@@ -3,11 +3,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { ProductosService, Producto } from '../../core/services/productos.service';
 import { MarcasService, Marca } from '../../core/services/marcas.service';
+import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, MonedaPipe],
   templateUrl: './home.component.html',
   styleUrl: './home.component.css',
 })
@@ -44,15 +45,6 @@ export class HomeComponent implements OnInit {
           this.cargando.set(false);
         },
       });
-  }
-
-  // Formatea precio en soles peruanos
-  formatearPrecio(precio: number | string): string {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-      minimumFractionDigits: 0,
-    }).format(Number(precio));
   }
 
   // Verifica si el producto tiene stock disponible

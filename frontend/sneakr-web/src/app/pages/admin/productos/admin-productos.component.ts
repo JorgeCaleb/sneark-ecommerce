@@ -11,6 +11,7 @@ import {
 import { MarcasService, Marca } from '../../../core/services/marcas.service';
 import { CategoriasService, Categoria } from '../../../core/services/categorias.service';
 import { ColoresService, Color } from '../../../core/services/colores.service';
+import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
 
 interface TallaForm {
   id?: number;
@@ -36,7 +37,7 @@ interface ProductoForm {
 @Component({
   selector: 'app-admin-productos',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, MonedaPipe],
   templateUrl: './admin-productos.component.html',
   styleUrl: './admin-productos.component.css',
 })
@@ -424,14 +425,6 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
       });
       this.cargar();
     });
-  }
-
-  formatearPrecio(precio: number | string): string {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-      minimumFractionDigits: 0,
-    }).format(Number(precio));
   }
 
   private limpiarPreviews() {

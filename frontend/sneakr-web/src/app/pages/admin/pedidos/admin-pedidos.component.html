@@ -107,7 +107,7 @@
                   }
                 </td>
                 <td class="tabla__td tabla__td--right tabla__td--bold">
-                  {{ formatearPrecio(pedido.total) }}
+                  {{ pedido.total | moneda }}
                 </td>
                 <td class="tabla__td tabla__td--right tabla__td--muted">
                   {{ formatearFecha(pedido.creadoEn) }}
@@ -214,13 +214,13 @@
                 </p>
                 <small>SKU: {{ item.sku }}</small>
               </div>
-              <p class="detalle-item__precio">{{ formatearPrecio(item.subtotal) }}</p>
+              <p class="detalle-item__precio">{{ item.subtotal | moneda }}</p>
             </div>
           }
         </div>
         <div class="detalle-total">
           <span>Total</span>
-          <span class="detalle-total__num">{{ formatearPrecio(pedidoDetalle()!.total) }}</span>
+          <span class="detalle-total__num">{{ pedidoDetalle()!.total | moneda }}</span>
         </div>
       </div>
 

@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { EstadoPedido, Prisma } from '@prisma/client';
 import { CarritoService } from '../carrito/carrito.service.js';
 import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
@@ -326,104 +330,63 @@ describe('PedidosService admin order state transitions', () => {
     );
   });
 
-  it('cancels an eligible order and restores stock after claiming the state transition', async () => {
+  it.each([
+    [EstadoPedido.PENDIENTE, EstadoPedido.PAGO_VERIFICADO],
+    [EstadoPedido.PENDIENTE, EstadoPedido.CANCELADO],
+    [EstadoPedido.PAGO_VERIFICADO, EstadoPedido.EN_PREPARACION],
+    [EstadoPedido.PAGO_VERIFICADO, EstadoPedido.CANCELADO],
+    [EstadoPedido.EN_PREPARACION, EstadoPedido.ENVIADO],
+    [EstadoPedido.ENVIADO, EstadoPedido.ENTREGADO],
+  ])('permite la transición %s → %s', async (estadoActual, estadoSolicitado) => {
+    const pedidoActual = { ...order, estado: estadoActual };
+    vi.spyOn(service, 'buscarPorId')
+      .mockReset()
+      .mockResolvedValueOnce(
+        pedidoActual as Awaited<ReturnType<typeof service.buscarPorId>>,
+      )
+      .mockResolvedValueOnce({
+        ...pedidoActual,
+        estado: estadoSolicitado,
+      } as Awaited<ReturnType<typeof service.buscarPorId>>);
+
     await expect(
-      service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
-    ).resolves.toEqual({ ...order, estado: EstadoPedido.CANCELADO });
+      service.actualizarEstado(42, { estado: estadoSolicitado }),
+    ).resolves.toMatchObject({ estado: estadoSolicitado });
 
     expect(updateMany).toHaveBeenCalledWith({
-      where: { id: 42, estado: EstadoPedido.PENDIENTE },
-      data: { estado: EstadoPedido.CANCELADO },
+      where: { id: 42, estado: estadoActual },
+      data: { estado: estadoSolicitado },
     });
-    expect(updateStock).toHaveBeenCalledWith({
-      where: { id: 21 },
-      data: { stock: { increment: 2 } },
-    });
-    expect(updateMany.mock.invocationCallOrder[0]).toBeLessThan(
-      updateStock.mock.invocationCallOrder[0],
-    );
+    if (estadoSolicitado === EstadoPedido.CANCELADO) {
+      expect(updateStock).toHaveBeenCalledOnce();
+    } else {
+      expect(updateStock).not.toHaveBeenCalled();
+    }
   });
 
-  it('treats a request for the current state as idempotent', async () => {
-    await expect(
-      service.actualizarEstado(42, { estado: EstadoPedido.PENDIENTE }),
-    ).resolves.toBe(order);
-
-    expect(transaction).not.toHaveBeenCalled();
-    expect(updateStock).not.toHaveBeenCalled();
-  });
-
-  it('does not restore stock when an already-cancelled state is requested again', async () => {
+  it.each([
+    [EstadoPedido.ENTREGADO, EstadoPedido.PENDIENTE],
+    [EstadoPedido.ENVIADO, EstadoPedido.PAGO_VERIFICADO],
+    [EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO],
+    [EstadoPedido.CANCELADO, EstadoPedido.PENDIENTE],
+    [EstadoPedido.ENTREGADO, EstadoPedido.ENTREGADO],
+  ])('rechaza la transición %s → %s', async (estadoActual, estadoSolicitado) => {
     vi.spyOn(service, 'buscarPorId').mockResolvedValue({
       ...order,
-      estado: EstadoPedido.CANCELADO,
+      estado: estadoActual,
     } as Awaited<ReturnType<typeof service.buscarPorId>>);
 
     await expect(
-      service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
-    ).resolves.toMatchObject({ estado: EstadoPedido.CANCELADO });
-
-    expect(transaction).not.toHaveBeenCalled();
-    expect(updateStock).not.toHaveBeenCalled();
-  });
-
-  it('does not reactivate a cancelled order', async () => {
-    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
-      ...order,
-      estado: EstadoPedido.CANCELADO,
-    } as Awaited<ReturnType<typeof service.buscarPorId>>);
-
-    await expect(
-      service.actualizarEstado(42, { estado: EstadoPedido.PENDIENTE }),
-    ).rejects.toThrow('Un pedido cancelado no se puede reactivar');
-
-    expect(transaction).not.toHaveBeenCalled();
-  });
-
-  it('does not change stock for other administrative state transitions', async () => {
-    findUniqueOrThrow.mockResolvedValue({
-      ...order,
-      estado: EstadoPedido.EN_PREPARACION,
-    });
-
-    await expect(
-      service.actualizarEstado(42, { estado: EstadoPedido.EN_PREPARACION }),
-    ).resolves.toMatchObject({ estado: EstadoPedido.EN_PREPARACION });
-
-    expect(updateMany).toHaveBeenCalledWith({
-      where: { id: 42, estado: EstadoPedido.PENDIENTE },
-      data: { estado: EstadoPedido.EN_PREPARACION },
-    });
-    expect(updateStock).not.toHaveBeenCalled();
-  });
-
-  it('does not cancel an order outside the allowed states', async () => {
-    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
-      ...order,
-      estado: EstadoPedido.EN_PREPARACION,
-    } as Awaited<ReturnType<typeof service.buscarPorId>>);
-
-    await expect(
-      service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
+      service.actualizarEstado(42, { estado: estadoSolicitado }),
     ).rejects.toThrow(
-      'No se puede cancelar un pedido en estado EN_PREPARACION',
+      `No se permite cambiar el pedido del estado ${estadoActual} al estado ${estadoSolicitado}.`,
     );
 
     expect(transaction).not.toHaveBeenCalled();
-  });
-
-  it('does not restore stock if another request already changed the state', async () => {
-    updateMany.mockResolvedValue({ count: 0 });
-
-    await expect(
-      service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
-    ).rejects.toThrow('El pedido cambió durante la actualización');
-
     expect(updateStock).not.toHaveBeenCalled();
-    expect(findUniqueOrThrow).not.toHaveBeenCalled();
   });
 
-  it('returns the current order when a concurrent request already applied the requested state', async () => {
+  it('conflicta sin reponer stock si otra solicitud ya cambió el estado', async () => {
     updateMany.mockResolvedValue({ count: 0 });
     vi.spyOn(service, 'buscarPorId')
       .mockReset()
@@ -437,17 +400,17 @@ describe('PedidosService admin order state transitions', () => {
 
     await expect(
       service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
-    ).resolves.toMatchObject({ estado: EstadoPedido.CANCELADO });
+    ).rejects.toThrow(ConflictException);
 
     expect(updateStock).not.toHaveBeenCalled();
   });
 
-  it('aborts the state transition if restoring stock fails', async () => {
-    updateStock.mockRejectedValue(new Error('Inventory update failed'));
+  it('revierte la transición si falla la reposición de stock', async () => {
+    updateStock.mockRejectedValue(new Error('Falló la actualización del inventario'));
 
     await expect(
       service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
-    ).rejects.toThrow('Inventory update failed');
+    ).rejects.toThrow('Falló la actualización del inventario');
 
     expect(updateMany).toHaveBeenCalledOnce();
     expect(findUniqueOrThrow).not.toHaveBeenCalled();
@@ -503,9 +466,7 @@ describe('PedidosService customer order cancellation', () => {
       where: {
         id: 42,
         usuarioId: 7,
-        estado: {
-          in: [EstadoPedido.PENDIENTE, EstadoPedido.PAGO_VERIFICADO],
-        },
+        estado: EstadoPedido.PAGO_VERIFICADO,
       },
       data: { estado: EstadoPedido.CANCELADO },
     });
@@ -520,28 +481,67 @@ describe('PedidosService customer order cancellation', () => {
 
   it('does not restore stock when a concurrent cancellation already won', async () => {
     updateMany.mockResolvedValue({ count: 0 });
+    vi.spyOn(service, 'buscarPorId')
+      .mockReset()
+      .mockResolvedValueOnce(
+        order as Awaited<ReturnType<typeof service.buscarPorId>>,
+      )
+      .mockResolvedValueOnce({
+        ...order,
+        estado: EstadoPedido.CANCELADO,
+      } as Awaited<ReturnType<typeof service.buscarPorId>>);
 
-    await expect(service.cancelar(7, 42)).rejects.toThrow(
-      'El pedido cambió durante la cancelación',
-    );
+    await expect(service.cancelar(7, 42)).rejects.toThrow(ConflictException);
 
     expect(updateStock).not.toHaveBeenCalled();
   });
 
-  it('rejects customer cancellation from a non-cancellable state', async () => {
+  it.each([
+    EstadoPedido.EN_PREPARACION,
+    EstadoPedido.ENTREGADO,
+    EstadoPedido.CANCELADO,
+  ])('rechaza la cancelación del cliente desde %s', async (estadoActual) => {
     vi.spyOn(service, 'buscarPorId')
       .mockReset()
       .mockResolvedValue({
         ...order,
-        estado: EstadoPedido.EN_PREPARACION,
+        estado: estadoActual,
       } as Awaited<ReturnType<typeof service.buscarPorId>>);
 
     await expect(service.cancelar(7, 42)).rejects.toThrow(
-      'No se puede cancelar un pedido en estado EN_PREPARACION',
+      `No se permite cambiar el pedido del estado ${estadoActual} al estado ${EstadoPedido.CANCELADO}.`,
     );
 
     expect(transaction).not.toHaveBeenCalled();
     expect(updateStock).not.toHaveBeenCalled();
+  });
+
+  it('solo repone stock una vez ante dos cancelaciones concurrentes', async () => {
+    let cancelado = false;
+    let lecturas = 0;
+    updateMany.mockImplementation(async () => {
+      if (cancelado) return { count: 0 };
+      cancelado = true;
+      return { count: 1 };
+    });
+    vi.spyOn(service, 'buscarPorId')
+      .mockReset()
+      .mockImplementation(async () => {
+        lecturas += 1;
+        return {
+          ...order,
+          estado: lecturas <= 2 ? EstadoPedido.PAGO_VERIFICADO : EstadoPedido.CANCELADO,
+        } as Awaited<ReturnType<typeof service.buscarPorId>>;
+      });
+
+    const resultados = await Promise.allSettled([
+      service.cancelar(7, 42),
+      service.cancelar(7, 42),
+    ]);
+
+    expect(resultados.filter((resultado) => resultado.status === 'fulfilled')).toHaveLength(1);
+    expect(resultados.filter((resultado) => resultado.status === 'rejected')).toHaveLength(1);
+    expect(updateStock).toHaveBeenCalledOnce();
   });
 });
 

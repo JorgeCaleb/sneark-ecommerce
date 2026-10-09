@@ -163,7 +163,7 @@
                 <h3 class="producto-card__nombre">{{ producto.nombre }}</h3>
                 <div class="producto-card__footer">
                   <span class="producto-card__precio">
-                    {{ formatearPrecio(producto.precio) }}
+                    {{ producto.precio | moneda }}
                   </span>
                   <span class="producto-card__categoria">
                     {{ producto.categoria.nombre }}

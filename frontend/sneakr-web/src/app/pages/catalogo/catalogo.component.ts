@@ -6,11 +6,12 @@ import { ProductosService, Producto, FiltrosProducto } from '../../core/services
 import { MarcasService, Marca } from '../../core/services/marcas.service';
 import { CategoriasService, Categoria } from '../../core/services/categorias.service';
 import { ColoresService, Color } from '../../core/services/colores.service';
+import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'app-catalogo',
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, MonedaPipe],
   templateUrl: './catalogo.component.html',
   styleUrl: './catalogo.component.css',
 })
@@ -165,14 +166,6 @@ export class CatalogoComponent implements OnInit {
     !!this.busqueda || !!this.marcaId || !!this.categoriaId || !!this.precioMin ||
     !!this.precioMax || !!this.genero || !!this.colorId
   );
-
-  formatearPrecio(precio: number | string): string {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-      minimumFractionDigits: 0,
-    }).format(Number(precio));
-  }
 
   imagenPrincipal(producto: Producto): string {
     return producto.imagenes?.[0]?.url ?? '/placeholder-shoe.jpg';

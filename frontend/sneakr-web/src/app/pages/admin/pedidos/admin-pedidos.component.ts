@@ -2,11 +2,12 @@ import { Component, OnDestroy, OnInit, inject, signal, computed } from '@angular
 import { FormsModule } from '@angular/forms';
 import { PedidosService, Pedido, EstadoPedido } from '../../../core/services/pedidos.service';
 import { Subscription } from 'rxjs';
+import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'app-admin-pedidos',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, MonedaPipe],
   templateUrl: './admin-pedidos.component.html',
   styleUrl: './admin-pedidos.component.css',
 })
@@ -113,14 +114,6 @@ export class AdminPedidosComponent implements OnInit, OnDestroy {
         this.errorEstado.set(error?.error?.message ?? 'No se pudo actualizar el estado.');
       },
     });
-  }
-
-  formatearPrecio(precio: number | string): string {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-      minimumFractionDigits: 0,
-    }).format(Number(precio));
   }
 
   formatearFecha(fecha: string): string {

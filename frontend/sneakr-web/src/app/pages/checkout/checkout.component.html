@@ -178,14 +178,14 @@
                     · Talla {{ item.tallaProducto.talla }}
                   </p>
                 </div>
-                <p class="checkout-item__precio">{{ formatearPrecio(item.subtotal) }}</p>
+                <p class="checkout-item__precio">{{ item.subtotal | moneda }}</p>
               </div>
             }
           </div>
 
           <div class="checkout-resumen__total">
             <span>Total a pagar</span>
-            <span class="checkout-resumen__total-num">{{ formatearPrecio(total()) }}</span>
+            <span class="checkout-resumen__total-num">{{ total() | moneda }}</span>
           </div>
         }
 

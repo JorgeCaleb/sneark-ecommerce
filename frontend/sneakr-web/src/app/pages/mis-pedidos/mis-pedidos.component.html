@@ -70,7 +70,7 @@
               </div>
 
               <div class="pedido-card__right">
-                <span class="pedido-card__total">{{ formatearPrecio(pedido.total) }}</span>
+                <span class="pedido-card__total">{{ pedido.total | moneda }}</span>
                 <svg class="pedido-card__chevron"
                      [class.pedido-card__chevron--open]="pedidoAbierto() === pedido.id"
                      width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -106,7 +106,7 @@
                         </p>
                         <small>SKU: {{ item.sku }}</small>
                       </div>
-                      <p class="pedido-item__precio">{{ formatearPrecio(item.subtotal) }}</p>
+                      <p class="pedido-item__precio">{{ item.subtotal | moneda }}</p>
                     </div>
                   }
                 </div>
@@ -132,7 +132,7 @@
                   <div class="pedido-entrega__fila">
                     <span class="pedido-entrega__label">Total</span>
                     <span class="pedido-entrega__valor pedido-entrega__valor--total">
-                      {{ formatearPrecio(pedido.total) }}
+                      {{ pedido.total | moneda }}
                     </span>
                   </div>
                 </div>

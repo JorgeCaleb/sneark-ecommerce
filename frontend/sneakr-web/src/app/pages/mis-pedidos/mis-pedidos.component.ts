@@ -1,11 +1,12 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PedidosService, Pedido, EstadoPedido } from '../../core/services/pedidos.service';
+import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'app-mis-pedidos',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, MonedaPipe],
   templateUrl: './mis-pedidos.component.html',
   styleUrl: './mis-pedidos.component.css',
 })
@@ -36,14 +37,6 @@ export class MisPedidosComponent implements OnInit {
 
   togglePedido(id: number) {
     this.pedidoAbierto.update((actual) => (actual === id ? null : id));
-  }
-
-  formatearPrecio(precio: number | string): string {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-      minimumFractionDigits: 0,
-    }).format(Number(precio));
   }
 
   formatearFecha(fecha: string): string {

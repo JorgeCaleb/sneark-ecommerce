@@ -117,7 +117,7 @@
                   </div>
                   <!-- Precio -->
                   <p class="carrito-item__precio">
-                    {{ formatearPrecio(item.subtotal) }}
+                    {{ item.subtotal | moneda }}
                   </p>
                 </div>
               </div>
@@ -137,14 +137,14 @@
                   {{ item.tallaProducto.producto.nombre }}
                   <em>×{{ item.cantidad }}</em>
                 </span>
-                <span>{{ formatearPrecio(item.subtotal) }}</span>
+                <span>{{ item.subtotal | moneda }}</span>
               </div>
             }
           </div>
 
           <div class="carrito-resumen__total">
             <span>Total</span>
-            <span class="carrito-resumen__total-num">{{ formatearPrecio(total()) }}</span>
+            <span class="carrito-resumen__total-num">{{ total() | moneda }}</span>
           </div>
 
           <div class="carrito-resumen__pagos">

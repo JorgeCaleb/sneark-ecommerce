@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   BadGatewayException,
 } from '@nestjs/common';
@@ -33,10 +34,27 @@ const INCLUDE_PEDIDO = {
   usuario: { select: { id: true, nombre: true, email: true } },
 } satisfies Prisma.PedidoInclude;
 
-const ESTADOS_CANCELABLES: EstadoPedido[] = [
-  EstadoPedido.PENDIENTE,
-  EstadoPedido.PAGO_VERIFICADO,
-];
+const TRANSICIONES_PEDIDO: Record<EstadoPedido, readonly EstadoPedido[]> = {
+  [EstadoPedido.PENDIENTE]: [
+    EstadoPedido.PAGO_VERIFICADO,
+    EstadoPedido.CANCELADO,
+  ],
+  [EstadoPedido.PAGO_VERIFICADO]: [
+    EstadoPedido.EN_PREPARACION,
+    EstadoPedido.CANCELADO,
+  ],
+  [EstadoPedido.EN_PREPARACION]: [EstadoPedido.ENVIADO],
+  [EstadoPedido.ENVIADO]: [EstadoPedido.ENTREGADO],
+  [EstadoPedido.ENTREGADO]: [],
+  [EstadoPedido.CANCELADO]: [],
+};
+
+type PedidoParaTransicion = {
+  id: number;
+  estado: EstadoPedido;
+  usuarioId: number;
+  items: { tallaProductoId: number; cantidad: number }[];
+};
 
 @Injectable()
 export class PedidosService {
@@ -486,63 +504,16 @@ export class PedidosService {
 
   async actualizarEstado(id: number, dto: ActualizarEstadoDto) {
     const pedido = await this.buscarPorId(id);
+    this.validarTransicion(pedido.estado, dto.estado);
 
-    if (pedido.estado === dto.estado) {
-      return pedido;
-    }
-
-    if (pedido.estado === EstadoPedido.CANCELADO) {
-      throw new BadRequestException(
-        'Un pedido cancelado no se puede reactivar',
+    if (!(await this.aplicarTransicion(pedido, dto.estado))) {
+      const estadoActual = await this.buscarPorId(id);
+      throw new ConflictException(
+        `El pedido cambió de estado ${pedido.estado} a ${estadoActual.estado}; no se aplicó la transición solicitada a ${dto.estado}.`,
       );
     }
 
-    if (
-      dto.estado === EstadoPedido.CANCELADO &&
-      !ESTADOS_CANCELABLES.includes(pedido.estado)
-    ) {
-      throw new BadRequestException(
-        `No se puede cancelar un pedido en estado ${pedido.estado}`,
-      );
-    }
-
-    const pedidoActualizado = await this.prisma.$transaction(async (tx) => {
-      const actualizacion = await tx.pedido.updateMany({
-        where: { id, estado: pedido.estado },
-        data: { estado: dto.estado },
-      });
-
-      if (actualizacion.count !== 1) {
-        return null;
-      }
-
-      if (dto.estado === EstadoPedido.CANCELADO) {
-        for (const item of pedido.items) {
-          await tx.tallaProducto.update({
-            where: { id: item.tallaProductoId },
-            data: { stock: { increment: item.cantidad } },
-          });
-        }
-      }
-
-      return tx.pedido.findUniqueOrThrow({
-        where: { id },
-        include: INCLUDE_PEDIDO,
-      });
-    });
-
-    if (pedidoActualizado) {
-      return pedidoActualizado;
-    }
-
-    const estadoActual = await this.buscarPorId(id);
-    if (estadoActual.estado === dto.estado) {
-      return estadoActual;
-    }
-
-    throw new BadRequestException(
-      'El pedido cambió durante la actualización. Vuelve a cargarlo e inténtalo nuevamente.',
-    );
+    return this.buscarPorId(id);
   }
 
   async cancelar(usuarioId: number, pedidoId: number) {
@@ -553,38 +524,65 @@ export class PedidosService {
       throw new ForbiddenException('No tenés acceso a este pedido');
     }
 
-    // Solo se puede cancelar si está PENDIENTE o PAGO_VERIFICADO
-    if (!ESTADOS_CANCELABLES.includes(pedido.estado)) {
-      throw new BadRequestException(
-        `No se puede cancelar un pedido en estado ${pedido.estado}`,
+    this.validarTransicion(pedido.estado, EstadoPedido.CANCELADO);
+
+    if (
+      !(await this.aplicarTransicion(
+        pedido,
+        EstadoPedido.CANCELADO,
+        usuarioId,
+      ))
+    ) {
+      const estadoActual = await this.buscarPorId(pedidoId);
+      throw new ConflictException(
+        `El pedido cambió de estado ${pedido.estado} a ${estadoActual.estado}; no se aplicó la transición solicitada a ${EstadoPedido.CANCELADO}.`,
       );
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    return this.buscarPorId(pedidoId);
+  }
+
+  private validarTransicion(
+    estadoActual: EstadoPedido,
+    estadoSolicitado: EstadoPedido,
+  ) {
+    if (!TRANSICIONES_PEDIDO[estadoActual].includes(estadoSolicitado)) {
+      throw new BadRequestException(
+        `No se permite cambiar el pedido del estado ${estadoActual} al estado ${estadoSolicitado}.`,
+      );
+    }
+  }
+
+  private async aplicarTransicion(
+    pedido: PedidoParaTransicion,
+    estadoSolicitado: EstadoPedido,
+    usuarioId?: number,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
       const actualizacion = await tx.pedido.updateMany({
         where: {
-          id: pedidoId,
-          usuarioId,
-          estado: { in: ESTADOS_CANCELABLES },
+          id: pedido.id,
+          estado: pedido.estado,
+          ...(usuarioId !== undefined ? { usuarioId } : {}),
         },
-        data: { estado: EstadoPedido.CANCELADO },
+        data: { estado: estadoSolicitado },
       });
 
       if (actualizacion.count !== 1) {
-        throw new BadRequestException(
-          'El pedido cambió durante la cancelación. Vuelve a cargarlo e inténtalo nuevamente.',
-        );
+        return false;
       }
 
-      for (const item of pedido.items) {
-        await tx.tallaProducto.update({
-          where: { id: item.tallaProductoId },
-          data: { stock: { increment: item.cantidad } },
-        });
+      if (estadoSolicitado === EstadoPedido.CANCELADO) {
+        for (const item of pedido.items) {
+          await tx.tallaProducto.update({
+            where: { id: item.tallaProductoId },
+            data: { stock: { increment: item.cantidad } },
+          });
+        }
       }
+
+      return true;
     });
-
-    return this.buscarPorId(pedidoId);
   }
 
   private publicIdDesdeComprobanteCloudinary(

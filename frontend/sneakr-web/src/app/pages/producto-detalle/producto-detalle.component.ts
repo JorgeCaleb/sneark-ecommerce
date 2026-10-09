@@ -3,11 +3,12 @@ import { Router, RouterLink } from '@angular/router';
 import { ProductosService, Producto, TallaProducto } from '../../core/services/productos.service';
 import { CarritoService } from '../../core/services/carrito.service';
 import { AuthService } from '../../core/services/auth.service';
+import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'app-producto-detalle',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, MonedaPipe],
   templateUrl: './producto-detalle.component.html',
   styleUrl: './producto-detalle.component.css',
 })
@@ -161,11 +162,4 @@ export class ProductoDetalleComponent implements OnChanges {
     });
   }
 
-  formatearPrecio(precio: number | string): string {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-      minimumFractionDigits: 0,
-    }).format(Number(precio));
-  }
 }

@@ -1,5 +1,5 @@
-export const environment = {
+export const environment: { production: boolean; apiUrl: string } = {
   production: true,
-  // Cambiar por la URL de Render cuando se despliegue
-  apiUrl: 'https://sneark-back.onrender.com/api',
+  // URL provisional: reemplazarla al desplegar el backend.
+  apiUrl: 'https://api.streex.example/api',
 };

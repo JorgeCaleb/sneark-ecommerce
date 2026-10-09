@@ -46,6 +46,34 @@ describe('UsuariosService crear', () => {
       }),
     ).rejects.toBe(databaseError);
   });
+
+  it('crea las cuentas públicas sin elegir rol para que Prisma asigne CLIENTE', async () => {
+    const usuarioCreado = {
+      id: 12,
+      nombre: 'Cliente',
+      email: 'cliente@example.test',
+      password: 'hash',
+      rol: 'CLIENTE',
+      creadoEn: new Date('2026-01-01'),
+    };
+    const crear = vi.fn().mockResolvedValue(usuarioCreado);
+    const service = new UsuariosService({
+      usuario: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: crear,
+      },
+    } as unknown as PrismaService);
+
+    await expect(
+      service.crear({
+        nombre: 'Cliente',
+        email: 'cliente@example.test',
+        password: 'clave-segura',
+      }),
+    ).resolves.toMatchObject({ rol: 'CLIENTE' });
+
+    expect(crear.mock.calls[0][0].data).not.toHaveProperty('rol');
+  });
 });
 
 describe('UsuariosService buscarClientes', () => {

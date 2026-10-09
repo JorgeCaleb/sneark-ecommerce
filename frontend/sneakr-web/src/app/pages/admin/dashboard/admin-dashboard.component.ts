@@ -1,6 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
 import { Subscription } from 'rxjs';
 import {
   EstadoPedido,
@@ -17,7 +18,7 @@ const DIAS_GRAFICO = 30;
 
 interface MetricaDashboard {
   label: string;
-  valor: string;
+  valor: string | number;
   detalle: string;
   tipo: 'ventas' | 'pedidos' | 'productos' | 'stock';
 }
@@ -51,7 +52,7 @@ interface InventarioResumen {
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [RouterLink, DecimalPipe],
+  imports: [RouterLink, DecimalPipe, MonedaPipe],
   templateUrl: './admin-dashboard.component.html',
   styleUrl: './admin-dashboard.component.css',
 })
@@ -172,7 +173,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   readonly metricas = computed<MetricaDashboard[]>(() => [
     {
       label: 'Ventas',
-      valor: this.cargandoPedidos() ? '—' : this.formatearPrecio(this.totalVentasPeriodo()),
+      valor: this.cargandoPedidos() ? '—' : this.totalVentasPeriodo(),
       detalle:
         this.variacionVentas() === null
           ? 'Últimos 30 días'
@@ -280,15 +281,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   coordenadaY(valor: number, maximo: number): number {
     return 176 - (valor / maximo) * 148;
-  }
-
-  formatearPrecio(precio: number | string): string {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Number(precio));
   }
 
   formatearFecha(fecha: string): string {

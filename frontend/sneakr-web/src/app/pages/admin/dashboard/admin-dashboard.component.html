@@ -96,7 +96,11 @@
           ) {
             —
           } @else {
-            {{ metrica.valor }}
+            {{
+              metrica.tipo === 'ventas' && metrica.valor !== '—'
+                ? (metrica.valor | moneda: true)
+                : metrica.valor
+            }}
           }
         </p>
         <p class="metrica-card__sub">
@@ -149,7 +153,7 @@
         </div>
       } @else {
         <div class="chart-summary">
-          <strong>{{ formatearPrecio(totalVentasPeriodo()) }}</strong>
+          <strong>{{ totalVentasPeriodo() | moneda: true }}</strong>
           @if (variacionVentas() !== null) {
             <span
               class="chart-summary__change"
@@ -174,7 +178,7 @@
             <title id="sales-chart-title">Ventas confirmadas de los últimos 30 días</title>
             <desc id="sales-chart-description">
               Gráfico de área agrupado por fecha de creación del pedido. Total:
-              {{ formatearPrecio(totalVentasPeriodo()) }}.
+              {{ totalVentasPeriodo() | moneda: true }}.
             </desc>
             @for (nivel of [0, 1, 2, 3]; track nivel) {
               <text class="sales-chart__tick" x="56" [attr.y]="31 + nivel * 49" text-anchor="end">
@@ -200,7 +204,7 @@
                 >
                   <title>
                     {{ punto.etiqueta }}:
-                    {{ formatearPrecio(punto.total) }}
+                    {{ punto.total | moneda: true }}
                   </title>
                 </circle>
               }
@@ -265,7 +269,7 @@
               </span>
               <span class="recent-order__side">
                 <span class="recent-order__total">
-                  {{ formatearPrecio(pedido.total) }}
+                  {{ pedido.total | moneda: true }}
                 </span>
                 <span class="estado-badge estado-badge--{{ estadoConfig[pedido.estado].color }}">
                   {{ etiquetaEstado(pedido.estado) }}
@@ -332,7 +336,7 @@
                 <span>{{ producto.marca || 'Marca no disponible' }}</span>
               </span>
               <span class="best-seller__detail">
-                <strong>{{ formatearPrecio(producto.precio) }}</strong>
+                <strong>{{ producto.precio | moneda: true }}</strong>
                 <span>{{ producto.cantidad }} vendidos</span>
               </span>
             </li>

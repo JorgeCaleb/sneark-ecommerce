@@ -78,7 +78,7 @@
         <h1 class="detalle__nombre">{{ producto()!.nombre }}</h1>
 
         <!-- Precio -->
-        <p class="detalle__precio">{{ formatearPrecio(producto()!.precio) }}</p>
+        <p class="detalle__precio">{{ producto()!.precio | moneda }}</p>
 
         <!-- Descripción -->
         @if (producto()!.descripcion) {

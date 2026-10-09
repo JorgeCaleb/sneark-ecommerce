@@ -3,11 +3,12 @@ import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CarritoService } from '../../core/services/carrito.service';
 import { PedidosService, MetodoPago } from '../../core/services/pedidos.service';
+import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'app-checkout',
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, MonedaPipe],
   templateUrl: './checkout.component.html',
   styleUrl: './checkout.component.css',
 })
@@ -97,11 +98,4 @@ export class CheckoutComponent implements OnInit {
     });
   }
 
-  formatearPrecio(precio: number | string): string {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-      minimumFractionDigits: 0,
-    }).format(Number(precio));
-  }
 }

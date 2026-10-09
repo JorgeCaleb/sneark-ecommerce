@@ -87,7 +87,7 @@
               <td class="tabla__td tabla__td--muted">{{ p.marca.nombre }} · {{ p.marca.codigo }}</td>
               <td class="tabla__td tabla__td--muted">{{ p.categoria.nombre }}</td>
               <td class="tabla__td tabla__td--right tabla__td--bold">
-                {{ formatearPrecio(p.precio) }}
+                {{ p.precio | moneda }}
               </td>
               <td class="tabla__td">
                 @if (p.activo) {

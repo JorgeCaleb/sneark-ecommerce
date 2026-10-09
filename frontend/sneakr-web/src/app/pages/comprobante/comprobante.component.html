@@ -100,7 +100,7 @@
                 <div class="metodo-dato">
                   <span class="metodo-dato__label">Monto exacto</span>
                   <span class="metodo-dato__valor metodo-dato__valor--monto">
-                    {{ formatearPrecio(pedido()!.total) }}
+                    {{ pedido()!.total | moneda }}
                   </span>
                 </div>
               </div>
@@ -126,7 +126,7 @@
                 <div class="metodo-dato">
                   <span class="metodo-dato__label">Monto exacto</span>
                   <span class="metodo-dato__valor metodo-dato__valor--monto">
-                    {{ formatearPrecio(pedido()!.total) }}
+                    {{ pedido()!.total | moneda }}
                   </span>
                 </div>
               </div>
@@ -141,7 +141,7 @@
               <line x1="12" y1="8" x2="12" y2="12"/>
               <line x1="12" y1="16" x2="12.01" y2="16"/>
             </svg>
-            <p>Enviá el monto exacto de <strong>{{ formatearPrecio(pedido()!.total) }}</strong> para que podamos verificar tu pago de forma automática.</p>
+            <p>Enviá el monto exacto de <strong>{{ pedido()!.total | moneda }}</strong> para que podamos verificar tu pago de forma automática.</p>
           </div>
         </section>
 
@@ -262,7 +262,7 @@
                 </p>
                 <small>SKU: {{ item.sku }}</small>
               </div>
-              <p class="resumen-item__precio">{{ formatearPrecio(item.subtotal) }}</p>
+              <p class="resumen-item__precio">{{ item.subtotal | moneda }}</p>
             </div>
           }
         </div>
@@ -270,7 +270,7 @@
         <div class="comprobante-resumen__total">
           <span>Total</span>
           <span class="comprobante-resumen__total-num">
-            {{ formatearPrecio(pedido()!.total) }}
+            {{ pedido()!.total | moneda }}
           </span>
         </div>
 

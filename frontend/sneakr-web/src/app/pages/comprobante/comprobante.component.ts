@@ -3,11 +3,12 @@ import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PedidosService, Pedido } from '../../core/services/pedidos.service';
 import { DATOS_PAGO } from '../../core/config/datos-pago';
+import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'app-comprobante',
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, MonedaPipe],
   templateUrl: './comprobante.component.html',
   styleUrl: './comprobante.component.css',
 })
@@ -140,11 +141,4 @@ export class ComprobanteComponent implements OnChanges {
     });
   }
 
-  formatearPrecio(precio: number | string): string {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-      minimumFractionDigits: 0,
-    }).format(Number(precio));
-  }
 }
