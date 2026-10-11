@@ -8,12 +8,12 @@ import {
   Param,
   ParseIntPipe,
   UseGuards,
-  Request,
 } from '@nestjs/common';
 import { CarritoService } from './carrito.service.js';
 import { AgregarItemDto } from './dto/agregar-item.dto.js';
 import { ActualizarItemDto } from './dto/actualizar-item.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { UsuarioActual } from '../auth/decorators/usuario-actual.decorator.js';
 
 // Todas las rutas del carrito requieren autenticación
 @UseGuards(JwtAuthGuard)
@@ -23,38 +23,41 @@ export class CarritoController {
 
   // GET /api/carrito — ver mi carrito
   @Get()
-  obtener(@Request() req: any) {
-    return this.carritoService.obtener(req.user.id);
+  obtener(@UsuarioActual('id') usuarioId: number) {
+    return this.carritoService.obtener(usuarioId);
   }
 
   // POST /api/carrito/items — agregar item al carrito
   @Post('items')
-  agregar(@Request() req: any, @Body() dto: AgregarItemDto) {
-    return this.carritoService.agregar(req.user.id, dto);
+  agregar(
+    @UsuarioActual('id') usuarioId: number,
+    @Body() dto: AgregarItemDto,
+  ) {
+    return this.carritoService.agregar(usuarioId, dto);
   }
 
   // PATCH /api/carrito/items/:itemId — actualizar cantidad de un item
   @Patch('items/:itemId')
   actualizarItem(
-    @Request() req: any,
+    @UsuarioActual('id') usuarioId: number,
     @Param('itemId', ParseIntPipe) itemId: number,
     @Body() dto: ActualizarItemDto,
   ) {
-    return this.carritoService.actualizarItem(req.user.id, itemId, dto);
+    return this.carritoService.actualizarItem(usuarioId, itemId, dto);
   }
 
   // DELETE /api/carrito/items/:itemId — eliminar un item del carrito
   @Delete('items/:itemId')
   eliminarItem(
-    @Request() req: any,
+    @UsuarioActual('id') usuarioId: number,
     @Param('itemId', ParseIntPipe) itemId: number,
   ) {
-    return this.carritoService.eliminarItem(req.user.id, itemId);
+    return this.carritoService.eliminarItem(usuarioId, itemId);
   }
 
   // DELETE /api/carrito — vaciar todo el carrito
   @Delete()
-  vaciar(@Request() req: any) {
-    return this.carritoService.vaciar(req.user.id);
+  vaciar(@UsuarioActual('id') usuarioId: number) {
+    return this.carritoService.vaciar(usuarioId);
   }
 }

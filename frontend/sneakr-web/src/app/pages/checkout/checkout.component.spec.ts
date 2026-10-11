@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { of, Subject } from 'rxjs';
 import { Carrito, CarritoService } from '../../core/services/carrito.service';
 import { PedidosService } from '../../core/services/pedidos.service';
+import { PagosService } from '../../core/services/pagos.service';
 import { CheckoutComponent } from './checkout.component';
 
 function carrito(items: Carrito['items']): Carrito {
@@ -30,10 +31,10 @@ function itemCarrito() {
       sku: 'SN-M-BK-42',
       producto: {
         id: 8,
-        nombre: 'Sneark',
+        nombre: 'SOHO',
         precio: 25,
         activo: true,
-        marca: { nombre: 'Sneark' },
+        marca: { nombre: 'SOHO' },
         imagenes: [],
       },
     },
@@ -46,6 +47,7 @@ describe('CheckoutComponent cart loading', () => {
   let obtener: ReturnType<typeof vi.fn>;
   let limpiarLocal: ReturnType<typeof vi.fn>;
   let crearPedido: ReturnType<typeof vi.fn>;
+  let crearPreferencia: ReturnType<typeof vi.fn>;
   let navigate: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -53,6 +55,7 @@ describe('CheckoutComponent cart loading', () => {
     obtener = vi.fn();
     limpiarLocal = vi.fn(() => carritoSignal.set(null));
     crearPedido = vi.fn().mockReturnValue(of({ id: 45 }));
+    crearPreferencia = vi.fn().mockReturnValue(of({ urlPago: 'https://sandbox.mercadopago.com/checkout', preferenciaId: 'pref-123' }));
     navigate = vi.fn();
 
     TestBed.configureTestingModule({
@@ -69,6 +72,10 @@ describe('CheckoutComponent cart loading', () => {
         {
           provide: PedidosService,
           useValue: { crear: crearPedido },
+        },
+        {
+          provide: PagosService,
+          useValue: { crearPreferencia },
         },
         {
           provide: Router,
@@ -155,6 +162,6 @@ describe('CheckoutComponent cart loading', () => {
 
     expect(limpiarLocal).toHaveBeenCalledOnce();
     expect(carritoSignal()).toBeNull();
-    expect(navigate).toHaveBeenCalledWith(['/comprobante', 45]);
+    expect(crearPreferencia).toHaveBeenCalledWith(45);
   });
 });

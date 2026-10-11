@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-label="Imagen de producto no disponible">
+  <rect width="640" height="480" fill="#f3f4f6"/>
+  <g fill="none" stroke="#9ca3af" stroke-linecap="round" stroke-linejoin="round" stroke-width="12">
+    <path d="M145 303c38-8 68-32 89-71l27-50c8-15 28-20 42-9l57 43c26 20 57 34 91 41l40 9c20 5 34 23 34 43v21H136v-9c0-9 4-16 9-18z" fill="#e5e7eb"/>
+    <path d="M136 330h389c0 21-17 38-38 38H174c-21 0-38-17-38-38z" fill="#d1d5db"/>
+    <path d="m256 237 36 20m-53 8 39 20m-57 6 38 18"/>
+    <path d="M350 225c-7 24-23 39-46 46"/>
+  </g>
+  <circle cx="320" cy="105" r="34" fill="#e5e7eb"/>
+  <path d="M308 105h24m-12-12v24" stroke="#9ca3af" stroke-linecap="round" stroke-width="7"/>
+</svg>

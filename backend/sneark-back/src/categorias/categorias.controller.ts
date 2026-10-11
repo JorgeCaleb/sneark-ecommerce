@@ -7,14 +7,11 @@ import {
   Body,
   Param,
   ParseIntPipe,
-  UseGuards,
 } from '@nestjs/common';
 import { CategoriasService } from './categorias.service.js';
 import { CrearCategoriaDto } from './dto/crear-categoria.dto.js';
 import { ActualizarCategoriaDto } from './dto/actualizar-categoria.dto.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
+import { Admin } from '../auth/decorators/admin.decorator.js';
 
 @Controller('categorias')
 export class CategoriasController {
@@ -33,16 +30,14 @@ export class CategoriasController {
   }
 
   // POST /api/categorias — solo ADMIN
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Post()
   crear(@Body() dto: CrearCategoriaDto) {
     return this.categoriasService.crear(dto);
   }
 
   // PATCH /api/categorias/:id — solo ADMIN
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Patch(':id')
   actualizar(
     @Param('id', ParseIntPipe) id: number,
@@ -52,8 +47,7 @@ export class CategoriasController {
   }
 
   // DELETE /api/categorias/:id — solo ADMIN
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Delete(':id')
   eliminar(@Param('id', ParseIntPipe) id: number) {
     return this.categoriasService.eliminar(id);

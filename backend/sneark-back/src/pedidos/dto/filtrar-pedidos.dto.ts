@@ -1,22 +1,9 @@
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsOptional } from 'class-validator';
 import { EstadoPedido } from '@prisma/client';
+import { PaginacionDto } from '../../common/dto/paginacion.dto.js';
 
-export class FiltrarPedidosDto {
+export class FiltrarPedidosDto extends PaginacionDto {
   @IsOptional()
   @IsEnum(EstadoPedido)
   estado?: EstadoPedido;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  pagina = 1;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limite = 25;
 }

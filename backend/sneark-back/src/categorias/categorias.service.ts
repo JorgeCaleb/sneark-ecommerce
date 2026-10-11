@@ -3,6 +3,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CrearCategoriaDto } from './dto/crear-categoria.dto.js';
 import { ActualizarCategoriaDto } from './dto/actualizar-categoria.dto.js';
@@ -93,6 +94,16 @@ export class CategoriasService {
       );
     }
 
-    return this.prisma.categoria.delete({ where: { id } });
+    try {
+      return await this.prisma.categoria.delete({ where: { id } });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new ConflictException('La categoría está siendo utilizada');
+      }
+      throw error;
+    }
   }
 }

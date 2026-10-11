@@ -1,4 +1,4 @@
-import { BadGatewayException } from '@nestjs/common';
+﻿import { BadGatewayException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryService } from './cloudinary.service.js';
@@ -44,10 +44,10 @@ describe('CloudinaryService image deletion', () => {
         ReturnType<typeof cloudinary.uploader.destroy>
       >);
 
-    await service.eliminarImagen('sneark/productos/item/image');
+    await service.eliminarImagen('SOHO/productos/item/image');
 
     expect(destroy).toHaveBeenCalledTimes(2);
-    expect(destroy).toHaveBeenCalledWith('sneark/productos/item/image');
+    expect(destroy).toHaveBeenCalledWith('SOHO/productos/item/image');
   });
 
   it('treats an already missing remote image as successfully deleted', async () => {
@@ -56,7 +56,7 @@ describe('CloudinaryService image deletion', () => {
     } as Awaited<ReturnType<typeof cloudinary.uploader.destroy>>);
 
     await expect(
-      service.eliminarImagen('sneark/productos/item/image'),
+      service.eliminarImagen('SOHO/productos/item/image'),
     ).resolves.toBeUndefined();
     expect(destroy).toHaveBeenCalledOnce();
   });
@@ -65,7 +65,7 @@ describe('CloudinaryService image deletion', () => {
     destroy.mockRejectedValue(new Error('Cloudinary unavailable'));
 
     await expect(
-      service.eliminarImagen('sneark/productos/item/image'),
+      service.eliminarImagen('SOHO/productos/item/image'),
     ).rejects.toThrow(BadGatewayException);
     expect(destroy).toHaveBeenCalledTimes(3);
   });
@@ -74,14 +74,14 @@ describe('CloudinaryService image deletion', () => {
     destroy.mockRejectedValue(new Error('Cloudinary unavailable'));
 
     await expect(
-      service.eliminarImagen('sneark/productos/item/queued'),
+      service.eliminarImagen('SOHO/productos/item/queued'),
     ).rejects.toThrow('quedó en cola para reintento');
 
     expect(prisma.cloudinaryDeleteJob.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { publicId: 'sneark/productos/item/queued' },
+        where: { publicId: 'SOHO/productos/item/queued' },
         create: expect.objectContaining({
-          publicId: 'sneark/productos/item/queued',
+          publicId: 'SOHO/productos/item/queued',
         }),
       }),
     );
@@ -89,7 +89,7 @@ describe('CloudinaryService image deletion', () => {
 
   it('deletes queued jobs after Cloudinary confirms a retry', async () => {
     prisma.cloudinaryDeleteJob.findMany.mockResolvedValue([
-      { id: 4, publicId: 'sneark/productos/item/retry', attempts: 1 },
+      { id: 4, publicId: 'SOHO/productos/item/retry', attempts: 1 },
     ]);
     destroy.mockResolvedValue({
       result: 'ok',
@@ -105,7 +105,7 @@ describe('CloudinaryService image deletion', () => {
 
   it('schedules a later retry and records its error when the queue worker fails', async () => {
     prisma.cloudinaryDeleteJob.findMany.mockResolvedValue([
-      { id: 5, publicId: 'sneark/productos/item/retry', attempts: 2 },
+      { id: 5, publicId: 'SOHO/productos/item/retry', attempts: 2 },
     ]);
     destroy.mockRejectedValue(new Error('Cloudinary unavailable'));
 

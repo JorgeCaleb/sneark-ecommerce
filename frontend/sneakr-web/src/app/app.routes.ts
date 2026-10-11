@@ -51,6 +51,14 @@ export const routes: Routes = [
       import('./pages/comprobante/comprobante.component').then((m) => m.ComprobanteComponent),
   },
   {
+    path: 'pago/resultado',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/pago-resultado/pago-resultado.component').then(
+        (m) => m.PagoResultadoComponent,
+      ),
+  },
+  {
     path: 'mis-pedidos',
     canActivate: [authGuard],
     loadComponent: () =>
@@ -105,16 +113,14 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'inventario',
-        data: { soloStockBajo: false },
+        path: 'colores',
         loadComponent: () =>
-          import('./pages/admin/inventario/admin-inventario.component').then(
-            (m) => m.AdminInventarioComponent,
+          import('./pages/admin/colores/admin-colores.component').then(
+            (m) => m.AdminColoresComponent,
           ),
       },
       {
-        path: 'stock-bajo',
-        data: { soloStockBajo: true },
+        path: 'inventario',
         loadComponent: () =>
           import('./pages/admin/inventario/admin-inventario.component').then(
             (m) => m.AdminInventarioComponent,

@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+﻿import { provideHttpClient } from '@angular/common/http';
 import {
   HttpTestingController,
   provideHttpClientTesting,
@@ -30,12 +30,12 @@ describe('AuthService storage resilience', () => {
   });
 
   it('cleans invalid stored user data without throwing during initialization', () => {
-    localStorage.setItem('sneark_usuario', '{invalid-json');
+    localStorage.setItem('SOHO_usuario', '{invalid-json');
 
     const auth = TestBed.inject(AuthService);
 
     expect(auth.usuario()).toBeNull();
-    expect(localStorage.getItem('sneark_usuario')).toBeNull();
+    expect(localStorage.getItem('SOHO_usuario')).toBeNull();
   });
 
   it('fails closed when storage reads throw', () => {

@@ -1,22 +1,10 @@
-import { Transform, Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsOptional, IsString } from 'class-validator';
+import { PaginacionDto } from '../../common/dto/paginacion.dto.js';
 
-export class FiltrarClientesDto {
+export class FiltrarClientesDto extends PaginacionDto {
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   busqueda?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  pagina = 1;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limite = 25;
 }

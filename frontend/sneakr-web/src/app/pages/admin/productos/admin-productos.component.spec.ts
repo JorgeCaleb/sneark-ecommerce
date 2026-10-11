@@ -12,7 +12,7 @@ describe('AdminProductosComponent request errors', () => {
     productos: ReturnType<typeof signal>;
     meta: ReturnType<typeof signal>;
     cargando: ReturnType<typeof signal>;
-    buscarTodos: ReturnType<typeof vi.fn>;
+    buscarTodosAdmin: ReturnType<typeof vi.fn>;
     actualizar: ReturnType<typeof vi.fn>;
   };
   let marcasService: { buscarTodas: ReturnType<typeof vi.fn> };
@@ -24,7 +24,7 @@ describe('AdminProductosComponent request errors', () => {
       productos: signal([]),
       meta: signal(null),
       cargando: signal(false),
-      buscarTodos: vi.fn().mockReturnValue(
+      buscarTodosAdmin: vi.fn().mockReturnValue(
         of({
           datos: [],
           meta: { total: 0, pagina: 1, limite: 10, totalPaginas: 0 },
@@ -83,10 +83,21 @@ describe('AdminProductosComponent request errors', () => {
     fixture.detectChanges();
     fixture.componentInstance.desactivar(12);
 
-    expect(fixture.componentInstance.desactivandoId()).toBeNull();
+    expect(fixture.componentInstance.cambiandoEstadoId()).toBeNull();
     expect(fixture.componentInstance.errorAccion()).toBe(
       'No se pudo desactivar.',
     );
     vi.unstubAllGlobals();
+  });
+
+  it('offers reactivation for an inactive product', () => {
+    productosService.actualizar.mockReturnValue(of({}));
+
+    const fixture = TestBed.createComponent(AdminProductosComponent);
+    fixture.componentInstance.activar(12);
+
+    expect(productosService.actualizar).toHaveBeenCalledWith(12, {
+      activo: true,
+    });
   });
 });

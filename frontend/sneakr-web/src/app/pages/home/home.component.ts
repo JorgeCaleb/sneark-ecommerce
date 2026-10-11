@@ -33,7 +33,9 @@ export class HomeComponent implements OnInit {
   cargarDestacados() {
     this.cargando.set(true);
     this.errorCarga.set(false);
-    this.productosService.buscarTodos({ limite: 8 })
+    // Usamos buscarPagina() en lugar de buscarTodos() para no contaminar
+    // los signals globales (productos/meta/cargando) que usa el Catálogo.
+    this.productosService.buscarPagina({ limite: 8 })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (res) => {

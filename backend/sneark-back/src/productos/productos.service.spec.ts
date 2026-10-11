@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -14,6 +18,7 @@ describe('ProductosService actualizar tallas', () => {
       findUniqueOrThrow: ReturnType<typeof vi.fn>;
     };
     marca: { findUnique: ReturnType<typeof vi.fn> };
+    categoria: { findUnique: ReturnType<typeof vi.fn> };
     color: { findUnique: ReturnType<typeof vi.fn> };
     tallaProducto: {
       findMany: ReturnType<typeof vi.fn>;
@@ -44,6 +49,7 @@ describe('ProductosService actualizar tallas', () => {
         findUniqueOrThrow: vi.fn().mockResolvedValue({ id: 3 }),
       },
       marca: { findUnique: vi.fn().mockResolvedValue({ codigo: 'NK' }) },
+      categoria: { findUnique: vi.fn().mockResolvedValue({ id: 1 }) },
       color: { findUnique: vi.fn().mockResolvedValue({ codigo: 'BK' }) },
       tallaProducto: {
         findMany: vi.fn().mockResolvedValue([]),
@@ -92,7 +98,7 @@ describe('ProductosService actualizar tallas', () => {
         genero: 'M',
         colorId: 5,
         talla: '38',
-        stock: 4,
+        tallaNumero: 38,
         sku: 'NK-AF1-M-BK-38',
       },
     });
@@ -101,6 +107,7 @@ describe('ProductosService actualizar tallas', () => {
         genero: 'M',
         colorId: 5,
         talla: '39',
+        tallaNumero: 39,
         stock: 2,
         sku: 'NK-AF1-M-BK-39',
         productoId: 3,
@@ -125,6 +132,48 @@ describe('ProductosService actualizar tallas', () => {
 
     expect(tx.tallaProducto.deleteMany).toHaveBeenCalledWith({
       where: { id: { in: [10] } },
+    });
+  });
+
+  describe('ProductosService admin product listing', () => {
+    it('returns inactive products when the admin selects the inactive state', async () => {
+      const findMany = vi.fn().mockResolvedValue([]);
+      const count = vi.fn().mockResolvedValue(0);
+      const service = new ProductosService(
+        { producto: { findMany, count } } as unknown as PrismaService,
+        {} as CloudinaryService,
+      );
+
+      await service.buscarTodosAdmin({
+        estado: 'inactivos',
+        pagina: 1,
+        limite: 10,
+      });
+
+      expect(findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { activo: false } }),
+      );
+      expect(count).toHaveBeenCalledWith({ where: { activo: false } });
+    });
+
+    it('includes both active and inactive products when the admin selects all', async () => {
+      const findMany = vi.fn().mockResolvedValue([]);
+      const count = vi.fn().mockResolvedValue(0);
+      const service = new ProductosService(
+        { producto: { findMany, count } } as unknown as PrismaService,
+        {} as CloudinaryService,
+      );
+
+      await service.buscarTodosAdmin({
+        estado: 'todos',
+        pagina: 1,
+        limite: 10,
+      });
+
+      expect(findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+      expect(count).toHaveBeenCalledWith({ where: {} });
     });
   });
 
@@ -167,21 +216,21 @@ describe('ProductosService actualizar tallas', () => {
       nombre: 'Nike Air Max 90 Rojo',
     } as Awaited<ReturnType<typeof service.buscarPorId>>);
     cloudinary.subirImagen.mockResolvedValue({
-      url: 'https://res.cloudinary.com/demo/image/upload/v2/sneark/productos/nike-air-max-90-rojo/photo.jpg',
-      publicId: 'sneark/productos/nike-air-max-90-rojo/photo',
+      url: 'https://res.cloudinary.com/demo/image/upload/v2/SOHO/productos/nike-air-max-90-rojo/photo.jpg',
+      publicId: 'SOHO/productos/nike-air-max-90-rojo/photo',
     });
 
     await service.subirImagenes(3, [archivo]);
 
     expect(cloudinary.subirImagen).toHaveBeenCalledWith(
       archivo,
-      'sneark/productos/nike-air-max-90-rojo',
+      'SOHO/productos/nike-air-max-90-rojo',
     );
     expect(prisma.imagenProducto.createMany).toHaveBeenCalledWith({
       data: [
         {
-          url: 'https://res.cloudinary.com/demo/image/upload/v2/sneark/productos/nike-air-max-90-rojo/photo.jpg',
-          publicId: 'sneark/productos/nike-air-max-90-rojo/photo',
+          url: 'https://res.cloudinary.com/demo/image/upload/v2/SOHO/productos/nike-air-max-90-rojo/photo.jpg',
+          publicId: 'SOHO/productos/nike-air-max-90-rojo/photo',
           productoId: 3,
         },
       ],
@@ -196,7 +245,7 @@ describe('ProductosService actualizar tallas', () => {
     cloudinary.subirImagen
       .mockResolvedValueOnce({
         url: 'https://example.test/image.jpg',
-        publicId: 'sneark/productos/nike/image',
+        publicId: 'SOHO/productos/nike/image',
       })
       .mockRejectedValueOnce(new Error('Cloudinary unavailable'));
 
@@ -208,7 +257,7 @@ describe('ProductosService actualizar tallas', () => {
     ).rejects.toThrow('Cloudinary unavailable');
 
     expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
-      'sneark/productos/nike/image',
+      'SOHO/productos/nike/image',
     );
     expect(prisma.imagenProducto.createMany).not.toHaveBeenCalled();
   });
@@ -220,7 +269,7 @@ describe('ProductosService actualizar tallas', () => {
     } as Awaited<ReturnType<typeof service.buscarPorId>>);
     cloudinary.subirImagen.mockResolvedValue({
       url: 'https://example.test/image.jpg',
-      publicId: 'sneark/productos/nike/image',
+      publicId: 'SOHO/productos/nike/image',
     });
     prisma.imagenProducto.createMany.mockRejectedValue(
       new Error('Database unavailable'),
@@ -233,7 +282,7 @@ describe('ProductosService actualizar tallas', () => {
     ).rejects.toThrow('Database unavailable');
 
     expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
-      'sneark/productos/nike/image',
+      'SOHO/productos/nike/image',
     );
   });
 });
@@ -243,38 +292,62 @@ describe('ProductosService actualizar stock de talla', () => {
     'rejects invalid stock %p before accessing the database',
     async (stock) => {
       const findFirst = vi.fn();
-      const update = vi.fn();
+      const updateMany = vi.fn();
       const service = new ProductosService(
-        { tallaProducto: { findFirst, update } } as unknown as PrismaService,
+        { tallaProducto: { findFirst, updateMany } } as unknown as PrismaService,
         {} as CloudinaryService,
       );
       vi.spyOn(service, 'buscarPorId').mockResolvedValue({
         id: 3,
       } as Awaited<ReturnType<typeof service.buscarPorId>>);
 
-      await expect(service.actualizarStockTalla(3, 10, stock)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.actualizarStockTalla(3, 10, stock, 3),
+      ).rejects.toThrow(BadRequestException);
 
       expect(findFirst).not.toHaveBeenCalled();
-      expect(update).not.toHaveBeenCalled();
+      expect(updateMany).not.toHaveBeenCalled();
     },
   );
 
   it.each([0, 8])('persists valid non-negative stock %i', async (stock) => {
-    const findFirst = vi.fn().mockResolvedValue({ id: 10 });
-    const update = vi.fn().mockResolvedValue({ id: 10, stock });
+    const findFirst = vi.fn().mockResolvedValue({ id: 10, stock });
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
     const service = new ProductosService(
-      { tallaProducto: { findFirst, update } } as unknown as PrismaService,
+      { tallaProducto: { findFirst, updateMany } } as unknown as PrismaService,
       {} as CloudinaryService,
     );
     vi.spyOn(service, 'buscarPorId').mockResolvedValue({
       id: 3,
     } as Awaited<ReturnType<typeof service.buscarPorId>>);
 
-    await expect(service.actualizarStockTalla(3, 10, stock)).resolves.toEqual({
-      id: 10,
-      stock,
+    await expect(
+      service.actualizarStockTalla(3, 10, stock, 3),
+    ).resolves.toEqual({ id: 10, stock });
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 10, productoId: 3, stock: 3 },
+      data: { stock },
+    });
+  });
+
+  it('rejects a stale stock write and returns the current value', async () => {
+    const findFirst = vi
+      .fn()
+      .mockResolvedValueOnce({ id: 10, stock: 3 })
+      .mockResolvedValueOnce({ id: 10, stock: 2 });
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const service = new ProductosService(
+      { tallaProducto: { findFirst, updateMany } } as unknown as PrismaService,
+      {} as CloudinaryService,
+    );
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
+      id: 3,
+    } as Awaited<ReturnType<typeof service.buscarPorId>>);
+
+    await expect(
+      service.actualizarStockTalla(3, 10, 4, 3),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ stockActual: 2 }),
     });
   });
 
@@ -298,6 +371,7 @@ describe('ProductosService actualizar stock de talla', () => {
       it('stores a readable half-size and builds the SKU only on the server', async () => {
         const tx = {
           marca: { findUnique: vi.fn().mockResolvedValue({ codigo: 'NK' }) },
+          categoria: { findUnique: vi.fn().mockResolvedValue({ id: 3 }) },
           color: { findUnique: vi.fn().mockResolvedValue({ codigo: 'BK' }) },
           producto: {
             create: vi.fn().mockResolvedValue({ id: 7, codigoModelo: 'AF1' }),
@@ -329,6 +403,7 @@ describe('ProductosService actualizar stock de talla', () => {
             genero: 'M',
             colorId: 5,
             talla: '42.5',
+            tallaNumero: 42.5,
             stock: 4,
             sku: 'NK-AF1-M-BK-425',
             productoId: 7,
@@ -455,6 +530,7 @@ describe('ProductosService actualizar stock de talla', () => {
         );
         const tx = {
           marca: { findUnique: vi.fn().mockResolvedValue({ codigo: 'NK' }) },
+          categoria: { findUnique: vi.fn().mockResolvedValue({ id: 3 }) },
           color: { findUnique: vi.fn().mockResolvedValue({ codigo: 'BK' }) },
           producto: {
             create: vi.fn().mockResolvedValue({ id: 7, codigoModelo: 'AF1' }),
@@ -563,6 +639,90 @@ describe('ProductosService actualizar stock de talla', () => {
       await expect(service.buscarPorIdPublico(3)).rejects.toThrow(
         'Producto con id 3 no encontrado',
       );
+    });
+
+    it('crear lanza NotFoundException si la categoriaId no existe', async () => {
+      const tx = {
+        marca: { findUnique: vi.fn().mockResolvedValue({ codigo: 'NK' }) },
+        categoria: { findUnique: vi.fn().mockResolvedValue(null) },
+      };
+      const service = new ProductosService(
+        {
+          $transaction: vi.fn((callback) => callback(tx)),
+        } as unknown as PrismaService,
+        {} as CloudinaryService,
+      );
+
+      await expect(
+        service.crear({
+          nombre: 'Air Force 1',
+          codigoModelo: 'AF1',
+          precio: 100,
+          marcaId: 2,
+          categoriaId: 999,
+          tallas: [],
+        }),
+      ).rejects.toThrow('Categoría con id 999 no encontrada');
+    });
+
+    it('actualizar lanza NotFoundException si la nueva categoriaId no existe', async () => {
+      const tx = {
+        producto: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: 3,
+            marcaId: 2,
+            codigoModelo: 'AF1',
+          }),
+        },
+        tallaProducto: { findMany: vi.fn().mockResolvedValue([]) },
+        marca: { findUnique: vi.fn().mockResolvedValue({ codigo: 'NK' }) },
+        categoria: { findUnique: vi.fn().mockResolvedValue(null) },
+      };
+      const service = new ProductosService(
+        {
+          $transaction: vi.fn((callback) => callback(tx)),
+        } as unknown as PrismaService,
+        {} as CloudinaryService,
+      );
+
+      await expect(
+        service.actualizar(3, {
+          categoriaId: 999,
+        }),
+      ).rejects.toThrow('Categoría con id 999 no encontrada');
+    });
+
+    it('maneja error de clave foránea P2003 de Prisma para categoriaId', async () => {
+      const fkError = new Prisma.PrismaClientKnownRequestError(
+        'Foreign key constraint failed',
+        {
+          code: 'P2003',
+          clientVersion: 'test',
+          meta: { field_name: 'categoriaId' },
+        },
+      );
+      const tx = {
+        marca: { findUnique: vi.fn().mockResolvedValue({ codigo: 'NK' }) },
+        categoria: { findUnique: vi.fn().mockResolvedValue({ id: 1 }) },
+        producto: { create: vi.fn().mockRejectedValue(fkError) },
+      };
+      const service = new ProductosService(
+        {
+          $transaction: vi.fn((callback) => callback(tx)),
+        } as unknown as PrismaService,
+        {} as CloudinaryService,
+      );
+
+      await expect(
+        service.crear({
+          nombre: 'Air Force 1',
+          codigoModelo: 'AF1',
+          precio: 100,
+          marcaId: 2,
+          categoriaId: 1,
+          tallas: [],
+        }),
+      ).rejects.toThrow('Categoría no encontrada');
     });
   });
 });

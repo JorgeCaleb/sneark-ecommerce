@@ -53,4 +53,37 @@ describe('ProductosService paginated requests', () => {
 
     expect(service.cargando()).toBe(false);
   });
+
+  it('sends admin product list requests to the protected endpoint with the selected state', () => {
+    service.buscarTodosAdmin({
+      pagina: 2,
+      limite: 10,
+      estado: 'inactivos',
+      busqueda: 'air',
+    }).subscribe();
+
+    const request = http.expectOne(
+      (req) =>
+        req.url === `${environment.apiUrl}/productos/admin` &&
+        req.params.get('pagina') === '2' &&
+        req.params.get('limite') === '10' &&
+        req.params.get('estado') === 'inactivos' &&
+        req.params.get('busqueda') === 'air',
+    );
+    request.flush({
+      datos: [],
+      meta: { total: 0, pagina: 2, limite: 10, totalPaginas: 0 },
+    } satisfies ProductosPaginados);
+  });
+
+  it('sends expected stock with absolute inventory changes', () => {
+    service.actualizarStockTalla(7, 12, 4, 3).subscribe();
+    const request = http.expectOne(
+      `${environment.apiUrl}/productos/7/tallas/12`,
+    );
+
+    expect(request.request.method).toBe('PATCH');
+    expect(request.request.body).toEqual({ stock: 4, stockEsperado: 3 });
+    request.flush({ id: 12, stock: 4 });
+  });
 });

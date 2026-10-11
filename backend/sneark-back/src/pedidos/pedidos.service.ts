@@ -3,8 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   BadGatewayException,
+  OnModuleInit,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { EstadoPedido, MetodoPago, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -17,6 +18,10 @@ import { FiltrarPedidosDto } from './dto/filtrar-pedidos.dto.js';
 import { DashboardPedidosDto } from './dto/dashboard-pedidos.dto.js';
 import { INCLUDE_PRODUCTO_RESUMEN } from '../prisma/selecciones.js';
 import { publicIdDesdeUrlCloudinary } from '../cloudinary/public-id-cloudinary.util.js';
+import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
+import { construirMetaPaginacion } from '../common/paginacion.util.js';
+
+export const MINUTOS_EXPIRACION_PEDIDO = 15;
 
 // Campos incluidos al devolver un pedido
 const INCLUDE_PEDIDO = {
@@ -57,12 +62,29 @@ type PedidoParaTransicion = {
 };
 
 @Injectable()
-export class PedidosService {
+export class PedidosService implements OnModuleInit, OnModuleDestroy {
+  private workerExpiracion?: NodeJS.Timeout;
+  private procesandoExpiraciones = false;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cloudinary: CloudinaryService,
     private readonly carritoService: CarritoService,
   ) {}
+
+  onModuleInit() {
+    this.workerExpiracion = setInterval(() => {
+      void this.cancelarPedidosExpirados();
+    }, 60_000);
+    if (typeof this.workerExpiracion.unref === 'function') {
+      this.workerExpiracion.unref();
+    }
+    void this.cancelarPedidosExpirados();
+  }
+
+  onModuleDestroy() {
+    if (this.workerExpiracion) clearInterval(this.workerExpiracion);
+  }
 
   // ─── Crear pedido desde el carrito ───────────────────────────────────────────
   async crear(usuarioId: number, dto: CrearPedidoDto) {
@@ -77,6 +99,42 @@ export class PedidosService {
 
           if (!carrito?.items.length) {
             throw new BadRequestException('El carrito está vacío');
+          }
+
+          // Validar si el usuario ya tiene un pedido PENDIENTE sin comprobante
+          const pedidoPendiente = await tx.pedido.findFirst({
+            where: {
+              usuarioId,
+              estado: EstadoPedido.PENDIENTE,
+              comprobante: null,
+            },
+            include: {
+              items: {
+                select: { tallaProductoId: true, cantidad: true },
+              },
+            },
+          });
+
+          if (pedidoPendiente) {
+            const fechaLimite = new Date(
+              Date.now() - MINUTOS_EXPIRACION_PEDIDO * 60 * 1000,
+            );
+            if (pedidoPendiente.creadoEn <= fechaLimite) {
+              await tx.pedido.update({
+                where: { id: pedidoPendiente.id },
+                data: { estado: EstadoPedido.CANCELADO },
+              });
+              for (const item of pedidoPendiente.items) {
+                await tx.tallaProducto.update({
+                  where: { id: item.tallaProductoId },
+                  data: { stock: { increment: item.cantidad } },
+                });
+              }
+            } else {
+              throw new BadRequestException(
+                `Ya tienes el pedido #${pedidoPendiente.id} pendiente de pago. Adjunta el comprobante o cancélalo antes de realizar uno nuevo.`,
+              );
+            }
           }
 
           const productosNoDisponibles = await tx.producto.findMany({
@@ -145,7 +203,11 @@ export class PedidosService {
               usuarioId,
               total: carrito.total,
               metodoPago:
-                dto.metodoPago === 'YAPE' ? MetodoPago.YAPE : MetodoPago.PLIN,
+                dto.metodoPago === 'MERCADOPAGO'
+                  ? MetodoPago.MERCADOPAGO
+                  : dto.metodoPago === 'YAPE'
+                    ? MetodoPago.YAPE
+                    : MetodoPago.PLIN,
               telefono: dto.telefono,
               ciudad: dto.ciudad,
               direccion: dto.direccion,
@@ -198,14 +260,25 @@ export class PedidosService {
 
     const pedido = await this.buscarPorId(pedidoId);
 
-    // Solo el dueño del pedido puede subir el comprobante
+    // Solo el dueño del pedido puede subir el comprobante.
+    // Respondemos 404 para evitar que un atacante enumere IDs ajenos (en lugar de 403).
     if (pedido.usuario.id !== usuarioId) {
-      throw new ForbiddenException('No tenés acceso a este pedido');
+      throw new NotFoundException(`Pedido #${pedidoId} no encontrado`);
     }
 
     if (pedido.estado !== 'PENDIENTE') {
       throw new BadRequestException(
         'Solo se puede subir comprobante en pedidos PENDIENTES',
+      );
+    }
+
+    const fechaLimite = new Date(
+      Date.now() - MINUTOS_EXPIRACION_PEDIDO * 60 * 1000,
+    );
+    if (!pedido.comprobante && pedido.creadoEn <= fechaLimite) {
+      await this.cancelarPedidoExpirado(pedido);
+      throw new BadRequestException(
+        `El tiempo límite de ${MINUTOS_EXPIRACION_PEDIDO} minutos para pagar este pedido ha expirado. Por favor, realiza un nuevo pedido.`,
       );
     }
 
@@ -229,7 +302,7 @@ export class PedidosService {
     // Subir imagen a Cloudinary
     const { url, publicId } = await this.cloudinary.subirImagen(
       archivo,
-      `sneark/comprobantes/${pedidoId}`,
+      `SOHO/comprobantes/${pedidoId}`,
     );
 
     let pedidoActualizado;
@@ -271,10 +344,7 @@ export class PedidosService {
         );
       }
 
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
+      if (esConflictoUnico(error)) {
         throw new BadRequestException(
           'Este número de operación ya fue registrado en otro pedido',
         );
@@ -353,12 +423,7 @@ export class PedidosService {
 
     return {
       datos,
-      meta: {
-        total,
-        pagina,
-        limite,
-        totalPaginas: Math.ceil(total / limite),
-      },
+      meta: construirMetaPaginacion(total, pagina, limite),
     };
   }
 
@@ -424,9 +489,7 @@ export class PedidosService {
               '%Y-%m-%d'
             ) AS fecha, SUM(\`total\`) AS total
             FROM \`pedidos\`
-            WHERE \`estado\` IN (
-              'PAGO_VERIFICADO', 'EN_PREPARACION', 'ENVIADO', 'ENTREGADO'
-            )
+            WHERE \`estado\` IN (${Prisma.join(estadosConfirmados)})
               AND \`creadoEn\` >= ${inicioActual}
               AND \`creadoEn\` < ${finActual}
             GROUP BY fecha
@@ -441,9 +504,9 @@ export class PedidosService {
               ON pedidos.\`id\` = items.\`pedidoId\`
             INNER JOIN \`tallas_producto\` AS tallas
               ON tallas.\`id\` = items.\`tallaProductoId\`
-            WHERE pedidos.\`estado\` IN (
-              'PAGO_VERIFICADO', 'EN_PREPARACION', 'ENVIADO', 'ENTREGADO'
-            )
+            WHERE pedidos.\`estado\` IN (${Prisma.join(estadosConfirmados)})
+              AND pedidos.\`creadoEn\` >= ${inicioActual}
+              AND pedidos.\`creadoEn\` < ${finActual}
             GROUP BY tallas.\`productoId\`
             ORDER BY cantidad DESC, productoId ASC
             LIMIT 5
@@ -519,9 +582,16 @@ export class PedidosService {
   async cancelar(usuarioId: number, pedidoId: number) {
     const pedido = await this.buscarPorId(pedidoId);
 
-    // Solo el dueño puede cancelar su pedido
+    // Solo el dueño puede cancelar su pedido.
+    // Respondemos 404 para evitar que un atacante enumere IDs ajenos (en lugar de 403).
     if (pedido.usuario.id !== usuarioId) {
-      throw new ForbiddenException('No tenés acceso a este pedido');
+      throw new NotFoundException(`Pedido #${pedidoId} no encontrado`);
+    }
+
+    if (pedido.estado !== EstadoPedido.PENDIENTE) {
+      throw new BadRequestException(
+        'Solo puedes cancelar pedidos en estado PENDIENTE. Si tu pago ya fue verificado o el pedido está en proceso, comunícate con soporte.',
+      );
     }
 
     this.validarTransicion(pedido.estado, EstadoPedido.CANCELADO);
@@ -589,6 +659,93 @@ export class PedidosService {
     comprobante: string | null,
     pedidoId: number,
   ): string | null {
-    return publicIdDesdeUrlCloudinary(comprobante, `sneark/comprobantes/${pedidoId}`);
+    return publicIdDesdeUrlCloudinary(comprobante, `SOHO/comprobantes/${pedidoId}`);
+  }
+
+  async cancelarPedidosExpirados(): Promise<number> {
+    if (this.procesandoExpiraciones) return 0;
+    this.procesandoExpiraciones = true;
+    try {
+      const fechaLimite = new Date(
+        Date.now() - MINUTOS_EXPIRACION_PEDIDO * 60 * 1000,
+      );
+      const pedidosExpirados = await this.prisma.pedido.findMany({
+        where: {
+          estado: EstadoPedido.PENDIENTE,
+          comprobante: null,
+          creadoEn: { lte: fechaLimite },
+        },
+        include: {
+          items: {
+            select: { tallaProductoId: true, cantidad: true },
+          },
+        },
+        take: 50,
+      });
+
+      let cancelados = 0;
+      for (const pedido of pedidosExpirados) {
+        try {
+          const resultado = await this.prisma.$transaction(async (tx) => {
+            const actualizacion = await tx.pedido.updateMany({
+              where: {
+                id: pedido.id,
+                estado: EstadoPedido.PENDIENTE,
+                comprobante: null,
+              },
+              data: { estado: EstadoPedido.CANCELADO },
+            });
+
+            if (actualizacion.count !== 1) {
+              return false;
+            }
+
+            for (const item of pedido.items) {
+              await tx.tallaProducto.update({
+                where: { id: item.tallaProductoId },
+                data: { stock: { increment: item.cantidad } },
+              });
+            }
+
+            return true;
+          });
+
+          if (resultado) {
+            cancelados++;
+          }
+        } catch {
+          // Continuar con los demás pedidos si ocurre algún fallo puntual
+        }
+      }
+
+      return cancelados;
+    } finally {
+      this.procesandoExpiraciones = false;
+    }
+  }
+
+  private async cancelarPedidoExpirado(pedido: {
+    id: number;
+    items: { tallaProductoId: number; cantidad: number }[];
+  }) {
+    await this.prisma.$transaction(async (tx) => {
+      const actualizacion = await tx.pedido.updateMany({
+        where: {
+          id: pedido.id,
+          estado: EstadoPedido.PENDIENTE,
+          comprobante: null,
+        },
+        data: { estado: EstadoPedido.CANCELADO },
+      });
+
+      if (actualizacion.count === 1) {
+        for (const item of pedido.items) {
+          await tx.tallaProducto.update({
+            where: { id: item.tallaProductoId },
+            data: { stock: { increment: item.cantidad } },
+          });
+        }
+      }
+    });
   }
 }

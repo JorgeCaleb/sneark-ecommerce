@@ -214,6 +214,11 @@
   letter-spacing: 0.04em;
 }
 
+.metodo-badge--mercadopago {
+  background-color: #009ee3;
+  color: #fff;
+}
+
 .metodo-badge--yape {
   background-color: #7c3aed;
   color: #fff;

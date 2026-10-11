@@ -7,7 +7,6 @@ import {
   Body,
   Param,
   ParseIntPipe,
-  UseGuards,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
@@ -16,9 +15,7 @@ import { memoryStorage } from 'multer';
 import { MarcasService } from './marcas.service.js';
 import { CrearMarcaDto } from './dto/crear-marca.dto.js';
 import { ActualizarMarcaDto } from './dto/actualizar-marca.dto.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
+import { Admin } from '../auth/decorators/admin.decorator.js';
 import { aceptarTipoArchivo } from '../common/filtro-tipo-archivo.util.js';
 
 @Controller('marcas')
@@ -38,16 +35,14 @@ export class MarcasController {
   }
 
   // POST /api/marcas — solo ADMIN
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Post()
   crear(@Body() dto: CrearMarcaDto) {
     return this.marcasService.crear(dto);
   }
 
   // PATCH /api/marcas/:id — solo ADMIN
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Patch(':id')
   actualizar(
     @Param('id', ParseIntPipe) id: number,
@@ -57,8 +52,7 @@ export class MarcasController {
   }
 
   // POST /api/marcas/:id/logo — subir un logo, incluido SVG
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Post(':id/logo')
   @UseInterceptors(
     FileInterceptor('logo', {
@@ -88,8 +82,7 @@ export class MarcasController {
   }
 
   // DELETE /api/marcas/:id — solo ADMIN
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Delete(':id')
   eliminar(@Param('id', ParseIntPipe) id: number) {
     return this.marcasService.eliminar(id);

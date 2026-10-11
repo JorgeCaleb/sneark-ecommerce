@@ -58,7 +58,7 @@ describe('PedidosService order creation inventory reservation', () => {
       sku: 'SN-ONE-M-BK-42',
       color: { nombre: 'Negro', codigo: 'BK' },
       talla: '42',
-      producto: { id: 13, nombre: 'Sneark One', precio: 100, activo: true },
+      producto: { id: 13, nombre: 'SOHO One', precio: 100, activo: true },
     },
   };
 
@@ -84,7 +84,11 @@ describe('PedidosService order creation inventory reservation', () => {
     const tx = {
       tallaProducto: { updateMany: actualizarStock },
       producto: { findMany: vi.fn().mockResolvedValue([]) },
-      pedido: { create: crearPedido },
+      pedido: {
+        create: crearPedido,
+        findFirst: vi.fn().mockResolvedValue(null),
+        update: vi.fn().mockResolvedValue({}),
+      },
       itemCarrito: {
         deleteMany: vaciarCarrito,
         count: contarArticulosRestantes,
@@ -158,7 +162,7 @@ describe('PedidosService order creation inventory reservation', () => {
     expect(crearPedido.mock.calls[0][0].data.items.create).toEqual([
       {
         tallaProductoId: 21,
-        nombreProducto: 'Sneark One',
+        nombreProducto: 'SOHO One',
         genero: 'M',
         nombreColor: 'Negro',
         codigoColor: 'BK',
@@ -205,7 +209,7 @@ describe('PedidosService order creation inventory reservation', () => {
   });
 
   it('rejects disabled products inside the transaction without consuming the cart or stock', async () => {
-    const productosInactivos = [{ nombre: 'Sneark One' }];
+    const productosInactivos = [{ nombre: 'SOHO One' }];
     const encontrarInactivos = vi.fn().mockResolvedValue(productosInactivos);
     const carritoConsumido = vi.fn();
     const reservarStock = vi.fn();
@@ -217,7 +221,10 @@ describe('PedidosService order creation inventory reservation', () => {
         count: vi.fn().mockResolvedValue(0),
       },
       tallaProducto: { updateMany: reservarStock },
-      pedido: { create: crearPedido },
+      pedido: {
+        create: crearPedido,
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
     };
     const prisma = {
       $transaction: vi.fn((callback) => callback(tx)),
@@ -242,7 +249,7 @@ describe('PedidosService order creation inventory reservation', () => {
         ciudad: 'Lima',
         direccion: 'Calle 1',
       }),
-    ).rejects.toThrow('Productos no disponibles: "Sneark One"');
+    ).rejects.toThrow('Productos no disponibles: "SOHO One"');
 
     expect(encontrarInactivos).toHaveBeenCalledWith({
       where: { id: { in: [13] }, activo: false },
@@ -267,7 +274,7 @@ describe('PedidosService order creation inventory reservation', () => {
             talla: '43',
             producto: {
               id: 13,
-              nombre: 'Sneark One',
+              nombre: 'SOHO One',
               precio: 100,
               activo: true,
             },
@@ -287,7 +294,7 @@ describe('PedidosService order creation inventory reservation', () => {
         ciudad: 'Lima',
         direccion: 'Calle 1',
       }),
-    ).rejects.toThrow('Stock insuficiente para "Sneark One" talla 43');
+    ).rejects.toThrow('Stock insuficiente para "SOHO One" talla 43');
 
     expect(actualizarStock).toHaveBeenCalledTimes(2);
     expect(crearPedido).not.toHaveBeenCalled();
@@ -421,7 +428,7 @@ describe('PedidosService customer order cancellation', () => {
   const order = {
     id: 42,
     usuarioId: 7,
-    estado: EstadoPedido.PAGO_VERIFICADO,
+    estado: EstadoPedido.PENDIENTE,
     usuario: { id: 7 },
     items: [{ tallaProductoId: 21, cantidad: 2 }],
   };
@@ -466,7 +473,7 @@ describe('PedidosService customer order cancellation', () => {
       where: {
         id: 42,
         usuarioId: 7,
-        estado: EstadoPedido.PAGO_VERIFICADO,
+        estado: EstadoPedido.PENDIENTE,
       },
       data: { estado: EstadoPedido.CANCELADO },
     });
@@ -497,7 +504,9 @@ describe('PedidosService customer order cancellation', () => {
   });
 
   it.each([
+    EstadoPedido.PAGO_VERIFICADO,
     EstadoPedido.EN_PREPARACION,
+    EstadoPedido.ENVIADO,
     EstadoPedido.ENTREGADO,
     EstadoPedido.CANCELADO,
   ])('rechaza la cancelación del cliente desde %s', async (estadoActual) => {
@@ -508,9 +517,7 @@ describe('PedidosService customer order cancellation', () => {
         estado: estadoActual,
       } as Awaited<ReturnType<typeof service.buscarPorId>>);
 
-    await expect(service.cancelar(7, 42)).rejects.toThrow(
-      `No se permite cambiar el pedido del estado ${estadoActual} al estado ${EstadoPedido.CANCELADO}.`,
-    );
+    await expect(service.cancelar(7, 42)).rejects.toThrow(BadRequestException);
 
     expect(transaction).not.toHaveBeenCalled();
     expect(updateStock).not.toHaveBeenCalled();
@@ -530,7 +537,7 @@ describe('PedidosService customer order cancellation', () => {
         lecturas += 1;
         return {
           ...order,
-          estado: lecturas <= 2 ? EstadoPedido.PAGO_VERIFICADO : EstadoPedido.CANCELADO,
+          estado: lecturas <= 2 ? EstadoPedido.PENDIENTE : EstadoPedido.CANCELADO,
         } as Awaited<ReturnType<typeof service.buscarPorId>>;
       });
 
@@ -559,7 +566,7 @@ describe('PedidosService receipt replacement conflicts', () => {
     const cloudinary = {
       subirImagen: vi.fn().mockResolvedValue({
         url: 'https://example.test/receipt.png',
-        publicId: 'sneark/comprobantes/42/receipt',
+        publicId: 'SOHO/comprobantes/42/receipt',
       }),
       eliminarImagen: vi.fn().mockResolvedValue(undefined),
     };
@@ -595,7 +602,7 @@ describe('PedidosService receipt replacement conflicts', () => {
       }),
     );
     expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
-      'sneark/comprobantes/42/receipt',
+      'SOHO/comprobantes/42/receipt',
     );
   });
 });
@@ -676,7 +683,7 @@ describe('PedidosService dashboard summary', () => {
         id: 8,
         nombre: 'Sneaker',
         precio: { toString: () => '250.00' },
-        marca: { nombre: 'SNEARK' },
+        marca: { nombre: 'SOHO' },
         imagenes: [{ url: 'https://example.test/shoe.jpg' }],
       },
     ]);
@@ -707,7 +714,7 @@ describe('PedidosService dashboard summary', () => {
         {
           id: 8,
           nombre: 'Sneaker',
-          marca: 'SNEARK',
+          marca: 'SOHO',
           imagen: 'https://example.test/shoe.jpg',
           precio: 250,
           cantidad: 12,
@@ -723,6 +730,33 @@ describe('PedidosService dashboard summary', () => {
     expect(count).toHaveBeenCalledOnce();
     expect(aggregate).toHaveBeenCalledTimes(2);
     expect(queryRaw).toHaveBeenCalledTimes(2);
+    const [ventasQueryCall, topProductosQueryCall] = queryRaw.mock.calls as [
+      [Prisma.Sql],
+      [Prisma.Sql],
+    ];
+    expect(ventasQueryCall[0].sql).toContain('`creadoEn` >=');
+    expect(ventasQueryCall[0].values).toEqual(
+      expect.arrayContaining([
+        EstadoPedido.PAGO_VERIFICADO,
+        EstadoPedido.EN_PREPARACION,
+        EstadoPedido.ENVIADO,
+        EstadoPedido.ENTREGADO,
+        new Date('2026-09-06T05:00:00.000Z'),
+        new Date('2026-10-06T05:00:00.000Z'),
+      ]),
+    );
+    expect(topProductosQueryCall[0].sql).toContain('pedidos.`creadoEn` >= ?');
+    expect(topProductosQueryCall[0].sql).toContain('pedidos.`creadoEn` < ?');
+    expect(topProductosQueryCall[0].values).toEqual(
+      expect.arrayContaining([
+        EstadoPedido.PAGO_VERIFICADO,
+        EstadoPedido.EN_PREPARACION,
+        EstadoPedido.ENVIADO,
+        EstadoPedido.ENTREGADO,
+        new Date('2026-09-06T05:00:00.000Z'),
+        new Date('2026-10-06T05:00:00.000Z'),
+      ]),
+    );
   });
 
   it('rejects invalid or excessively wide dashboard date intervals', async () => {
@@ -759,3 +793,212 @@ describe('PedidosService dashboard summary', () => {
     ).rejects.toThrow(BadRequestException);
   });
 });
+
+describe('PedidosService stock reservation expiry and limits', () => {
+  const item = {
+    id: 14,
+    tallaProductoId: 21,
+    cantidad: 2,
+    subtotal: 200,
+    tallaProducto: {
+      genero: 'M',
+      sku: 'SN-ONE-M-BK-42',
+      color: { nombre: 'Negro', codigo: 'BK' },
+      talla: '42',
+      producto: { id: 13, nombre: 'SOHO One', precio: 100, activo: true },
+    },
+  };
+
+  it('rejects creating a new order when user already has an active pending order without voucher', async () => {
+    const pedidoPendienteReciente = {
+      id: 88,
+      creadoEn: new Date(),
+      items: [{ tallaProductoId: 21, cantidad: 2 }],
+    };
+    const tx = {
+      pedido: {
+        findFirst: vi.fn().mockResolvedValue(pedidoPendienteReciente),
+      },
+    };
+    const prisma = {
+      $transaction: vi.fn((callback) => callback(tx)),
+    };
+    const carritoService = {
+      obtenerEnTransaccion: vi.fn().mockResolvedValue({
+        id: 9,
+        total: 200,
+        items: [item],
+      }),
+    };
+    const service = new PedidosService(
+      prisma as unknown as PrismaService,
+      {} as CloudinaryService,
+      carritoService as unknown as CarritoService,
+    );
+
+    await expect(
+      service.crear(7, {
+        metodoPago: MetodoPagoDto.YAPE,
+        telefono: '999999999',
+        ciudad: 'Lima',
+        direccion: 'Calle 1',
+      }),
+    ).rejects.toThrow(
+      'Ya tienes el pedido #88 pendiente de pago. Adjunta el comprobante o cancélalo antes de realizar uno nuevo.',
+    );
+  });
+
+  it('auto-cancels and restores stock of an expired pending order when user creates a new order', async () => {
+    const hace20Minutos = new Date(Date.now() - 20 * 60 * 1000);
+    const pedidoPendienteExpirado = {
+      id: 88,
+      creadoEn: hace20Minutos,
+      items: [{ tallaProductoId: 21, cantidad: 2 }],
+    };
+    const cancelarPedido = vi.fn().mockResolvedValue({});
+    const reponerStock = vi.fn().mockResolvedValue({});
+    const actualizarStock = vi.fn().mockResolvedValue({ count: 1 });
+    const crearPedido = vi.fn().mockResolvedValue({ id: 99 });
+    const vaciarCarrito = vi.fn().mockResolvedValue({ count: 1 });
+
+    const tx = {
+      pedido: {
+        findFirst: vi.fn().mockResolvedValue(pedidoPendienteExpirado),
+        update: cancelarPedido,
+        create: crearPedido,
+      },
+      tallaProducto: {
+        update: reponerStock,
+        updateMany: actualizarStock,
+      },
+      producto: { findMany: vi.fn().mockResolvedValue([]) },
+      itemCarrito: {
+        deleteMany: vaciarCarrito,
+        count: vi.fn().mockResolvedValue(0),
+      },
+    };
+    const prisma = {
+      $transaction: vi.fn((callback) => callback(tx)),
+    };
+    const carritoService = {
+      obtenerEnTransaccion: vi.fn().mockResolvedValue({
+        id: 9,
+        total: 200,
+        items: [item],
+      }),
+    };
+    const service = new PedidosService(
+      prisma as unknown as PrismaService,
+      {} as CloudinaryService,
+      carritoService as unknown as CarritoService,
+    );
+
+    const resultado = await service.crear(7, {
+      metodoPago: MetodoPagoDto.YAPE,
+      telefono: '999999999',
+      ciudad: 'Lima',
+      direccion: 'Calle 1',
+    });
+
+    expect(resultado).toEqual({ id: 99 });
+    expect(cancelarPedido).toHaveBeenCalledWith({
+      where: { id: 88 },
+      data: { estado: EstadoPedido.CANCELADO },
+    });
+    expect(reponerStock).toHaveBeenCalledWith({
+      where: { id: 21 },
+      data: { stock: { increment: 2 } },
+    });
+  });
+
+  it('cancelarPedidosExpirados cancels expired orders and restores stock', async () => {
+    const pedidoExpirado = {
+      id: 105,
+      items: [{ tallaProductoId: 30, cantidad: 1 }],
+    };
+    const findMany = vi.fn().mockResolvedValue([pedidoExpirado]);
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const updateStock = vi.fn().mockResolvedValue({});
+    const tx = {
+      pedido: { updateMany },
+      tallaProducto: { update: updateStock },
+    };
+    const prisma = {
+      pedido: { findMany },
+      $transaction: vi.fn((callback) => callback(tx)),
+    };
+    const service = new PedidosService(
+      prisma as unknown as PrismaService,
+      {} as CloudinaryService,
+      {} as CarritoService,
+    );
+
+    const cancelados = await service.cancelarPedidosExpirados();
+
+    expect(cancelados).toBe(1);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 105,
+        estado: EstadoPedido.PENDIENTE,
+        comprobante: null,
+      },
+      data: { estado: EstadoPedido.CANCELADO },
+    });
+    expect(updateStock).toHaveBeenCalledWith({
+      where: { id: 30 },
+      data: { stock: { increment: 1 } },
+    });
+  });
+
+  it('subirComprobante rejects and frees stock if receipt is submitted after expiration', async () => {
+    const hace30Minutos = new Date(Date.now() - 30 * 60 * 1000);
+    const pedidoExpirado = {
+      id: 77,
+      estado: EstadoPedido.PENDIENTE,
+      comprobante: null,
+      creadoEn: hace30Minutos,
+      usuario: { id: 5 },
+      items: [{ tallaProductoId: 44, cantidad: 3 }],
+    };
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const updateStock = vi.fn().mockResolvedValue({});
+    const tx = {
+      pedido: { updateMany },
+      tallaProducto: { update: updateStock },
+    };
+    const prisma = {
+      $transaction: vi.fn((callback) => callback(tx)),
+    };
+    const service = new PedidosService(
+      prisma as unknown as PrismaService,
+      {} as CloudinaryService,
+      {} as CarritoService,
+    );
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue(
+      pedidoExpirado as unknown as Awaited<ReturnType<typeof service.buscarPorId>>,
+    );
+
+    await expect(
+      service.subirComprobante(
+        5,
+        77,
+        { buffer: Buffer.from('fake') } as Express.Multer.File,
+        { numeroOperacion: '123456' },
+      ),
+    ).rejects.toThrow('El tiempo límite de 15 minutos para pagar este pedido ha expirado');
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 77,
+        estado: EstadoPedido.PENDIENTE,
+        comprobante: null,
+      },
+      data: { estado: EstadoPedido.CANCELADO },
+    });
+    expect(updateStock).toHaveBeenCalledWith({
+      where: { id: 44 },
+      data: { stock: { increment: 3 } },
+    });
+  });
+});
+

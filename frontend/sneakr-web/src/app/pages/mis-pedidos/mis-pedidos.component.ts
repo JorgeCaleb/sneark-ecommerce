@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PedidosService, Pedido, EstadoPedido } from '../../core/services/pedidos.service';
+import { PagosService } from '../../core/services/pagos.service';
 import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
 @Component({
@@ -12,11 +13,13 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 })
 export class MisPedidosComponent implements OnInit {
   private pedidosService = inject(PedidosService);
+  private pagosService   = inject(PagosService);
 
   readonly pedidos      = signal<Pedido[]>([]);
   readonly cargando     = signal(true);
   readonly pedidoAbierto = signal<number | null>(null);
   readonly errorCancelacion = signal('');
+  readonly pagandoId    = signal<number | null>(null);
 
   // Mapa de labels y colores por estado
   readonly estadoConfig: Record<EstadoPedido, { label: string; color: string }> = {
@@ -47,14 +50,33 @@ export class MisPedidosComponent implements OnInit {
     }).format(new Date(fecha));
   }
 
-  // Devuelve true si el pedido puede recibir comprobante
+  // Devuelve true si el pedido puede pagarse en línea con Mercado Pago
+  puedePagarConMercadoPago(pedido: Pedido): boolean {
+    return pedido.metodoPago === 'MERCADOPAGO' && pedido.estado === 'PENDIENTE';
+  }
+
+  // Pagar con Mercado Pago
+  pagarConMercadoPago(pedidoId: number) {
+    this.pagandoId.set(pedidoId);
+    this.pagosService.crearPreferencia(pedidoId).subscribe({
+      next: (res) => {
+        window.location.href = res.urlPago;
+      },
+      error: (err) => {
+        this.pagandoId.set(null);
+        alert(err?.error?.message ?? 'No se pudo iniciar el pago con Mercado Pago.');
+      },
+    });
+  }
+
+  // Devuelve true si el pedido requiere comprobante manual (pedidos legacy)
   puedeSubirComprobante(pedido: Pedido): boolean {
-    return pedido.estado === 'PENDIENTE' && !pedido.comprobante;
+    return pedido.metodoPago !== 'MERCADOPAGO' && pedido.estado === 'PENDIENTE' && !pedido.comprobante;
   }
 
   // Devuelve true si el pedido puede ser cancelado
   puedeCancelar(pedido: Pedido): boolean {
-    return pedido.estado === 'PENDIENTE' || pedido.estado === 'PAGO_VERIFICADO';
+    return pedido.estado === 'PENDIENTE';
   }
 
   cancelar(pedidoId: number) {

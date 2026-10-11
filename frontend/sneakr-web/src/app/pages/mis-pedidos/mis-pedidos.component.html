@@ -92,10 +92,10 @@
                     <div class="pedido-item">
                       <div class="pedido-item__img-wrap">
                         <img
-                          [src]="item.tallaProducto?.producto?.imagenes?.[0]?.url ?? '/placeholder-shoe.jpg'"
+                          [src]="item.tallaProducto?.producto?.imagenes?.[0]?.url ?? '/placeholder-shoe.svg'"
                           [alt]="item.nombreProducto"
                           class="pedido-item__img"
-                          onerror="this.src='/placeholder-shoe.jpg'"
+                          onerror="this.onerror=null; this.src='/placeholder-shoe.svg'"
                         />
                       </div>
                       <div class="pedido-item__info">
@@ -155,6 +155,20 @@
 
                 <!-- Acciones -->
                 <div class="pedido-acciones">
+                  @if (puedePagarConMercadoPago(pedido)) {
+                    <button
+                      class="btn-primary pedido-acciones__btn"
+                      (click)="pagarConMercadoPago(pedido.id)"
+                      [disabled]="pagandoId() === pedido.id"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                        <line x1="1" y1="10" x2="23" y2="10"/>
+                      </svg>
+                      {{ pagandoId() === pedido.id ? 'Conectando...' : 'Pagar con tarjeta' }}
+                    </button>
+                  }
                   @if (puedeSubirComprobante(pedido)) {
                     <a [routerLink]="['/comprobante', pedido.id]" class="btn-primary pedido-acciones__btn">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"

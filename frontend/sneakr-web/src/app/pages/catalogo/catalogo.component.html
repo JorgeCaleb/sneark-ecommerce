@@ -184,7 +184,7 @@
               <div class="producto-card__img-wrap">
                 <img [src]="imagenPrincipal(producto)" [alt]="producto.nombre"
                      class="producto-card__img" loading="lazy"
-                     onerror="this.src='/placeholder-shoe.jpg'" />
+                     onerror="this.onerror=null; this.src='/placeholder-shoe.svg'" />
                 @if (!tieneStock(producto)) {
                   <span class="producto-card__agotado">Agotado</span>
                 }
@@ -204,32 +204,13 @@
         </div>
 
         <!-- Paginación -->
-        @if (totalPaginas() > 1) {
-          <nav class="paginacion" aria-label="Paginación">
-            <button class="paginacion__btn" [disabled]="paginaActual === 1"
-                    (click)="irAPagina(paginaActual - 1)" aria-label="Página anterior">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M15 18l-6-6 6-6"/>
-              </svg>
-            </button>
-
-            @for (pagina of paginasArray(); track pagina) {
-              <button class="paginacion__num" [class.paginacion__num--activa]="pagina === paginaActual"
-                      (click)="irAPagina(pagina)">
-                {{ pagina }}
-              </button>
-            }
-
-            <button class="paginacion__btn" [disabled]="paginaActual === totalPaginas()"
-                    (click)="irAPagina(paginaActual + 1)" aria-label="Página siguiente">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 18l6-6-6-6"/>
-              </svg>
-            </button>
-          </nav>
-        }
+        <app-paginacion
+          [pagina]="paginaActual"
+          [totalPaginas]="totalPaginas()"
+          modo="numeros"
+          ariaLabel="Paginación de productos"
+          (cambioPagina)="irAPagina($event)"
+        />
       }
 
     </main>

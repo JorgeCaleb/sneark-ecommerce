@@ -9,7 +9,7 @@ export type { ValorMonetario } from '../models/valor-monetario';
 export interface ImagenProducto {
   id: number;
   url: string;
-  publicId: string;
+  publicId?: string; // solo disponible en endpoints de admin
 }
 
 export interface TallaProducto {
@@ -19,7 +19,7 @@ export interface TallaProducto {
   color: { id: number; nombre: string; codigo: string };
   talla: string;
   stock: number;
-  sku: string;
+  sku?: string; // solo disponible en endpoints de admin
 }
 
 export interface Producto {
@@ -59,6 +59,12 @@ export interface FiltrosProducto {
   colorId?: number;
   pagina?: number;
   limite?: number;
+}
+
+export type EstadoProductosAdmin = 'todos' | 'activos' | 'inactivos';
+
+export interface FiltrosProductosAdmin extends FiltrosProducto {
+  estado: EstadoProductosAdmin;
 }
 
 export interface ProductoInput {
@@ -132,9 +138,17 @@ export class ProductosService {
   constructor(private http: HttpClient) {}
 
   buscarTodos(filtros: FiltrosProducto = {}) {
+    return this.buscarYActualizar(this.buscarPagina(filtros));
+  }
+
+  buscarTodosAdmin(filtros: FiltrosProductosAdmin) {
+    return this.buscarYActualizar(this.buscarAdminPagina(filtros));
+  }
+
+  private buscarYActualizar(request: ReturnType<ProductosService['buscarPagina']>) {
     const busqueda = ++this.busquedaActiva;
     this.cargando.set(true);
-    return this.buscarPagina(filtros).pipe(
+    return request.pipe(
       tap((res) => {
         if (busqueda !== this.busquedaActiva) return;
         this.productos.set(res.datos);
@@ -147,8 +161,18 @@ export class ProductosService {
   }
 
   buscarPagina(filtros: FiltrosProducto = {}) {
-    let params = new HttpParams();
+    const params = this.crearParametros(filtros);
+    return this.http.get<ProductosPaginados>(this.API, { params });
+  }
 
+  buscarAdminPagina(filtros: FiltrosProductosAdmin) {
+    const { estado, ...filtrosProducto } = filtros;
+    const params = this.crearParametros(filtrosProducto).set('estado', estado);
+    return this.http.get<ProductosPaginados>(`${this.API}/admin`, { params });
+  }
+
+  private crearParametros(filtros: FiltrosProducto) {
+    let params = new HttpParams();
     if (filtros.busqueda) params = params.set('busqueda', filtros.busqueda);
     if (filtros.marcaId) params = params.set('marcaId', filtros.marcaId);
     if (filtros.categoriaId) params = params.set('categoriaId', filtros.categoriaId);
@@ -158,8 +182,7 @@ export class ProductosService {
     if (filtros.colorId) params = params.set('colorId', filtros.colorId);
     if (filtros.pagina) params = params.set('pagina', filtros.pagina);
     if (filtros.limite) params = params.set('limite', filtros.limite);
-
-    return this.http.get<ProductosPaginados>(this.API, { params });
+    return params;
   }
 
   buscarPorId(id: number) {
@@ -215,10 +238,18 @@ export class ProductosService {
     return this.http.delete(`${this.API}/${productoId}/imagenes/${imagenId}`);
   }
 
-  actualizarStockTalla(productoId: number, tallaId: number, stock: number) {
+  actualizarStockTalla(
+    productoId: number,
+    tallaId: number,
+    stock: number,
+    stockEsperado: number,
+  ) {
     return this.http.patch<{
       id: number;
       stock: number;
-    }>(`${this.API}/${productoId}/tallas/${tallaId}`, { stock });
+    }>(`${this.API}/${productoId}/tallas/${tallaId}`, {
+      stock,
+      stockEsperado,
+    });
   }
 }

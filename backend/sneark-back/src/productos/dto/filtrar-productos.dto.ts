@@ -9,9 +9,10 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { PaginacionDto } from '../../common/dto/paginacion.dto.js';
 
 // DTO para los query params de búsqueda/filtrado del catálogo
-export class FiltrarProductosDto {
+export class FiltrarProductosDto extends PaginacionDto {
   @IsOptional()
   @IsString()
   busqueda?: string; // Búsqueda por nombre
@@ -54,12 +55,6 @@ export class FiltrarProductosDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  pagina?: number = 1;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
   @Max(100)
-  limite?: number = 12;
+  override limite = 12;
 }

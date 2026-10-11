@@ -1,0 +1,148 @@
+<section class="admin-page">
+  <header class="admin-page__header">
+    <div>
+      <p class="admin-page__eyebrow">CATÁLOGO</p>
+      <h1 class="admin-page__title">Colores</h1>
+      <p class="admin-page__sub">
+        {{ colores().length }} colores disponibles para variantes de calzado
+      </p>
+    </div>
+    <button class="btn-primary" type="button" (click)="abrirCrear()">
+      <span aria-hidden="true">+</span>
+      Nuevo color
+    </button>
+  </header>
+
+  @if (cargando()) {
+    <div class="colores-grid" aria-label="Cargando colores">
+      @for (item of [1, 2, 3, 4]; track item) {
+        <div class="color-skeleton"></div>
+      }
+    </div>
+  } @else if (errorCarga()) {
+    <div class="admin-message admin-message--error" role="alert">
+      <p>{{ errorCarga() }}</p>
+      <button type="button" class="btn-secondary" (click)="cargar()">Reintentar</button>
+    </div>
+  } @else if (colores().length === 0) {
+    <div class="admin-empty">
+      <span class="admin-empty__mark" aria-hidden="true">01</span>
+      <h2>Aún no hay colores</h2>
+      <p>Crea colores para poder asignarlos a las variantes de tus productos.</p>
+      <button type="button" class="btn-primary" (click)="abrirCrear()">
+        Crear primer color
+      </button>
+    </div>
+  } @else {
+    <div class="colores-grid">
+      @for (color of colores(); track color.id) {
+        <article class="color-card">
+          <div class="color-card__badge" aria-hidden="true">
+            {{ color.codigo }}
+          </div>
+          <div class="color-card__info">
+            <h2>{{ color.nombre }}</h2>
+            <p>
+              Código SKU: <code>{{ color.codigo }}</code>
+            </p>
+          </div>
+          <div class="color-card__actions">
+            <button
+              type="button"
+              class="color-action"
+              (click)="abrirEditar(color)"
+              [attr.aria-label]="'Editar ' + color.nombre"
+            >
+              Editar
+            </button>
+            <button
+              type="button"
+              class="color-action color-action--delete"
+              (click)="eliminar(color)"
+              [attr.aria-label]="'Eliminar ' + color.nombre"
+            >
+              Eliminar
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  }
+</section>
+
+@if (modalAbierto()) {
+  <div class="color-backdrop" (click)="cerrarModal()"></div>
+  <section
+    class="color-modal color-modal--enter"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="color-modal-title"
+  >
+    <header class="color-modal__header">
+      <div>
+        <p class="admin-page__eyebrow">CONFIGURACIÓN DE COLOR</p>
+        <h2 id="color-modal-title">
+          {{ colorEditar() ? 'Editar color' : 'Nuevo color' }}
+        </h2>
+      </div>
+      <button
+        type="button"
+        class="color-modal__close"
+        aria-label="Cerrar"
+        (click)="cerrarModal()"
+      >
+        ×
+      </button>
+    </header>
+
+    <form (ngSubmit)="guardar()">
+      <div class="color-modal__body">
+        <label class="color-label" for="color-nombre">Nombre</label>
+        <input
+          id="color-nombre"
+          class="color-input"
+          type="text"
+          name="nombre"
+          [(ngModel)]="nombre"
+          placeholder="Ej. Negro, Blanco, Rojo"
+          maxlength="50"
+          required
+          autofocus
+        />
+
+        <label class="color-label" for="color-codigo">Código para SKU (ej. BK, WH)</label>
+        <input
+          id="color-codigo"
+          class="color-input"
+          type="text"
+          name="codigo"
+          [(ngModel)]="codigo"
+          placeholder="Ej. BK, WH, RED"
+          maxlength="10"
+          required
+        />
+        <p class="color-hint">
+          El código se usa para componer los SKUs de inventario. No se puede modificar si ya tiene variantes asociadas.
+        </p>
+
+        @if (errorForm()) {
+          <p class="color-error" role="alert">{{ errorForm() }}</p>
+        }
+      </div>
+
+      <footer class="color-modal__footer">
+        <button
+          type="button"
+          class="btn-secondary"
+          (click)="cerrarModal()"
+          [disabled]="guardando()"
+        >
+          Cancelar
+        </button>
+        <button type="submit" class="btn-primary" [disabled]="guardando()">
+          {{ guardando() ? 'Guardando…' : colorEditar() ? 'Guardar cambios' : 'Crear color' }}
+        </button>
+      </footer>
+    </form>
+  </section>
+}

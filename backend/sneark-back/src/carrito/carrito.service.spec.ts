@@ -239,4 +239,32 @@ describe('CarritoService actualizar artículo inactivo', () => {
       data: { cantidad: 2 },
     });
   });
+
+  it('redondea los subtotales a 2 decimales evitando residuos de coma flotante (ej: 299.90 x 3 = 899.7)', () => {
+    const service = new CarritoService({} as PrismaService);
+    const carrito = {
+      id: 1,
+      usuarioId: 10,
+      creadoEn: new Date(),
+      items: [
+        {
+          id: 1,
+          carritoId: 1,
+          tallaProductoId: 1,
+          cantidad: 3,
+          tallaProducto: {
+            producto: {
+              precio: new Prisma.Decimal('299.90'),
+            },
+          },
+        },
+      ],
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const resultado = (service as any).calcularTotales(carrito);
+
+    expect(resultado.items[0].subtotal).toBe(899.7);
+    expect(resultado.total).toBe(899.7);
+  });
 });

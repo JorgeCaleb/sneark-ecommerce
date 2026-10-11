@@ -3,11 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { PedidosService, Pedido, EstadoPedido } from '../../../core/services/pedidos.service';
 import { Subscription } from 'rxjs';
 import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
+import { PaginacionComponent } from '../../../shared/components/paginacion/paginacion.component';
 
 @Component({
   selector: 'app-admin-pedidos',
   standalone: true,
-  imports: [FormsModule, MonedaPipe],
+  imports: [FormsModule, MonedaPipe, PaginacionComponent],
   templateUrl: './admin-pedidos.component.html',
   styleUrl: './admin-pedidos.component.css',
 })

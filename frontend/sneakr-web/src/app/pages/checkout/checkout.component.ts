@@ -3,6 +3,7 @@ import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CarritoService } from '../../core/services/carrito.service';
 import { PedidosService, MetodoPago } from '../../core/services/pedidos.service';
+import { PagosService } from '../../core/services/pagos.service';
 import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
 @Component({
@@ -15,6 +16,7 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 export class CheckoutComponent implements OnInit {
   private carritoService = inject(CarritoService);
   private pedidosService = inject(PedidosService);
+  private pagosService   = inject(PagosService);
   private router         = inject(Router);
 
   readonly carrito   = this.carritoService.carrito;
@@ -36,7 +38,7 @@ export class CheckoutComponent implements OnInit {
   telefono   = '';
   ciudad     = '';
   direccion  = '';
-  metodoPago: MetodoPago = 'YAPE';
+  metodoPago: MetodoPago = 'MERCADOPAGO';
 
   ngOnInit() {
     this.cargarCarrito();
@@ -87,9 +89,20 @@ export class CheckoutComponent implements OnInit {
       direccion: this.direccion,
     }).subscribe({
       next: (pedido) => {
-        this.enviando.set(false);
-        this.carritoService.limpiarLocal();
-        this.router.navigate(['/comprobante', pedido.id]);
+        this.pagosService.crearPreferencia(pedido.id).subscribe({
+          next: (res) => {
+            this.carritoService.limpiarLocal();
+            // Redirigir a checkout Sandbox de Mercado Pago
+            window.location.href = res.urlPago;
+          },
+          error: (err) => {
+            this.enviando.set(false);
+            this.error.set(
+              err?.error?.message ??
+                'No se pudo generar el enlace de pago con Mercado Pago. Intenta nuevamente.',
+            );
+          },
+        });
       },
       error: (err) => {
         this.enviando.set(false);

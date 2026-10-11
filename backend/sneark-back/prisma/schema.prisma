@@ -111,11 +111,13 @@ model ImagenProducto {
 // VARIANTES Y STOCK
 // ─────────────────────────────────────────────
 model TallaProducto {
-  id      Int    @id @default(autoincrement())
-  genero  Genero
-  colorId Int
-  color   Color  @relation(fields: [colorId], references: [id], onDelete: Restrict)
-  talla   String @db.VarChar(20)
+  id          Int    @id @default(autoincrement())
+  genero      Genero
+  colorId     Int
+  color       Color  @relation(fields: [colorId], references: [id], onDelete: Restrict)
+  talla       String @db.VarChar(20)
+  // Valor numérico de talla para ordenación correcta (ej: 10.5 en lugar de "10.5" texto)
+  tallaNumero Decimal @db.Decimal(4, 1)
   stock   Int    @default(0)
   sku     String @unique @db.VarChar(60)
 
@@ -128,6 +130,7 @@ model TallaProducto {
   @@unique([productoId, genero, colorId, talla])
   @@index([productoId])
   @@index([colorId])
+  @@index([productoId, genero, colorId, tallaNumero])
   @@map("tallas_producto")
 }
 
@@ -199,6 +202,11 @@ model Pedido {
   comprobantePublicId String? @db.VarChar(255)
   // Código de operación del comprobante (ayuda a verificar y detectar repetidos)
   numeroOperacion     String? @db.VarChar(50)
+
+  // Mercado Pago: ID de la preferencia de pago (para redirigir al checkout)
+  mpPreferenciaId String? @db.VarChar(255)
+  // Mercado Pago: ID del pago recibido por webhook tras la transacción
+  mpPagoId        String? @db.VarChar(100)
 
   // Datos de entrega, guardados tal como estaban al hacer el pedido
   telefono  String @db.VarChar(20)
@@ -276,4 +284,5 @@ enum EstadoPedido {
 enum MetodoPago {
   YAPE
   PLIN
+  MERCADOPAGO
 }

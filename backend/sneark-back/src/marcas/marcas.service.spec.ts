@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+﻿import { ConflictException } from '@nestjs/common';
 import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MarcasService } from './marcas.service.js';
@@ -41,15 +41,15 @@ describe('MarcasService logos', () => {
     prisma.marca.findUnique.mockResolvedValue({
       id: 7,
       nombre: 'Nike',
-      logo: 'https://res.cloudinary.com/demo/image/upload/v1/sneark/marcas/7/nike.svg',
-      logoPublicId: 'sneark/marcas/7/nike',
+      logo: 'https://res.cloudinary.com/demo/image/upload/v1/SOHO/marcas/7/nike.svg',
+      logoPublicId: 'SOHO/marcas/7/nike',
     });
     prisma.marca.delete.mockResolvedValue({ id: 7 });
 
     await service.eliminar(7);
 
     expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
-      'sneark/marcas/7/nike',
+      'SOHO/marcas/7/nike',
     );
     expect(prisma.marca.delete).toHaveBeenCalledWith({ where: { id: 7 } });
     expect(prisma.marca.delete.mock.invocationCallOrder[0]).toBeLessThan(
@@ -61,7 +61,7 @@ describe('MarcasService logos', () => {
     prisma.marca.findUnique.mockResolvedValue({
       id: 7,
       nombre: 'Nike',
-      logo: 'https://res.cloudinary.com/demo/image/upload/v123/sneark/marcas/7/nike.svg',
+      logo: 'https://res.cloudinary.com/demo/image/upload/v123/SOHO/marcas/7/nike.svg',
       logoPublicId: null,
     });
     prisma.marca.delete.mockResolvedValue({ id: 7 });
@@ -69,7 +69,7 @@ describe('MarcasService logos', () => {
     await service.eliminar(7);
 
     expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
-      'sneark/marcas/7/nike',
+      'SOHO/marcas/7/nike',
     );
   });
 
@@ -77,8 +77,8 @@ describe('MarcasService logos', () => {
     prisma.marca.findUnique.mockResolvedValue({
       id: 7,
       nombre: 'Nike',
-      logo: 'https://res.cloudinary.com/demo/image/upload/v1/sneark/marcas/7/nike.svg',
-      logoPublicId: 'sneark/marcas/7/nike',
+      logo: 'https://res.cloudinary.com/demo/image/upload/v1/SOHO/marcas/7/nike.svg',
+      logoPublicId: 'SOHO/marcas/7/nike',
     });
     prisma.producto.count.mockResolvedValue(1);
 
@@ -92,16 +92,16 @@ describe('MarcasService logos', () => {
     prisma.marca.findUnique.mockResolvedValue({
       id: 7,
       nombre: 'Nike',
-      logo: 'https://res.cloudinary.com/demo/image/upload/v1/sneark/marcas/7/old.svg',
-      logoPublicId: 'sneark/marcas/7/old',
+      logo: 'https://res.cloudinary.com/demo/image/upload/v1/SOHO/marcas/7/old.svg',
+      logoPublicId: 'SOHO/marcas/7/old',
     });
     cloudinary.subirLogo.mockResolvedValue({
-      url: 'https://res.cloudinary.com/demo/image/upload/v2/sneark/marcas/7/new.svg',
-      publicId: 'sneark/marcas/7/new',
+      url: 'https://res.cloudinary.com/demo/image/upload/v2/SOHO/marcas/7/new.svg',
+      publicId: 'SOHO/marcas/7/new',
     });
     prisma.marca.update.mockResolvedValue({
       id: 7,
-      logoPublicId: 'sneark/marcas/7/new',
+      logoPublicId: 'SOHO/marcas/7/new',
     });
 
     await service.subirLogo(7, {
@@ -111,12 +111,12 @@ describe('MarcasService logos', () => {
     expect(prisma.marca.update).toHaveBeenCalledWith({
       where: { id: 7 },
       data: {
-        logo: 'https://res.cloudinary.com/demo/image/upload/v2/sneark/marcas/7/new.svg',
-        logoPublicId: 'sneark/marcas/7/new',
+        logo: 'https://res.cloudinary.com/demo/image/upload/v2/SOHO/marcas/7/new.svg',
+        logoPublicId: 'SOHO/marcas/7/new',
       },
     });
     expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
-      'sneark/marcas/7/old',
+      'SOHO/marcas/7/old',
     );
   });
 
@@ -129,8 +129,8 @@ describe('MarcasService logos', () => {
       logoPublicId: null,
     });
     cloudinary.subirLogo.mockResolvedValue({
-      url: 'https://res.cloudinary.com/demo/image/upload/v2/sneark/marcas/nike-peru/logo.svg',
-      publicId: 'sneark/marcas/nike-peru/logo',
+      url: 'https://res.cloudinary.com/demo/image/upload/v2/SOHO/marcas/nike-peru/logo.svg',
+      publicId: 'SOHO/marcas/nike-peru/logo',
     });
     prisma.marca.update.mockResolvedValue({ id: 7 });
 
@@ -138,7 +138,7 @@ describe('MarcasService logos', () => {
 
     expect(cloudinary.subirLogo).toHaveBeenCalledWith(
       archivo,
-      'sneark/marcas/nike-peru',
+      'SOHO/marcas/nike-peru',
     );
   });
 
@@ -151,8 +151,8 @@ describe('MarcasService logos', () => {
       logoPublicId: null,
     });
     cloudinary.subirLogo.mockResolvedValue({
-      url: 'https://res.cloudinary.com/demo/image/upload/v2/sneark/marcas/nike/logo.svg',
-      publicId: 'sneark/marcas/nike/logo',
+      url: 'https://res.cloudinary.com/demo/image/upload/v2/SOHO/marcas/nike/logo.svg',
+      publicId: 'SOHO/marcas/nike/logo',
     });
     prisma.marca.update.mockRejectedValue(errorPersistencia);
 
@@ -163,7 +163,7 @@ describe('MarcasService logos', () => {
     ).rejects.toBe(errorPersistencia);
 
     expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
-      'sneark/marcas/nike/logo',
+      'SOHO/marcas/nike/logo',
     );
   });
 
@@ -175,8 +175,8 @@ describe('MarcasService logos', () => {
       logoPublicId: null,
     });
     cloudinary.subirLogo.mockResolvedValue({
-      url: 'https://res.cloudinary.com/demo/image/upload/v2/sneark/marcas/nike/logo.svg',
-      publicId: 'sneark/marcas/nike/logo',
+      url: 'https://res.cloudinary.com/demo/image/upload/v2/SOHO/marcas/nike/logo.svg',
+      publicId: 'SOHO/marcas/nike/logo',
     });
     prisma.marca.update.mockRejectedValue(new Error('Database unavailable'));
     cloudinary.eliminarImagen.mockRejectedValue(

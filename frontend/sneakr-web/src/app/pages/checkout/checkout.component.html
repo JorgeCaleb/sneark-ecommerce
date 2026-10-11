@@ -71,56 +71,33 @@
           </h2>
 
           <div class="metodos-pago">
-
-            <!-- Yape -->
+            <!-- Mercado Pago -->
             <button
-              class="metodo-btn"
-              [class.metodo-btn--activo]="metodoPago === 'YAPE'"
-              (click)="seleccionarMetodo('YAPE')"
+              type="button"
+              class="metodo-btn metodo-btn--activo"
+              (click)="seleccionarMetodo('MERCADOPAGO')"
             >
               <div class="metodo-btn__radio">
-                @if (metodoPago === 'YAPE') {
-                  <div class="metodo-btn__radio-dot"></div>
-                }
+                <div class="metodo-btn__radio-dot"></div>
               </div>
               <div class="metodo-btn__content">
-                <span class="metodo-btn__nombre">Yape</span>
-                <span class="metodo-btn__desc">Pago instantáneo por código QR</span>
+                <div class="metodo-btn__header-row">
+                  <span class="metodo-btn__nombre">Mercado Pago</span>
+                  <span class="metodo-btn__badge metodo-btn__badge--mp">PAGO SEGURO</span>
+                </div>
+                <span class="metodo-btn__desc">Tarjetas de crédito, débito o saldo en cuenta</span>
               </div>
-              <div class="metodo-btn__badge metodo-btn__badge--yape">YAPE</div>
             </button>
-
-            <!-- Plin -->
-            <button
-              class="metodo-btn"
-              [class.metodo-btn--activo]="metodoPago === 'PLIN'"
-              (click)="seleccionarMetodo('PLIN')"
-            >
-              <div class="metodo-btn__radio">
-                @if (metodoPago === 'PLIN') {
-                  <div class="metodo-btn__radio-dot"></div>
-                }
-              </div>
-              <div class="metodo-btn__content">
-                <span class="metodo-btn__nombre">Plin</span>
-                <span class="metodo-btn__desc">Pago instantáneo por código QR</span>
-              </div>
-              <div class="metodo-btn__badge metodo-btn__badge--plin">PLIN</div>
-            </button>
-
           </div>
 
           <!-- Instrucciones de pago -->
           <div class="pago-instrucciones">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
             <p>
-              Después de confirmar el pedido te mostraremos el número de cuenta o QR para realizar el pago.
-              Deberás subir una foto del comprobante para verificar tu pago.
+              Al hacer clic en pagar, serás redirigido al portal oficial de <strong>Mercado Pago</strong> para completar tu compra de forma 100% segura. Tu pedido se actualizará automáticamente.
             </p>
           </div>
         </section>
@@ -164,10 +141,10 @@
               <div class="checkout-item">
                 <div class="checkout-item__img-wrap">
                   <img
-                    [src]="item.tallaProducto.producto.imagenes?.[0]?.url ?? '/placeholder-shoe.jpg'"
+                    [src]="item.tallaProducto.producto.imagenes?.[0]?.url ?? '/placeholder-shoe.svg'"
                     [alt]="item.tallaProducto.producto.nombre"
                     class="checkout-item__img"
-                    onerror="this.src='/placeholder-shoe.jpg'"
+                    onerror="this.onerror=null; this.src='/placeholder-shoe.svg'"
                   />
                   <span class="checkout-item__qty">{{ item.cantidad }}</span>
                 </div>
@@ -197,9 +174,9 @@
         >
           @if (enviando()) {
             <span class="checkout-spinner"></span>
-            Confirmando...
+            Conectando con Mercado Pago...
           } @else {
-            Confirmar pedido
+            Pagar con Mercado Pago
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M5 12h14M12 5l7 7-7 7"/>

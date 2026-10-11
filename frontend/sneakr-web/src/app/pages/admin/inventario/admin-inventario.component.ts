@@ -3,11 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { ProductosService, VarianteInventario } from '../../../core/services/productos.service';
+import { PaginacionComponent } from '../../../shared/components/paginacion/paginacion.component';
 
 @Component({
   selector: 'app-admin-inventario',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PaginacionComponent],
   templateUrl: './admin-inventario.component.html',
   styleUrl: './admin-inventario.component.css',
 })
@@ -54,10 +55,29 @@ export class AdminInventarioComponent implements OnInit, OnDestroy {
       .buscarVariantesInventario(this.pagina(), this.limite, this.busqueda, estado)
       .subscribe({
         next: (respuesta) => {
+          const draftPrevio = this.stockDraft();
+          const stocksPrevios = new Map(this.variantes().map((v) => [v.id, v.stock]));
+
+          const nuevoDraft: Record<number, number> = {};
+          for (const variante of respuesta.datos) {
+            const borrador = draftPrevio[variante.id];
+            const stockAnterior = stocksPrevios.get(variante.id);
+
+            // Si el usuario tenía un borrador pendiente modificado y no es la variante recién guardada, lo preservamos
+            if (
+              borrador !== undefined &&
+              stockAnterior !== undefined &&
+              borrador !== stockAnterior &&
+              variante.id !== this.actualizadoId()
+            ) {
+              nuevoDraft[variante.id] = borrador;
+            } else {
+              nuevoDraft[variante.id] = variante.stock;
+            }
+          }
+
           this.variantes.set(respuesta.datos);
-          this.stockDraft.set(
-            Object.fromEntries(respuesta.datos.map((variante) => [variante.id, variante.stock])),
-          );
+          this.stockDraft.set(nuevoDraft);
           this.total.set(respuesta.meta.total);
           this.pagina.set(respuesta.meta.pagina);
           this.totalPaginas.set(respuesta.meta.totalPaginas);
@@ -112,7 +132,12 @@ export class AdminInventarioComponent implements OnInit, OnDestroy {
     this.guardandoIds.update((ids) => new Set(ids).add(variante.id));
     this.acciones.add(
       this.productosService
-        .actualizarStockTalla(variante.producto.id, variante.id, stock)
+        .actualizarStockTalla(
+          variante.producto.id,
+          variante.id,
+          stock,
+          variante.stock,
+        )
         .subscribe({
           next: () => {
             this.guardandoIds.update((ids) => {
@@ -129,10 +154,21 @@ export class AdminInventarioComponent implements OnInit, OnDestroy {
               siguientes.delete(variante.id);
               return siguientes;
             });
+            const mensaje = error?.error?.message;
             this.erroresStock.update((errores) => ({
               ...errores,
-              [variante.id]: error?.error?.message ?? 'No se pudo actualizar el stock.',
+              [variante.id]: Array.isArray(mensaje)
+                ? mensaje.join(' ')
+                : (mensaje ?? 'No se pudo actualizar el stock.'),
             }));
+            if (error?.status === 409) {
+              this.stockDraft.update((draft) => {
+                const copia = { ...draft };
+                delete copia[variante.id];
+                return copia;
+              });
+              this.cargar();
+            }
           },
         }),
     );

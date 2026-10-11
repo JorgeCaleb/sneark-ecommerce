@@ -7,11 +7,13 @@ import {
   Producto,
   ProductoInput,
   FiltrosProducto,
+  EstadoProductosAdmin,
 } from '../../../core/services/productos.service';
 import { MarcasService, Marca } from '../../../core/services/marcas.service';
 import { CategoriasService, Categoria } from '../../../core/services/categorias.service';
 import { ColoresService, Color } from '../../../core/services/colores.service';
 import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
+import { PaginacionComponent } from '../../../shared/components/paginacion/paginacion.component';
 
 interface TallaForm {
   id?: number;
@@ -37,7 +39,7 @@ interface ProductoForm {
 @Component({
   selector: 'app-admin-productos',
   standalone: true,
-  imports: [FormsModule, MonedaPipe],
+  imports: [FormsModule, MonedaPipe, PaginacionComponent],
   templateUrl: './admin-productos.component.html',
   styleUrl: './admin-productos.component.css',
 })
@@ -54,7 +56,7 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
   readonly errorDependencias = signal(false);
   readonly cargandoDependencias = signal(true);
   readonly errorAccion = signal('');
-  readonly desactivandoId = signal<number | null>(null);
+  readonly cambiandoEstadoId = signal<number | null>(null);
   readonly marcas = signal<Marca[]>([]);
   readonly categorias = signal<Categoria[]>([]);
   readonly colores = signal<Color[]>([]);
@@ -75,6 +77,7 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
 
   // Búsqueda
   busqueda = '';
+  estado: EstadoProductosAdmin = 'todos';
   paginaActual = 1;
   private productosSubscription?: Subscription;
 
@@ -91,14 +94,15 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
   }
 
   cargar() {
-    const filtros: FiltrosProducto = {
+    const filtros: FiltrosProducto & { estado: EstadoProductosAdmin } = {
       pagina: this.paginaActual,
       limite: 10,
+      estado: this.estado,
       ...(this.busqueda ? { busqueda: this.busqueda } : {}),
     };
     this.productosSubscription?.unsubscribe();
     this.errorCarga.set(false);
-    this.productosSubscription = this.productosService.buscarTodos(filtros).subscribe({
+    this.productosSubscription = this.productosService.buscarTodosAdmin(filtros).subscribe({
       error: () => this.errorCarga.set(true),
     });
   }
@@ -301,17 +305,26 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
 
   desactivar(id: number) {
     if (!confirm('¿Desactivar este producto?')) return;
+    this.cambiarEstado(id, false);
+  }
+
+  activar(id: number) {
+    this.cambiarEstado(id, true);
+  }
+
+  private cambiarEstado(id: number, activo: boolean) {
     this.errorAccion.set('');
-    this.desactivandoId.set(id);
-    this.productosService.actualizar(id, { activo: false }).subscribe({
+    this.cambiandoEstadoId.set(id);
+    this.productosService.actualizar(id, { activo }).subscribe({
       next: () => {
-        this.desactivandoId.set(null);
+        this.cambiandoEstadoId.set(null);
         this.cargar();
       },
       error: (err) => {
-        this.desactivandoId.set(null);
+        this.cambiandoEstadoId.set(null);
         this.errorAccion.set(
-          err?.error?.message ?? 'No se pudo desactivar el producto.',
+          err?.error?.message ??
+            `No se pudo ${activo ? 'activar' : 'desactivar'} el producto.`,
         );
       },
     });

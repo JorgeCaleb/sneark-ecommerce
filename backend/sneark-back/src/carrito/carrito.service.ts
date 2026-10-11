@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AgregarItemDto } from './dto/agregar-item.dto.js';
 import { ActualizarItemDto } from './dto/actualizar-item.dto.js';
 import { INCLUDE_PRODUCTO_RESUMEN } from '../prisma/selecciones.js';
+import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
 
 // Campos que siempre se incluyen al devolver el carrito
 const INCLUDE_CARRITO = {
@@ -65,10 +66,7 @@ export class CarritoService {
     try {
       await this.agregarTransaccional(usuarioId, dto);
     } catch (error) {
-      if (
-        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-        error.code !== 'P2002'
-      ) {
+      if (!esConflictoUnico(error)) {
         throw error;
       }
 
@@ -255,11 +253,13 @@ export class CarritoService {
   private calcularTotales(carrito: CarritoIncluido) {
     const items = carrito.items.map((item) => {
       const precio = Number(item.tallaProducto.producto.precio);
-      const subtotal = precio * item.cantidad;
+      const subtotal = Number((precio * item.cantidad).toFixed(2));
       return { ...item, subtotal };
     });
 
-    const total = items.reduce((acc, item) => acc + item.subtotal, 0);
+    const total = Number(
+      items.reduce((acc, item) => acc + item.subtotal, 0).toFixed(2),
+    );
 
     return {
       ...carrito,

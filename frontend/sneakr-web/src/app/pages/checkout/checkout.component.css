@@ -193,12 +193,24 @@
   color: var(--color-muted);
 }
 
+.metodo-btn__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
 .metodo-btn__badge {
   padding: 0.25rem 0.625rem;
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
+}
+
+.metodo-btn__badge--mp {
+  background-color: #009ee3;
+  color: #ffffff;
 }
 
 .metodo-btn__badge--yape {

@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CrearUsuarioDto } from './dto/crear-usuario.dto.js';
 import * as bcrypt from 'bcrypt';
 import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
+import { construirMetaPaginacion } from '../common/paginacion.util.js';
 
 export interface FiltrosClientes {
   busqueda?: string;
@@ -108,12 +109,7 @@ export class UsuariosService {
 
     return {
       datos,
-      meta: {
-        total,
-        pagina,
-        limite,
-        totalPaginas: Math.ceil(total / limite),
-      },
+      meta: construirMetaPaginacion(total, pagina, limite),
     };
   }
 }

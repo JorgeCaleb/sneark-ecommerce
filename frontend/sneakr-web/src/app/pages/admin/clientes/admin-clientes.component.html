@@ -61,26 +61,12 @@
         </tbody>
       </table>
     </div>
-    @if (totalPaginas() > 1) {
-      <nav class="clientes-pagination" aria-label="Paginación de clientes">
-        <button
-          class="btn-secondary"
-          type="button"
-          [disabled]="pagina() === 1"
-          (click)="irAPagina(pagina() - 1)"
-        >
-          Anterior
-        </button>
-        <span aria-live="polite">Página {{ pagina() }} de {{ totalPaginas() }}</span>
-        <button
-          class="btn-secondary"
-          type="button"
-          [disabled]="pagina() === totalPaginas()"
-          (click)="irAPagina(pagina() + 1)"
-        >
-          Siguiente
-        </button>
-      </nav>
-    }
+    <app-paginacion
+      [pagina]="pagina()"
+      [totalPaginas]="totalPaginas()"
+      modo="compacto"
+      ariaLabel="Paginación de clientes"
+      (cambioPagina)="irAPagina($event)"
+    />
   }
 </section>

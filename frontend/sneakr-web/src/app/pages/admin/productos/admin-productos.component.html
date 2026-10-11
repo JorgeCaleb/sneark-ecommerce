@@ -39,6 +39,12 @@
     </svg>
     <input type="search" class="admin-search" placeholder="Buscar producto..."
            [(ngModel)]="busqueda" (keydown.enter)="buscar()" />
+    <select class="admin-search" aria-label="Filtrar por estado"
+            [(ngModel)]="estado" (change)="buscar()">
+      <option value="todos">Todos los estados</option>
+      <option value="activos">Activos</option>
+      <option value="inactivos">Inactivos</option>
+    </select>
     <button class="btn-primary admin-search-btn" (click)="buscar()">Buscar</button>
   </div>
 
@@ -75,8 +81,8 @@
               <td class="tabla__td">
                 <div class="prod-cell">
                   <div class="prod-cell__img">
-                    <img [src]="p.imagenes?.[0]?.url ?? '/placeholder-shoe.jpg'"
-                         [alt]="p.nombre" onerror="this.src='/placeholder-shoe.jpg'" />
+                    <img [src]="p.imagenes?.[0]?.url ?? '/placeholder-shoe.svg'"
+                         [alt]="p.nombre" onerror="this.onerror=null; this.src='/placeholder-shoe.svg'" />
                   </div>
                   <div>
                     <p class="prod-cell__nombre">{{ p.nombre }}</p>
@@ -131,11 +137,25 @@
                   @if (p.activo) {
                     <button class="accion-btn accion-btn--del" (click)="desactivar(p.id)"
                             title="Desactivar"
-                            [disabled]="desactivandoId() !== null">
+                            aria-label="Desactivar producto"
+                            [disabled]="cambiandoEstadoId() !== null">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"/>
                         <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                      </svg>
+                    </button>
+                  } @else {
+                    <button class="accion-btn accion-btn--img" (click)="activar(p.id)"
+                            title="Activar"
+                            aria-label="Activar producto"
+                            [disabled]="cambiandoEstadoId() !== null">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 7v5h-5"/>
+                        <path d="M4 17v-5h5"/>
+                        <path d="M5.6 9a7 7 0 0 1 11.5-2L20 12"/>
+                        <path d="M18.4 15a7 7 0 0 1-11.5 2L4 12"/>
                       </svg>
                     </button>
                   }
@@ -158,28 +178,13 @@
     </div>
 
     <!-- Paginación -->
-    @if ((metaProd()?.totalPaginas ?? 1) > 1) {
-      <nav class="paginacion">
-        <button class="paginacion__btn" [disabled]="paginaActual === 1"
-                (click)="irAPagina(paginaActual - 1)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M15 18l-6-6 6-6"/>
-          </svg>
-        </button>
-        @for (p of paginasArray; track p) {
-          <button class="paginacion__num" [class.paginacion__num--activa]="p === paginaActual"
-                  (click)="irAPagina(p)">{{ p }}</button>
-        }
-        <button class="paginacion__btn" [disabled]="paginaActual === (metaProd()?.totalPaginas ?? 1)"
-                (click)="irAPagina(paginaActual + 1)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 18l6-6-6-6"/>
-          </svg>
-        </button>
-      </nav>
-    }
+    <app-paginacion
+      [pagina]="paginaActual"
+      [totalPaginas]="metaProd()?.totalPaginas ?? 1"
+      modo="numeros"
+      ariaLabel="Paginación de productos admin"
+      (cambioPagina)="irAPagina($event)"
+    />
     }
   }
 
@@ -280,6 +285,11 @@
               + Agregar variante
             </button>
           </div>
+          @if (productoEditar()) {
+            <p class="tallas-hint">
+              El stock de las variantes existentes se administra desde Inventario.
+            </p>
+          }
           <div class="tallas-form-list">
             @for (t of form.tallas; track $index; let i = $index) {
               <div class="talla-row">
@@ -300,7 +310,8 @@
                        placeholder="Talla (ej: 42.5)" maxlength="20"
                        (blur)="actualizarSku(i)" />
                 <input type="number" class="form-input stock-input" [(ngModel)]="t.stock"
-                       placeholder="Stock" min="0" />
+                       placeholder="Stock" min="0" [disabled]="!!t.id"
+                       [attr.aria-label]="t.id ? 'Stock administrado desde Inventario' : 'Stock inicial'" />
                 <input type="text" class="form-input" [value]="t.sku ?? 'Completa la variante para generar SKU'"
                        readonly aria-label="SKU generado por el servidor" />
                 <button type="button" class="talla-quitar" (click)="quitarTalla(i)">

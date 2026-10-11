@@ -8,7 +8,6 @@ import {
   Query,
   ParseIntPipe,
   UseGuards,
-  Request,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
@@ -21,8 +20,9 @@ import { SubirComprobanteDto } from './dto/subir-comprobante.dto.js';
 import { FiltrarPedidosDto } from './dto/filtrar-pedidos.dto.js';
 import { DashboardPedidosDto } from './dto/dashboard-pedidos.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
+import { Admin } from '../auth/decorators/admin.decorator.js';
+import { UsuarioActual } from '../auth/decorators/usuario-actual.decorator.js';
+import type { UsuarioAutenticado } from '../auth/decorators/usuario-actual.decorator.js';
 import { aceptarTipoArchivo } from '../common/filtro-tipo-archivo.util.js';
 
 @UseGuards(JwtAuthGuard)
@@ -32,26 +32,27 @@ export class PedidosController {
 
   // POST /api/pedidos — crear pedido desde el carrito
   @Post()
-  crear(@Request() req: any, @Body() dto: CrearPedidoDto) {
-    return this.pedidosService.crear(req.user.id, dto);
+  crear(
+    @UsuarioActual('id') usuarioId: number,
+    @Body() dto: CrearPedidoDto,
+  ) {
+    return this.pedidosService.crear(usuarioId, dto);
   }
 
   // GET /api/pedidos/mis-pedidos — mis pedidos como cliente
   @Get('mis-pedidos')
-  misPedidos(@Request() req: any) {
-    return this.pedidosService.misPedidos(req.user.id);
+  misPedidos(@UsuarioActual('id') usuarioId: number) {
+    return this.pedidosService.misPedidos(usuarioId);
   }
 
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Get('admin/dashboard')
   resumenDashboard(@Query() filtros: DashboardPedidosDto) {
     return this.pedidosService.obtenerResumenDashboard(filtros);
   }
 
   // GET /api/pedidos/admin/list — pedidos paginados (ADMIN)
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Get('admin/list')
   buscarPagina(@Query() filtros: FiltrarPedidosDto) {
     return this.pedidosService.buscarPagina(filtros);
@@ -59,12 +60,16 @@ export class PedidosController {
 
   // GET /api/pedidos/:id — ver detalle de un pedido
   @Get(':id')
-  buscarPorId(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
-    if (req.user.rol === 'ADMIN') {
+  buscarPorId(
+    @UsuarioActual() usuario: UsuarioAutenticado,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    const usuarioReal = (usuario as any)?.user ?? usuario;
+    if (usuarioReal?.rol === 'ADMIN') {
       return this.pedidosService.buscarPorId(id);
     }
 
-    return this.pedidosService.buscarPorUsuario(id, req.user.id);
+    return this.pedidosService.buscarPorUsuario(id, usuarioReal?.id);
   }
 
   // POST /api/pedidos/:id/comprobante — subir foto del comprobante Yape/Plin
@@ -85,33 +90,34 @@ export class PedidosController {
     }),
   )
   subirComprobante(
-    @Request() req: any,
+    @UsuarioActual('id') usuarioId: number,
     @Param('id', ParseIntPipe) id: number,
     @UploadedFile() archivo: Express.Multer.File | undefined,
     @Body() dto: SubirComprobanteDto,
   ) {
-    return this.pedidosService.subirComprobante(req.user.id, id, archivo, dto);
+    return this.pedidosService.subirComprobante(usuarioId, id, archivo, dto);
   }
 
   // PATCH /api/pedidos/:id/cancelar — cancelar mi pedido
   @Patch(':id/cancelar')
-  cancelar(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
-    return this.pedidosService.cancelar(req.user.id, id);
+  cancelar(
+    @UsuarioActual('id') usuarioId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.pedidosService.cancelar(usuarioId, id);
   }
 
   // ─── Rutas ADMIN ─────────────────────────────────────────────────────────────
 
   // GET /api/pedidos — pedidos paginados (ADMIN, compatibilidad)
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Get()
   buscarTodos(@Query() filtros: FiltrarPedidosDto) {
     return this.pedidosService.buscarPagina(filtros);
   }
 
   // PATCH /api/pedidos/:id/estado — cambiar estado del pedido (ADMIN)
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Patch(':id/estado')
   actualizarEstado(
     @Param('id', ParseIntPipe) id: number,

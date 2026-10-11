@@ -1,8 +1,8 @@
-<div class="auth-page">
+﻿<div class="auth-page">
   <div class="auth-card animate-fade-up">
 
     <!-- Logo -->
-    <a routerLink="/" class="auth-card__logo">SNEARK</a>
+    <a routerLink="/" class="auth-card__logo">SOHO</a>
 
     <div class="auth-card__header">
       <h1 class="auth-card__title">Crear cuenta</h1>
@@ -72,7 +72,8 @@
             id="password"
             [type]="mostrarPass() ? 'text' : 'password'"
             class="form-input form-input--icon form-input--icon-right"
-            placeholder="Mínimo 6 caracteres"
+            placeholder="Mínimo 8 caracteres"
+            minlength="8"
             [(ngModel)]="password"
             name="password"
             autocomplete="new-password"

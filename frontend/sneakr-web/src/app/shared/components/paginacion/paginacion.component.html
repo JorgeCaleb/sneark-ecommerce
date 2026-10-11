@@ -1,0 +1,64 @@
+@if (totalPaginas() > 1) {
+  <nav class="paginacion" [class.paginacion--compacto]="modo() === 'compacto'" [attr.aria-label]="ariaLabel()">
+    @if (modo() === 'compacto') {
+      <button
+        class="btn-secondary paginacion__nav-btn"
+        type="button"
+        [disabled]="pagina() <= 1"
+        (click)="irAPagina(pagina() - 1)"
+      >
+        Anterior
+      </button>
+
+      <span aria-live="polite" class="paginacion__info">
+        Página {{ pagina() }} de {{ totalPaginas() }}
+      </span>
+
+      <button
+        class="btn-secondary paginacion__nav-btn"
+        type="button"
+        [disabled]="pagina() >= totalPaginas()"
+        (click)="irAPagina(pagina() + 1)"
+      >
+        Siguiente
+      </button>
+    } @else {
+      <button
+        class="paginacion__btn"
+        type="button"
+        [disabled]="pagina() <= 1"
+        (click)="irAPagina(pagina() - 1)"
+        aria-label="Página anterior"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 18l-6-6 6-6"/>
+        </svg>
+      </button>
+
+      @for (p of paginasArray(); track p) {
+        <button
+          class="paginacion__num"
+          type="button"
+          [class.paginacion__num--activa]="p === pagina()"
+          (click)="irAPagina(p)"
+        >
+          {{ p }}
+        </button>
+      }
+
+      <button
+        class="paginacion__btn"
+        type="button"
+        [disabled]="pagina() >= totalPaginas()"
+        (click)="irAPagina(pagina() + 1)"
+        aria-label="Página siguiente"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18l6-6-6-6"/>
+        </svg>
+      </button>
+    }
+  </nav>
+}

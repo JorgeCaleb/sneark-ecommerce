@@ -65,4 +65,31 @@ describe('Registro público', () => {
     expect(registro).toHaveBeenCalledOnce();
     expect(registro.mock.calls[0][0]).not.toHaveProperty('rol');
   });
+
+  it('rechaza contraseñas con menos de 8 caracteres', async () => {
+    await request(app.getHttpServer())
+      .post('/api/auth/registro')
+      .send({
+        nombre: 'Cliente',
+        email: 'cliente@example.test',
+        password: '1234567', // 7 caracteres
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.message).toContain(
+          'La contraseña debe tener al menos 8 caracteres',
+        );
+      });
+
+    expect(registro).not.toHaveBeenCalled();
+  });
+
+  it('incluye cabeceras defensivas de seguridad de helmet en las respuestas', async () => {
+    const respuesta = await request(app.getHttpServer())
+      .post('/api/auth/registro')
+      .send({});
+
+    expect(respuesta.headers['x-content-type-options']).toBe('nosniff');
+    expect(respuesta.headers['x-frame-options']).toBe('SAMEORIGIN');
+  });
 });

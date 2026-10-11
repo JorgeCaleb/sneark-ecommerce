@@ -3,10 +3,13 @@ import { IsEnum, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 export enum MetodoPagoDto {
   YAPE = 'YAPE',
   PLIN = 'PLIN',
+  MERCADOPAGO = 'MERCADOPAGO',
 }
 
 export class CrearPedidoDto {
-  @IsEnum(MetodoPagoDto, { message: 'El método de pago debe ser YAPE o PLIN' })
+  @IsEnum(MetodoPagoDto, {
+    message: 'El método de pago debe ser YAPE, PLIN o MERCADOPAGO',
+  })
   metodoPago: MetodoPagoDto;
 
   @IsString()

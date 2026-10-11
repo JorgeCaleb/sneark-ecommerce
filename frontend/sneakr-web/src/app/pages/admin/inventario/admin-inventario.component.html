@@ -48,7 +48,7 @@
     <button class="btn-primary" type="submit">Buscar</button>
   </form>
 
-  @if (cargando()) {
+  @if (cargando() && !variantes().length) {
     <div class="inventario-state" role="status">Cargando variantes…</div>
   } @else if (errorCarga()) {
     <div class="inventario-state inventario-state--error" role="alert">
@@ -151,26 +151,12 @@
         </tbody>
       </table>
     </div>
-    @if (totalPaginas() > 1) {
-      <nav class="inventario-pagination" aria-label="Paginación de inventario">
-        <button
-          class="btn-secondary"
-          type="button"
-          [disabled]="pagina() === 1"
-          (click)="irAPagina(pagina() - 1)"
-        >
-          Anterior
-        </button>
-        <span aria-live="polite">Página {{ pagina() }} de {{ totalPaginas() }}</span>
-        <button
-          class="btn-secondary"
-          type="button"
-          [disabled]="pagina() === totalPaginas()"
-          (click)="irAPagina(pagina() + 1)"
-        >
-          Siguiente
-        </button>
-      </nav>
-    }
+    <app-paginacion
+      [pagina]="pagina()"
+      [totalPaginas]="totalPaginas()"
+      modo="compacto"
+      ariaLabel="Paginación de inventario"
+      (cambioPagina)="irAPagina($event)"
+    />
   }
 </section>

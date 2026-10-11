@@ -28,7 +28,7 @@ export interface ItemPedido {
 export type EstadoPedido =
   'PENDIENTE' | 'PAGO_VERIFICADO' | 'EN_PREPARACION' | 'ENVIADO' | 'ENTREGADO' | 'CANCELADO';
 
-export type MetodoPago = 'YAPE' | 'PLIN';
+export type MetodoPago = 'YAPE' | 'PLIN' | 'MERCADOPAGO';
 
 export interface Pedido {
   id: number;

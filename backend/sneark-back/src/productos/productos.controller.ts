@@ -8,7 +8,6 @@ import {
   Param,
   Query,
   ParseIntPipe,
-  UseGuards,
   UseInterceptors,
   UploadedFiles,
 } from '@nestjs/common';
@@ -19,11 +18,10 @@ import { CrearProductoDto } from './dto/crear-producto.dto.js';
 import { ActualizarProductoDto } from './dto/actualizar-producto.dto.js';
 import { ActualizarStockTallaDto } from './dto/actualizar-stock-talla.dto.js';
 import { FiltrarProductosDto } from './dto/filtrar-productos.dto.js';
+import { FiltrarProductosAdminDto } from './dto/filtrar-productos-admin.dto.js';
 import { PrevisualizarSkuDto } from './dto/previsualizar-sku.dto.js';
 import { FiltrarInventarioDto } from './dto/filtrar-inventario.dto.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
+import { Admin } from '../auth/decorators/admin.decorator.js';
 import { aceptarTipoArchivo } from '../common/filtro-tipo-archivo.util.js';
 
 @Controller('productos')
@@ -36,22 +34,25 @@ export class ProductosController {
     return this.productosService.buscarTodos(filtros);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
+  @Get('admin')
+  buscarTodosAdmin(@Query() filtros: FiltrarProductosAdminDto) {
+    return this.productosService.buscarTodosAdmin(filtros);
+  }
+
+  @Admin()
   @Get('sku-preview')
   previsualizarSku(@Query() dto: PrevisualizarSkuDto) {
     return this.productosService.previsualizarSku(dto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Get('admin/inventario')
   resumenInventarioActivo() {
     return this.productosService.resumenInventarioActivo();
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Get('admin/variantes')
   buscarVariantesInventario(@Query() filtros: FiltrarInventarioDto) {
     return this.productosService.buscarVariantesInventario(filtros);
@@ -64,16 +65,14 @@ export class ProductosController {
   }
 
   // POST /api/productos — solo ADMIN
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Post()
   crear(@Body() dto: CrearProductoDto) {
     return this.productosService.crear(dto);
   }
 
   // PATCH /api/productos/:id — solo ADMIN
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Patch(':id')
   actualizar(
     @Param('id', ParseIntPipe) id: number,
@@ -83,16 +82,14 @@ export class ProductosController {
   }
 
   // DELETE /api/productos/:id — solo ADMIN (desactiva, no borra)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Delete(':id')
   desactivar(@Param('id', ParseIntPipe) id: number) {
     return this.productosService.desactivar(id);
   }
 
   // POST /api/productos/:id/imagenes — subir imágenes (máx 5)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Post(':id/imagenes')
   @UseInterceptors(
     FilesInterceptor('imagenes', 5, {
@@ -122,8 +119,7 @@ export class ProductosController {
   }
 
   // DELETE /api/productos/:id/imagenes/:imagenId — eliminar imagen
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Delete(':id/imagenes/:imagenId')
   eliminarImagen(
     @Param('id', ParseIntPipe) id: number,
@@ -133,14 +129,18 @@ export class ProductosController {
   }
 
   // PATCH /api/productos/:id/tallas/:tallaId — actualizar stock de una talla
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Patch(':id/tallas/:tallaId')
   actualizarStockTalla(
     @Param('id', ParseIntPipe) id: number,
     @Param('tallaId', ParseIntPipe) tallaId: number,
     @Body() dto: ActualizarStockTallaDto,
   ) {
-    return this.productosService.actualizarStockTalla(id, tallaId, dto.stock);
+    return this.productosService.actualizarStockTalla(
+      id,
+      tallaId,
+      dto.stock,
+      dto.stockEsperado,
+    );
   }
 }

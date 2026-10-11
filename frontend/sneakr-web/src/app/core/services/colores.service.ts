@@ -21,4 +21,13 @@ export class ColoresService {
   crear(nombre: string, codigo: string) {
     return this.http.post<Color>(this.API, { nombre, codigo });
   }
+
+  actualizar(id: number, data: { nombre?: string; codigo?: string }) {
+    return this.http.patch<Color>(`${this.API}/${id}`, data);
+  }
+
+  eliminar(id: number) {
+    return this.http.delete<Color>(`${this.API}/${id}`);
+  }
 }
+

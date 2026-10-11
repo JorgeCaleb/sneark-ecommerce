@@ -7,11 +7,12 @@ import { MarcasService, Marca } from '../../core/services/marcas.service';
 import { CategoriasService, Categoria } from '../../core/services/categorias.service';
 import { ColoresService, Color } from '../../core/services/colores.service';
 import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
+import { PaginacionComponent } from '../../shared/components/paginacion/paginacion.component';
 
 @Component({
   selector: 'app-catalogo',
   standalone: true,
-  imports: [RouterLink, FormsModule, MonedaPipe],
+  imports: [RouterLink, FormsModule, MonedaPipe, PaginacionComponent],
   templateUrl: './catalogo.component.html',
   styleUrl: './catalogo.component.css',
 })
@@ -168,7 +169,7 @@ export class CatalogoComponent implements OnInit {
   );
 
   imagenPrincipal(producto: Producto): string {
-    return producto.imagenes?.[0]?.url ?? '/placeholder-shoe.jpg';
+    return producto.imagenes?.[0]?.url ?? '/placeholder-shoe.svg';
   }
 
   tieneStock(producto: Producto): boolean {

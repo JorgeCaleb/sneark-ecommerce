@@ -7,11 +7,8 @@ import {
   ParseIntPipe,
   Patch,
   Post,
-  UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { RolesGuard } from '../auth/guards/roles.guard.js';
-import { Roles } from '../auth/decorators/roles.decorator.js';
+import { Admin } from '../auth/decorators/admin.decorator.js';
 import { ActualizarColorDto } from './dto/actualizar-color.dto.js';
 import { CrearColorDto } from './dto/crear-color.dto.js';
 import { ColoresService } from './colores.service.js';
@@ -25,15 +22,13 @@ export class ColoresController {
     return this.coloresService.buscarTodos();
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Post()
   crear(@Body() dto: CrearColorDto) {
     return this.coloresService.crear(dto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Patch(':id')
   actualizar(
     @Param('id', ParseIntPipe) id: number,
@@ -42,8 +37,7 @@ export class ColoresController {
     return this.coloresService.actualizar(id, dto);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Admin()
   @Delete(':id')
   eliminar(@Param('id', ParseIntPipe) id: number) {
     return this.coloresService.eliminar(id);

@@ -2,11 +2,12 @@ import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ClienteAdmin, ClientesService } from '../../../core/services/clientes.service';
+import { PaginacionComponent } from '../../../shared/components/paginacion/paginacion.component';
 
 @Component({
   selector: 'app-admin-clientes',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PaginacionComponent],
   templateUrl: './admin-clientes.component.html',
   styleUrl: './admin-clientes.component.css',
 })
@@ -59,7 +60,6 @@ export class AdminClientesComponent implements OnInit, OnDestroy {
   }
 
   irAPagina(pagina: number) {
-    if (pagina < 1 || pagina > this.totalPaginas()) return;
     this.pagina.set(pagina);
     this.cargar();
   }

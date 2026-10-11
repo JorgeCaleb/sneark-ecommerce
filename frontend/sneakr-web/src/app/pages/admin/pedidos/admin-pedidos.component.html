@@ -102,6 +102,8 @@
                       </svg>
                       Ver
                     </a>
+                  } @else if (pedido.metodoPago === 'MERCADOPAGO') {
+                    <span class="pago-online">Pago en línea</span>
                   } @else {
                     <span class="sin-comprobante">Sin comprobante</span>
                   }
@@ -124,26 +126,14 @@
       </div>
     }
 
-    @if (!errorCarga() && totalPaginas() > 1) {
-      <nav class="pedidos-paginacion" aria-label="Paginación de pedidos">
-        <button
-          class="btn-secondary"
-          type="button"
-          [disabled]="pagina() === 1"
-          (click)="irAPagina(pagina() - 1)"
-        >
-          Anterior
-        </button>
-        <span aria-live="polite">Página {{ pagina() }} de {{ totalPaginas() }}</span>
-        <button
-          class="btn-secondary"
-          type="button"
-          [disabled]="pagina() === totalPaginas()"
-          (click)="irAPagina(pagina() + 1)"
-        >
-          Siguiente
-        </button>
-      </nav>
+    @if (!errorCarga()) {
+      <app-paginacion
+        [pagina]="pagina()"
+        [totalPaginas]="totalPaginas()"
+        modo="compacto"
+        ariaLabel="Paginación de pedidos"
+        (cambioPagina)="irAPagina($event)"
+      />
     }
   }
 
@@ -203,8 +193,8 @@
           @for (item of pedidoDetalle()!.items; track item.id) {
             <div class="detalle-item">
               <div class="detalle-item__img">
-                <img [src]="item.tallaProducto?.producto?.imagenes?.[0]?.url ?? '/placeholder-shoe.jpg'"
-                     [alt]="item.nombreProducto" onerror="this.src='/placeholder-shoe.jpg'" />
+                <img [src]="item.tallaProducto?.producto?.imagenes?.[0]?.url ?? '/placeholder-shoe.svg'"
+                     [alt]="item.nombreProducto" onerror="this.onerror=null; this.src='/placeholder-shoe.svg'" />
               </div>
               <div class="detalle-item__info">
                 <p class="detalle-item__nombre">{{ item.nombreProducto }}</p>

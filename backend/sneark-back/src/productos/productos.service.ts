@@ -12,10 +12,13 @@ import { nombreCarpetaCloudinary } from '../cloudinary/nombre-carpeta.util.js';
 import { CrearProductoDto, TallaDto } from './dto/crear-producto.dto.js';
 import { ActualizarProductoDto } from './dto/actualizar-producto.dto.js';
 import { FiltrarProductosDto } from './dto/filtrar-productos.dto.js';
+import { FiltrarProductosAdminDto } from './dto/filtrar-productos-admin.dto.js';
 import { PrevisualizarSkuDto } from './dto/previsualizar-sku.dto.js';
 import { FiltrarInventarioDto } from './dto/filtrar-inventario.dto.js';
+import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
+import { construirMetaPaginacion } from '../common/paginacion.util.js';
 
-// Campos que siempre se incluyen al devolver un producto
+// Campos completos para endpoints de ADMIN
 const INCLUDE_PRODUCTO = {
   marca: { select: { id: true, nombre: true, codigo: true, logo: true } },
   categoria: { select: { id: true, nombre: true } },
@@ -30,7 +33,25 @@ const INCLUDE_PRODUCTO = {
       stock: true,
       sku: true,
     },
-    orderBy: { talla: 'asc' as const },
+    orderBy: { tallaNumero: 'asc' as const },
+  },
+};
+
+// Campos para endpoints PÚBLICOS — sin publicId de Cloudinary ni SKU interno
+const INCLUDE_PRODUCTO_PUBLICO = {
+  marca: { select: { id: true, nombre: true, codigo: true, logo: true } },
+  categoria: { select: { id: true, nombre: true } },
+  imagenes: { select: { id: true, url: true } },
+  tallas: {
+    select: {
+      id: true,
+      genero: true,
+      colorId: true,
+      color: { select: { id: true, nombre: true, codigo: true } },
+      talla: true,
+      stock: true,
+    },
+    orderBy: { tallaNumero: 'asc' as const },
   },
 };
 
@@ -49,13 +70,24 @@ export class ProductosService {
     try {
       return await this.prisma.$transaction(
         async (tx) => {
-          const marca = await tx.marca.findUnique({
-            where: { id: datos.marcaId },
-            select: { codigo: true },
-          });
+          const [marca, categoria] = await Promise.all([
+            tx.marca.findUnique({
+              where: { id: datos.marcaId },
+              select: { codigo: true },
+            }),
+            tx.categoria.findUnique({
+              where: { id: datos.categoriaId },
+              select: { id: true },
+            }),
+          ]);
           if (!marca) {
             throw new NotFoundException(
               `Marca con id ${datos.marcaId} no encontrada`,
+            );
+          }
+          if (!categoria) {
+            throw new NotFoundException(
+              `Categoría con id ${datos.categoriaId} no encontrada`,
             );
           }
 
@@ -81,6 +113,7 @@ export class ProductosService {
                 genero: variante.genero,
                 colorId: variante.colorId,
                 talla: variante.talla,
+                tallaNumero: this.tallaANumero(variante.talla),
                 stock: variante.stock,
                 sku: this.generarSku(
                   marca.codigo,
@@ -107,6 +140,24 @@ export class ProductosService {
   }
 
   async buscarTodos(filtros: FiltrarProductosDto) {
+    return this.listarProductos(filtros, true, true);
+  }
+
+  async buscarTodosAdmin(filtros: FiltrarProductosAdminDto) {
+    const activo =
+      filtros.estado === 'activos'
+        ? true
+        : filtros.estado === 'inactivos'
+          ? false
+          : undefined;
+    return this.listarProductos(filtros, activo, false);
+  }
+
+  private async listarProductos(
+    filtros: FiltrarProductosDto,
+    activo?: boolean,
+    esPublico = false,
+  ) {
     const {
       busqueda,
       marcaId,
@@ -119,7 +170,8 @@ export class ProductosService {
       limite = 12,
     } = filtros;
 
-    const where: Prisma.ProductoWhereInput = { activo: true };
+    const where: Prisma.ProductoWhereInput =
+      activo === undefined ? {} : { activo };
 
     if (busqueda) {
       where.nombre = { contains: busqueda };
@@ -147,10 +199,11 @@ export class ProductosService {
       ...(genero ? { genero } : {}),
       ...(colorId ? { colorId } : {}),
     };
+    const baseInclude = esPublico ? INCLUDE_PRODUCTO_PUBLICO : INCLUDE_PRODUCTO;
     const incluir = {
-      ...INCLUDE_PRODUCTO,
+      ...baseInclude,
       ...(genero || colorId
-        ? { tallas: { ...INCLUDE_PRODUCTO.tallas, where: filtroVariante } }
+        ? { tallas: { ...baseInclude.tallas, where: filtroVariante } }
         : {}),
     } satisfies Prisma.ProductoInclude;
 
@@ -167,12 +220,7 @@ export class ProductosService {
 
     return {
       datos: productos,
-      meta: {
-        total,
-        pagina,
-        limite,
-        totalPaginas: Math.ceil(total / limite),
-      },
+      meta: construirMetaPaginacion(total, pagina, limite),
     };
   }
 
@@ -192,7 +240,7 @@ export class ProductosService {
   async buscarPorIdPublico(id: number) {
     const producto = await this.prisma.producto.findFirst({
       where: { id, activo: true },
-      include: INCLUDE_PRODUCTO,
+      include: INCLUDE_PRODUCTO_PUBLICO,
     });
 
     if (!producto) {
@@ -245,13 +293,26 @@ export class ProductosService {
             );
           }
 
-          const marca = await tx.marca.findUnique({
-            where: { id: marcaId },
-            select: { codigo: true },
-          });
+          const [marca, categoria] = await Promise.all([
+            tx.marca.findUnique({
+              where: { id: marcaId },
+              select: { codigo: true },
+            }),
+            datos.categoriaId !== undefined
+              ? tx.categoria.findUnique({
+                  where: { id: datos.categoriaId },
+                  select: { id: true },
+                })
+              : Promise.resolve(true),
+          ]);
           if (!marca) {
             throw new NotFoundException(
               `Marca con id ${marcaId} no encontrada`,
+            );
+          }
+          if (!categoria) {
+            throw new NotFoundException(
+              `Categoría con id ${datos.categoriaId} no encontrada`,
             );
           }
           const modeloFinal = codigoModelo ?? producto.codigoModelo;
@@ -306,7 +367,7 @@ export class ProductosService {
                     genero: variante.genero,
                     colorId: variante.colorId,
                     talla: variante.talla,
-                    stock: variante.stock,
+                    tallaNumero: this.tallaANumero(variante.talla),
                     sku: this.generarSku(
                       marca.codigo,
                       modeloFinal,
@@ -322,6 +383,7 @@ export class ProductosService {
                     genero: variante.genero,
                     colorId: variante.colorId,
                     talla: variante.talla,
+                    tallaNumero: this.tallaANumero(variante.talla),
                     stock: variante.stock,
                     sku: this.generarSku(
                       marca.codigo,
@@ -408,6 +470,12 @@ export class ProductosService {
     return valor.endsWith('.0') ? valor.slice(0, -2) : valor;
   }
 
+  // Convierte la talla normalizada a Decimal numérico para ordenación correcta.
+  // Ej: '10' → 10.0, '10.5' → 10.5, '6' → 6.0
+  private tallaANumero(talla: string): number {
+    return parseFloat(talla);
+  }
+
   private generarSku(
     codigoMarca: string,
     codigoModelo: string,
@@ -455,10 +523,7 @@ export class ProductosService {
   }
 
   private lanzarConflictoUnico(error: unknown): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (esConflictoUnico(error)) {
       const targetMetadata = error.meta?.target;
       const target = Array.isArray(targetMetadata)
         ? targetMetadata.join(',')
@@ -473,6 +538,20 @@ export class ProductosService {
       throw new ConflictException(
         'La variante o su SKU ya existe; revisa la combinación de producto, género, color y talla',
       );
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+
+      if (error.code === 'P2003') {
+        const fieldName = String(error.meta?.field_name ?? '');
+        if (fieldName.includes('categoriaId')) {
+          throw new NotFoundException('Categoría no encontrada');
+        }
+        if (fieldName.includes('marcaId')) {
+          throw new NotFoundException('Marca no encontrada');
+        }
+        throw new BadRequestException('Referencia foránea no válida');
+      }
     }
     throw error;
   }
@@ -603,7 +682,7 @@ export class ProductosService {
           { producto: { nombre: 'asc' } },
           { genero: 'asc' },
           { color: { nombre: 'asc' } },
-          { talla: 'asc' },
+          { tallaNumero: 'asc' },
         ],
         skip: (pagina - 1) * limite,
         take: limite,
@@ -626,12 +705,7 @@ export class ProductosService {
           imagen: variante.producto.imagenes[0]?.url ?? null,
         },
       })),
-      meta: {
-        total,
-        pagina,
-        limite,
-        totalPaginas: Math.ceil(total / limite),
-      },
+      meta: construirMetaPaginacion(total, pagina, limite),
     };
   }
 
@@ -658,7 +732,7 @@ export class ProductosService {
       archivos.map((archivo) =>
         this.cloudinary.subirImagen(
           archivo,
-          `sneark/productos/${nombreCarpetaCloudinary(producto.nombre)}`,
+          `SOHO/productos/${nombreCarpetaCloudinary(producto.nombre)}`,
         ),
       ),
     );
@@ -742,8 +816,14 @@ export class ProductosService {
     productoId: number,
     tallaId: number,
     stock: number,
+    stockEsperado: number,
   ) {
-    if (!Number.isInteger(stock) || stock < 0) {
+    if (
+      !Number.isInteger(stock) ||
+      stock < 0 ||
+      !Number.isInteger(stockEsperado) ||
+      stockEsperado < 0
+    ) {
       throw new BadRequestException('El stock debe ser un entero no negativo');
     }
 
@@ -757,9 +837,30 @@ export class ProductosService {
       throw new NotFoundException('Talla no encontrada');
     }
 
-    return this.prisma.tallaProducto.update({
-      where: { id: tallaId },
+    const actualizacion = await this.prisma.tallaProducto.updateMany({
+      where: { id: tallaId, productoId, stock: stockEsperado },
       data: { stock },
     });
+    if (actualizacion.count !== 1) {
+      const tallaActual = await this.prisma.tallaProducto.findFirst({
+        where: { id: tallaId, productoId },
+      });
+      if (!tallaActual) {
+        throw new NotFoundException('Talla no encontrada');
+      }
+      throw new ConflictException({
+        message:
+          'El stock cambió desde que se cargó. Se actualizó el valor mostrado; revisa el stock e inténtalo de nuevo.',
+        stockActual: tallaActual.stock,
+      });
+    }
+
+    const tallaActualizada = await this.prisma.tallaProducto.findFirst({
+      where: { id: tallaId, productoId },
+    });
+    if (!tallaActualizada) {
+      throw new NotFoundException('Talla no encontrada');
+    }
+    return tallaActualizada;
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+﻿import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs/operators';
@@ -75,8 +75,8 @@ export class AuthService {
 
   private guardarSesion(res: AuthResponse) {
     try {
-      globalThis.localStorage?.setItem('sneark_token', res.token);
-      globalThis.localStorage?.setItem('sneark_usuario', JSON.stringify(res.usuario));
+      globalThis.localStorage?.setItem('SOHO_token', res.token);
+      globalThis.localStorage?.setItem('SOHO_usuario', JSON.stringify(res.usuario));
     } catch {
       this.almacenamientoDisponible.set(false);
     }
@@ -85,14 +85,14 @@ export class AuthService {
   }
 
   private leerTokenStorage(): string | null {
-    const token = this.leerValorStorage('sneark_token');
+    const token = this.leerValorStorage('SOHO_token');
     if (!token || this.tokenNoExpirado(token)) return token;
     this.eliminarSesionStorage();
     return null;
   }
 
   private leerUsuarioStorage(): Usuario | null {
-    const raw = this.leerValorStorage('sneark_usuario');
+    const raw = this.leerValorStorage('SOHO_usuario');
     if (!raw) return null;
 
     try {
@@ -130,8 +130,8 @@ export class AuthService {
 
   private eliminarSesionStorage() {
     try {
-      globalThis.localStorage?.removeItem('sneark_token');
-      globalThis.localStorage?.removeItem('sneark_usuario');
+      globalThis.localStorage?.removeItem('SOHO_token');
+      globalThis.localStorage?.removeItem('SOHO_usuario');
     } catch {
       this.almacenamientoDisponible.set(false);
     }

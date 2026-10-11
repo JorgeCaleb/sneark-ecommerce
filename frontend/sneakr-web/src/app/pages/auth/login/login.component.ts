@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { CarritoService } from '../../../core/services/carrito.service';
@@ -15,6 +15,7 @@ export class LoginComponent {
   private authService    = inject(AuthService);
   private carritoService = inject(CarritoService);
   private router         = inject(Router);
+  private route          = inject(ActivatedRoute);
 
   email     = '';
   password  = '';
@@ -39,7 +40,8 @@ export class LoginComponent {
       next: () => {
         // Cargar el carrito del usuario después de login
         this.carritoService.obtener().subscribe();
-        this.router.navigate(['/']);
+        const returnUrl = this.route.snapshot.queryParams['returnUrl'] ?? '/';
+        this.router.navigateByUrl(returnUrl);
       },
       error: (err) => {
         this.enviando.set(false);

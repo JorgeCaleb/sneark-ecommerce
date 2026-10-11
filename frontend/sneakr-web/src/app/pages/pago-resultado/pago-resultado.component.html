@@ -1,0 +1,183 @@
+<div class="resultado-page">
+  <div class="container">
+    <div class="resultado-card animate-fade-up">
+
+      @if (cargando()) {
+        <div class="resultado-loading">
+          <div class="resultado-spinner"></div>
+          <p class="resultado-loading__text">Verificando el estado de tu pago...</p>
+        </div>
+      } @else {
+
+        <!-- ─── ESTADO: EXITOSO ────────────────────────────────────────────── -->
+        @if (resultado() === 'exitoso') {
+          <div class="status-icon status-icon--success">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+
+          <span class="resultado-tag resultado-tag--success">Transacción Exitosa</span>
+          <h1 class="resultado-title">¡Gracias por tu compra!</h1>
+          <p class="resultado-desc">
+            Tu pago ha sido procesado correctamente mediante Mercado Pago. Hemos recibido tu pedido y comenzamos a prepararlo.
+          </p>
+
+          <!-- Resumen del pedido -->
+          <div class="resultado-info">
+            <div class="info-row">
+              <span class="info-label">N.° de Pedido</span>
+              <span class="info-val font-mono">#{{ pedidoId() }}</span>
+            </div>
+            @if (mpPagoId()) {
+              <div class="info-row">
+                <span class="info-label">ID de Operación MP</span>
+                <span class="info-val font-mono">{{ mpPagoId() }}</span>
+              </div>
+            }
+            @if (detalle()?.total) {
+              <div class="info-row">
+                <span class="info-label">Total pagado</span>
+                <span class="info-val info-val--highlight">{{ detalle()!.total | moneda }}</span>
+              </div>
+            }
+            @if (detalle()?.creadoEn) {
+              <div class="info-row">
+                <span class="info-label">Fecha</span>
+                <span class="info-val">{{ detalle()!.creadoEn | date:'dd/MM/yyyy HH:mm' }}</span>
+              </div>
+            }
+            <div class="info-row">
+              <span class="info-label">Método de pago</span>
+              <span class="info-val">Mercado Pago</span>
+            </div>
+          </div>
+
+          <div class="resultado-actions">
+            <a routerLink="/mis-pedidos" class="btn-primary">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <path d="M16 10a4 4 0 0 1-8 0"></path>
+              </svg>
+              Ver mis pedidos
+            </a>
+            <a routerLink="/catalogo" class="btn-secondary">
+              Seguir explorando
+            </a>
+          </div>
+        }
+
+        <!-- ─── ESTADO: PENDIENTE ──────────────────────────────────────────── -->
+        @if (resultado() === 'pendiente') {
+          <div class="status-icon status-icon--pending">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+
+          <span class="resultado-tag resultado-tag--pending">Pago en Acreditación</span>
+          <h1 class="resultado-title">Pago en proceso</h1>
+          <p class="resultado-desc">
+            Mercado Pago está procesando tu pago. En cuanto se confirme la acreditación, actualizaremos el estado de tu pedido automáticamente.
+          </p>
+
+          <div class="resultado-info">
+            <div class="info-row">
+              <span class="info-label">N.° de Pedido</span>
+              <span class="info-val font-mono">#{{ pedidoId() }}</span>
+            </div>
+            @if (mpPagoId()) {
+              <div class="info-row">
+                <span class="info-label">ID de Operación MP</span>
+                <span class="info-val font-mono">{{ mpPagoId() }}</span>
+              </div>
+            }
+            @if (detalle()?.total) {
+              <div class="info-row">
+                <span class="info-label">Total a pagar</span>
+                <span class="info-val">{{ detalle()!.total | moneda }}</span>
+              </div>
+            }
+          </div>
+
+          <div class="resultado-actions">
+            <a routerLink="/mis-pedidos" class="btn-primary">
+              Revisar en Mis pedidos
+            </a>
+            <a routerLink="/" class="btn-secondary">
+              Ir al inicio
+            </a>
+          </div>
+        }
+
+        <!-- ─── ESTADO: FALLIDO ────────────────────────────────────────────── -->
+        @if (resultado() === 'fallido') {
+          <div class="status-icon status-icon--error">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" y1="9" x2="9" y2="15"></line>
+              <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+          </div>
+
+          <span class="resultado-tag resultado-tag--error">Pago no completado</span>
+          <h1 class="resultado-title">No pudimos procesar el pago</h1>
+          <p class="resultado-desc">
+            Tu entidad bancaria o Mercado Pago rechazó la operación. No te preocupes, no se ha realizado ningún cobro indebido.
+          </p>
+
+          <div class="resultado-info">
+            @if (pedidoId()) {
+              <div class="info-row">
+                <span class="info-label">N.° de Pedido</span>
+                <span class="info-val font-mono">#{{ pedidoId() }}</span>
+              </div>
+            }
+            <div class="info-row">
+              <span class="info-label">Sugerencia</span>
+              <span class="info-val">Verifica los fondos de tu tarjeta o intenta con otro medio de pago.</span>
+            </div>
+          </div>
+
+          <div class="resultado-actions">
+            <a routerLink="/checkout" class="btn-primary">
+              Reintentar compra
+            </a>
+            <a routerLink="/mis-pedidos" class="btn-secondary">
+              Mis pedidos
+            </a>
+          </div>
+        }
+
+        <!-- ─── ESTADO: DESCONOCIDO ────────────────────────────────────────── -->
+        @if (resultado() === 'desconocido') {
+          <div class="status-icon status-icon--pending">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+          </div>
+
+          <h1 class="resultado-title">Información de pago</h1>
+          <p class="resultado-desc">
+            No encontramos los datos específicos de esta operación. Puedes consultar tus pedidos recientes en tu perfil.
+          </p>
+
+          <div class="resultado-actions">
+            <a routerLink="/mis-pedidos" class="btn-primary">
+              Ir a Mis pedidos
+            </a>
+            <a routerLink="/" class="btn-secondary">
+              Ir al inicio
+            </a>
+          </div>
+        }
+
+      }
+
+    </div>
+  </div>
+</div>

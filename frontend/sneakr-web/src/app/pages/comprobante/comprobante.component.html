@@ -248,10 +248,10 @@
             <div class="resumen-item">
               <div class="resumen-item__img-wrap">
                 <img
-                  [src]="item.tallaProducto?.producto?.imagenes?.[0]?.url ?? '/placeholder-shoe.jpg'"
+                  [src]="item.tallaProducto?.producto?.imagenes?.[0]?.url ?? '/placeholder-shoe.svg'"
                   [alt]="item.nombreProducto"
                   class="resumen-item__img"
-                  onerror="this.src='/placeholder-shoe.jpg'"
+                  onerror="this.onerror=null; this.src='/placeholder-shoe.svg'"
                 />
                 <span class="resumen-item__qty">{{ item.cantidad }}</span>
               </div>

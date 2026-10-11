@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+﻿import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import {
@@ -43,7 +43,7 @@ function resumenDashboard(cambios: Partial<ResumenPedidosDashboard> = {}): Resum
       {
         id: 8,
         nombre: 'Sneaker edición roja',
-        marca: 'SNEARK',
+        marca: 'SOHO',
         imagen: 'https://example.test/sneaker.png',
         precio: 250,
         cantidad: 5,
@@ -66,7 +66,7 @@ function inventarioActivo(cambios: Partial<InventarioActivo> = {}): InventarioAc
         id: 2,
         productoId: 8,
         producto: 'Sneaker edición roja',
-        marca: 'SNEARK',
+        marca: 'SOHO',
         imagen: 'https://example.test/sneaker.png',
         genero: 'M',
         color: 'Negro',
@@ -164,7 +164,7 @@ describe('AdminDashboardComponent', () => {
               index === 0
                 ? 'Producto con un nombre largo para revisar listas pobladas'
                 : `Producto ${index + 1}`,
-            marca: 'SNEARK',
+            marca: 'SOHO',
             imagen: null,
             genero: 'M',
             color: 'Negro',

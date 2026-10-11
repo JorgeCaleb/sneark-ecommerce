@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  BadRequestException,
   Injectable,
   ConflictException,
   NotFoundException,
@@ -11,6 +12,7 @@ import { nombreCarpetaCloudinary } from '../cloudinary/nombre-carpeta.util.js';
 import { CrearMarcaDto } from './dto/crear-marca.dto.js';
 import { ActualizarMarcaDto } from './dto/actualizar-marca.dto.js';
 import { publicIdDesdeUrlCloudinary } from '../cloudinary/public-id-cloudinary.util.js';
+import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
 
 @Injectable()
 export class MarcasService {
@@ -97,12 +99,14 @@ export class MarcasService {
             }
           }
 
+          // `logo` y `logoPublicId` se modifican ÚNICAMENTE via subirLogo().
+          // No se exponen aquí para evitar que una URL arbitraria deje
+          // un archivo huérfano en Cloudinary.
           return tx.marca.update({
             where: { id },
             data: {
               ...(dto.nombre !== undefined ? { nombre: dto.nombre } : {}),
               ...(codigo ? { codigo } : {}),
-              ...(dto.logo !== undefined ? { logo: dto.logo } : {}),
             },
           });
         },
@@ -117,14 +121,14 @@ export class MarcasService {
     const marca = await this.buscarPorId(id);
 
     if (!archivo) {
-      throw new NotFoundException('No se recibió el archivo del logo');
+      throw new BadRequestException('Debes adjuntar el archivo del logo');
     }
 
     const anteriorPublicId =
       marca.logoPublicId ?? this.publicIdDesdeLogoCloudinary(marca.logo);
     const subido = await this.cloudinary.subirLogo(
       archivo,
-      `sneark/marcas/${nombreCarpetaCloudinary(marca.nombre)}`,
+      `SOHO/marcas/${nombreCarpetaCloudinary(marca.nombre)}`,
     );
 
     let actualizada;
@@ -179,7 +183,18 @@ export class MarcasService {
 
     const logoPublicId =
       marca.logoPublicId ?? this.publicIdDesdeLogoCloudinary(marca.logo);
-    const eliminada = await this.prisma.marca.delete({ where: { id } });
+    let eliminada;
+    try {
+      eliminada = await this.prisma.marca.delete({ where: { id } });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new ConflictException('La marca está siendo utilizada');
+      }
+      throw error;
+    }
     if (logoPublicId) {
       try {
         await this.cloudinary.eliminarImagen(logoPublicId);
@@ -200,10 +215,7 @@ export class MarcasService {
     nombre?: string,
     codigo?: string,
   ): never {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (esConflictoUnico(error)) {
       throw new ConflictException(
         error.meta?.target?.toString().includes('codigo')
           ? `El código de marca${codigo ? ` "${codigo}"` : ''} ya existe`
@@ -214,6 +226,6 @@ export class MarcasService {
   }
 
   private publicIdDesdeLogoCloudinary(logo: string | null): string | null {
-    return publicIdDesdeUrlCloudinary(logo, 'sneark/marcas');
+    return publicIdDesdeUrlCloudinary(logo, 'SOHO/marcas');
   }
 }

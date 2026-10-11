@@ -49,4 +49,13 @@ describe('MisPedidosComponent cancellation', () => {
     expect(component.errorCancelacion()).toBe('');
     expect(component.pedidos()).toEqual([pedidoCancelado]);
   });
+
+  it('permite cancelar únicamente si el pedido está en estado PENDIENTE', () => {
+    expect(component.puedeCancelar({ estado: 'PENDIENTE' } as Pedido)).toBe(true);
+    expect(component.puedeCancelar({ estado: 'PAGO_VERIFICADO' } as Pedido)).toBe(false);
+    expect(component.puedeCancelar({ estado: 'EN_PREPARACION' } as Pedido)).toBe(false);
+    expect(component.puedeCancelar({ estado: 'ENVIADO' } as Pedido)).toBe(false);
+    expect(component.puedeCancelar({ estado: 'ENTREGADO' } as Pedido)).toBe(false);
+    expect(component.puedeCancelar({ estado: 'CANCELADO' } as Pedido)).toBe(false);
+  });
 });

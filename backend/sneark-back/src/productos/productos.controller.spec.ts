@@ -17,3 +17,19 @@ describe('ProductosController public product detail', () => {
     expect(productosService.buscarPorIdPublico).toHaveBeenCalledWith(12);
   });
 });
+
+describe('ProductosController admin product list', () => {
+  it('delegates administrative filters to the admin product listing', async () => {
+    const filtros = { estado: 'inactivos' as const, pagina: 2, limite: 10 };
+    const productosService = {
+      buscarTodosAdmin: vi.fn().mockResolvedValue({ datos: [], meta: {} }),
+    };
+    const controller = new ProductosController(
+      productosService as unknown as ProductosService,
+    );
+
+    await controller.buscarTodosAdmin(filtros);
+
+    expect(productosService.buscarTodosAdmin).toHaveBeenCalledWith(filtros);
+  });
+});
