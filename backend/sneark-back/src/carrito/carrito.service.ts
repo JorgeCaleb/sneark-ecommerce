@@ -50,7 +50,7 @@ export class CarritoService {
       });
     }
 
-    return this.calcularTotales(carrito);
+    return ocultarStockExacto(this.calcularTotales(carrito));
   }
 
   async obtenerEnTransaccion(tx: Prisma.TransactionClient, usuarioId: number) {
@@ -94,7 +94,7 @@ export class CarritoService {
 
       if (talla.stock < dto.cantidad) {
         throw new BadRequestException(
-          `Stock insuficiente. Solo hay ${talla.stock} unidades disponibles`,
+          'Stock insuficiente para la cantidad solicitada',
         );
       }
 
@@ -128,7 +128,7 @@ export class CarritoService {
 
       if (existente) {
         throw new BadRequestException(
-          `Stock insuficiente. Solo hay ${talla.stock} unidades disponibles`,
+          'Stock insuficiente para la cantidad solicitada',
         );
       }
 
@@ -176,7 +176,7 @@ export class CarritoService {
 
       if (item.tallaProducto.stock < dto.cantidad) {
         throw new BadRequestException(
-          `Stock insuficiente. Solo hay ${item.tallaProducto.stock} unidades disponibles`,
+          'Stock insuficiente para la cantidad solicitada',
         );
       }
 
@@ -268,4 +268,20 @@ export class CarritoService {
       cantidadItems: items.reduce((acc, item) => acc + item.cantidad, 0),
     };
   }
+}
+
+function ocultarStockExacto<
+  T extends { items: { tallaProducto: { stock: number } }[] },
+>(carrito: T) {
+  const { items, ...datosCarrito } = carrito;
+  return {
+    ...datosCarrito,
+    items: items.map(({ tallaProducto, ...item }) => {
+      const { stock, ...datosTalla } = tallaProducto;
+      return {
+        ...item,
+        tallaProducto: { ...datosTalla, disponible: stock > 0 },
+      };
+    }),
+  };
 }

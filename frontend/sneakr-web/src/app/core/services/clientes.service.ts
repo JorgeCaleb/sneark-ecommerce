@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { environment } from '../../../environments/environment';
+import { Injectable, inject } from '@angular/core';
+import { ApiUrlService } from './api-url.service';
 
 export interface ClienteAdmin {
   id: number;
@@ -22,7 +22,7 @@ export interface ClientesPaginados {
 
 @Injectable({ providedIn: 'root' })
 export class ClientesService {
-  private readonly API = `${environment.apiUrl}/usuarios/admin/clientes`;
+  private readonly API = inject(ApiUrlService).endpoint('usuarios/admin/clientes');
 
   constructor(private readonly http: HttpClient) {}
 

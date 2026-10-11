@@ -18,7 +18,9 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .checkout-page__back:hover { color: var(--color-accent); }
+  .checkout-page__back:hover {
+    color: var(--color-accent);
+  }
 }
 
 .checkout-page__title {
@@ -109,7 +111,9 @@
   width: 100%;
 }
 
-.form-input::placeholder { color: var(--color-muted-light); }
+.form-input::placeholder {
+  color: var(--color-muted-light);
+}
 
 .form-input:focus {
   border-color: var(--color-accent);
@@ -134,18 +138,7 @@
   border-radius: var(--radius-lg);
   text-align: left;
   width: 100%;
-  cursor: pointer;
-  transition: border-color 200ms ease, background-color 200ms ease, transform 160ms var(--ease-out);
 }
-
-@media (hover: hover) and (pointer: fine) {
-  .metodo-btn:hover {
-    border-color: var(--color-accent);
-    background-color: var(--color-accent-light);
-  }
-}
-
-.metodo-btn:active { transform: scale(0.99); }
 
 .metodo-btn--activo {
   border-color: var(--color-accent);
@@ -213,16 +206,6 @@
   color: #ffffff;
 }
 
-.metodo-btn__badge--yape {
-  background-color: #7c3aed;
-  color: #ffffff;
-}
-
-.metodo-btn__badge--plin {
-  background-color: #059669;
-  color: #ffffff;
-}
-
 /* ── Instrucciones ───────────────────────────────────────── */
 .pago-instrucciones {
   display: flex;
@@ -236,7 +219,10 @@
   line-height: 1.6;
 }
 
-.pago-instrucciones svg { flex-shrink: 0; margin-top: 2px; }
+.pago-instrucciones svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
 
 /* ── Error ───────────────────────────────────────────────── */
 .checkout-error {
@@ -376,14 +362,18 @@
 .checkout-spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(255,255,255,0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #ffffff;
   border-radius: 50%;
   animation: spin 600ms linear infinite;
   flex-shrink: 0;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 .checkout-resumen__nota {
   font-size: var(--text-xs);

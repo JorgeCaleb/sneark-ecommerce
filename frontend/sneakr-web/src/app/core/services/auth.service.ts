@@ -1,8 +1,8 @@
-﻿import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs/operators';
-import { environment } from '../../../environments/environment';
+import { ApiUrlService } from './api-url.service';
 
 export interface Usuario {
   id: number;
@@ -19,23 +19,33 @@ export interface AuthResponse {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly API = `${environment.apiUrl}/auth`;
+  private readonly API = inject(ApiUrlService).endpoint('auth');
 
   // Signals reactivos — el estado de auth es observable en toda la app
   readonly almacenamientoDisponible = signal(true);
   private _token = signal<string | null>(this.leerTokenStorage());
   private _usuario = signal<Usuario | null>(this.leerUsuarioStorage());
+  private readonly relojExpiracion = signal(0);
+  private temporizadorExpiracion?: ReturnType<typeof setTimeout>;
 
   // Computed públicos de solo lectura
   readonly token = this._token.asReadonly();
   readonly usuario = this._usuario.asReadonly();
-  readonly estaAutenticado = computed(() => !!this._token());
-  readonly esAdmin = computed(() => this._usuario()?.rol === 'ADMIN');
+  readonly estaAutenticado = computed(() => {
+    this.relojExpiracion();
+    const token = this._token();
+    return !!token && !!this._usuario() && this.tokenNoExpirado(token);
+  });
+  readonly esAdmin = computed(
+    () => this.estaAutenticado() && this._usuario()?.rol === 'ADMIN',
+  );
 
   constructor(
     private http: HttpClient,
     private router: Router,
-  ) {}
+  ) {
+    this.programarExpiracion(this._token());
+  }
 
   sesionValida(): boolean {
     const token = this._token();
@@ -68,6 +78,10 @@ export class AuthService {
   }
 
   limpiarSesion() {
+    if (this.temporizadorExpiracion) {
+      clearTimeout(this.temporizadorExpiracion);
+      this.temporizadorExpiracion = undefined;
+    }
     this.eliminarSesionStorage();
     this._token.set(null);
     this._usuario.set(null);
@@ -82,6 +96,7 @@ export class AuthService {
     }
     this._token.set(res.token);
     this._usuario.set(res.usuario);
+    this.programarExpiracion(res.token);
   }
 
   private leerTokenStorage(): string | null {
@@ -108,24 +123,48 @@ export class AuthService {
   }
 
   private tokenNoExpirado(token: string): boolean {
+    const expiracion = this.expiracionToken(token);
+    return expiracion !== null && expiracion > Date.now();
+  }
+
+  private expiracionToken(token: string): number | null {
     try {
       const segmento = token.split('.')[1];
-      if (!segmento) return false;
+      if (!segmento) return null;
       const base64 = segmento
         .replace(/-/g, '+')
         .replace(/_/g, '/')
         .padEnd(segmento.length + ((4 - (segmento.length % 4)) % 4), '=');
       const payload: unknown = JSON.parse(atob(base64));
-      return (
-        typeof payload === 'object' &&
+      return typeof payload === 'object' &&
         payload !== null &&
         'exp' in payload &&
-        typeof payload.exp === 'number' &&
-        payload.exp * 1000 > Date.now()
-      );
+        typeof payload.exp === 'number'
+        ? payload.exp * 1000
+        : null;
     } catch {
-      return false;
+      return null;
     }
+  }
+
+  private programarExpiracion(token: string | null) {
+    if (this.temporizadorExpiracion) {
+      clearTimeout(this.temporizadorExpiracion);
+      this.temporizadorExpiracion = undefined;
+    }
+    if (!token) return;
+
+    const expiracion = this.expiracionToken(token);
+    if (expiracion === null) return;
+    const demora = Math.max(0, expiracion - Date.now());
+    this.temporizadorExpiracion = setTimeout(() => {
+      this.relojExpiracion.update((reloj) => reloj + 1);
+      if (!this.tokenNoExpirado(token)) {
+        this.limpiarSesion();
+      } else {
+        this.programarExpiracion(token);
+      }
+    }, Math.min(demora, 2_147_483_647));
   }
 
   private eliminarSesionStorage() {

@@ -10,6 +10,7 @@ import {
   IsString,
   Matches,
   MaxLength,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -39,13 +40,14 @@ export class TallaDto {
   @IsString()
   @IsNotEmpty({ message: 'La talla es obligatoria' })
   @MaxLength(20)
-  @Matches(/^\d+(?:\.0|\.5)?$/, {
-    message: 'La talla debe ser un entero o terminar en .0 o .5',
+  @Matches(/^(?:\d{1,2}|[1-9]\d{2})(?:\.0|\.5)?$/, {
+    message: 'La talla debe ser un número entre 0 y 999.5, entero o terminado en .0 o .5',
   })
   talla: string;
 
   @IsInt()
   @Min(0, { message: 'El stock no puede ser negativo' })
+  @Max(2_147_483_647, { message: 'El stock supera el máximo permitido' })
   @Type(() => Number)
   stock: number;
 }
@@ -79,6 +81,9 @@ export class CrearProductoDto {
     { message: 'El precio debe ser un número válido' },
   )
   @IsPositive({ message: 'El precio debe ser mayor a 0' })
+  @Max(99_999_999.99, {
+    message: 'El precio supera el máximo permitido',
+  })
   @Type(() => Number)
   precio: number;
 

@@ -185,7 +185,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       valor: this.cargandoPedidos()
         ? '—'
         : String(this.resumenPedidos()?.totalPedidos ?? 0),
-      detalle: 'Todos los pedidos',
+      detalle: 'Pedidos no cancelados',
       tipo: 'pedidos',
     },
     {
@@ -212,6 +212,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     ENVIADO: { label: 'Enviado', color: 'success' },
     ENTREGADO: { label: 'Entregado', color: 'success' },
     CANCELADO: { label: 'Cancelado', color: 'error' },
+    PAGO_REQUIERE_REVISION: { label: 'Pago en revisión', color: 'error' },
   };
 
   ngOnInit() {

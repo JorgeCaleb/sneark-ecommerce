@@ -1,0 +1,1 @@
+export const MINUTOS_EXPIRACION_PEDIDO = 15;

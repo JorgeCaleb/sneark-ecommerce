@@ -5,6 +5,7 @@ import { forkJoin, of, Subscription } from 'rxjs';
 import {
   ProductosService,
   Producto,
+  PaginacionMeta,
   ProductoInput,
   FiltrosProducto,
   EstadoProductosAdmin,
@@ -49,9 +50,9 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
   private categoriasService = inject(CategoriasService);
   private coloresService = inject(ColoresService);
 
-  readonly productos = this.productosService.productos;
-  readonly metaProd = this.productosService.meta;
-  readonly cargando = this.productosService.cargando;
+  readonly productos = signal<Producto[]>([]);
+  readonly metaProd = signal<PaginacionMeta | null>(null);
+  readonly cargando = signal(false);
   readonly errorCarga = signal(false);
   readonly errorDependencias = signal(false);
   readonly cargandoDependencias = signal(true);
@@ -102,8 +103,17 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
     };
     this.productosSubscription?.unsubscribe();
     this.errorCarga.set(false);
+    this.cargando.set(true);
     this.productosSubscription = this.productosService.buscarTodosAdmin(filtros).subscribe({
-      error: () => this.errorCarga.set(true),
+      next: (resultado) => {
+        this.productos.set(resultado.datos);
+        this.metaProd.set(resultado.meta);
+        this.cargando.set(false);
+      },
+      error: () => {
+        this.errorCarga.set(true);
+        this.cargando.set(false);
+      },
     });
   }
 
@@ -254,7 +264,7 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
     const data: ProductoInput = {
       nombre: this.form.nombre,
       codigoModelo: this.form.codigoModelo,
-      descripcion: this.form.descripcion || undefined,
+      descripcion: this.form.descripcion,
       precio,
       marcaId: this.form.marcaId,
       categoriaId: this.form.categoriaId,
@@ -429,11 +439,13 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
     const producto = this.productoImagenes();
     if (!producto) return;
     this.productosService.eliminarImagen(producto.id, imagenId).subscribe(() => {
-      this.productosService.buscarPorId(producto.id).subscribe((p) => this.productoImagenes.set(p));
+      this.productosService
+        .buscarPorIdAdmin(producto.id)
+        .subscribe((p) => this.productoImagenes.set(p));
       this.cargar();
     }, (err) => {
       this.errorImagenes.set(err?.error?.message ?? 'No se pudo eliminar la imagen.');
-      this.productosService.buscarPorId(producto.id).subscribe({
+      this.productosService.buscarPorIdAdmin(producto.id).subscribe({
         next: (actualizado) => this.productoImagenes.set(actualizado),
       });
       this.cargar();

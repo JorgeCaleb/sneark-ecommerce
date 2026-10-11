@@ -3,32 +3,41 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
-  BadGatewayException,
+  Logger,
   OnModuleInit,
   OnModuleDestroy,
 } from '@nestjs/common';
 import { EstadoPedido, MetodoPago, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
 import { CarritoService } from '../carrito/carrito.service.js';
 import { CrearPedidoDto } from './dto/crear-pedido.dto.js';
 import { ActualizarEstadoDto } from './dto/actualizar-estado.dto.js';
-import { SubirComprobanteDto } from './dto/subir-comprobante.dto.js';
 import { FiltrarPedidosDto } from './dto/filtrar-pedidos.dto.js';
 import { DashboardPedidosDto } from './dto/dashboard-pedidos.dto.js';
 import { INCLUDE_PRODUCTO_RESUMEN } from '../prisma/selecciones.js';
-import { publicIdDesdeUrlCloudinary } from '../cloudinary/public-id-cloudinary.util.js';
-import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
 import { construirMetaPaginacion } from '../common/paginacion.util.js';
+import { MINUTOS_EXPIRACION_PEDIDO } from './pedidos.constants.js';
+import {
+  calcularCostoEnvio,
+  DISTRITOS_ENVIO,
+  type DistritoEnvio,
+} from './envio.util.js';
 
-export const MINUTOS_EXPIRACION_PEDIDO = 15;
+export { MINUTOS_EXPIRACION_PEDIDO } from './pedidos.constants.js';
+
+const MAXIMO_DECIMAL_PEDIDO = new Prisma.Decimal('99999999.99');
 
 // Campos incluidos al devolver un pedido
 const INCLUDE_PEDIDO = {
   items: {
     include: {
       tallaProducto: {
-        include: {
+        select: {
+          id: true,
+          genero: true,
+          colorId: true,
+          talla: true,
+          color: { select: { id: true, nombre: true, codigo: true } },
           producto: {
             include: INCLUDE_PRODUCTO_RESUMEN,
           },
@@ -40,10 +49,7 @@ const INCLUDE_PEDIDO = {
 } satisfies Prisma.PedidoInclude;
 
 const TRANSICIONES_PEDIDO: Record<EstadoPedido, readonly EstadoPedido[]> = {
-  [EstadoPedido.PENDIENTE]: [
-    EstadoPedido.PAGO_VERIFICADO,
-    EstadoPedido.CANCELADO,
-  ],
+  [EstadoPedido.PENDIENTE]: [EstadoPedido.CANCELADO],
   [EstadoPedido.PAGO_VERIFICADO]: [
     EstadoPedido.EN_PREPARACION,
     EstadoPedido.CANCELADO,
@@ -52,23 +58,29 @@ const TRANSICIONES_PEDIDO: Record<EstadoPedido, readonly EstadoPedido[]> = {
   [EstadoPedido.ENVIADO]: [EstadoPedido.ENTREGADO],
   [EstadoPedido.ENTREGADO]: [],
   [EstadoPedido.CANCELADO]: [],
+  [EstadoPedido.PAGO_REQUIERE_REVISION]: [
+    EstadoPedido.PAGO_VERIFICADO,
+    EstadoPedido.CANCELADO,
+  ],
 };
 
 type PedidoParaTransicion = {
   id: number;
   estado: EstadoPedido;
   usuarioId: number;
+  inventarioReservado: boolean;
+  pagadoEn: Date | null;
   items: { tallaProductoId: number; cantidad: number }[];
 };
 
 @Injectable()
 export class PedidosService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PedidosService.name);
   private workerExpiracion?: NodeJS.Timeout;
   private procesandoExpiraciones = false;
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly cloudinary: CloudinaryService,
     private readonly carritoService: CarritoService,
   ) {}
 
@@ -88,6 +100,7 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
 
   // ─── Crear pedido desde el carrito ───────────────────────────────────────────
   async crear(usuarioId: number, dto: CrearPedidoDto) {
+    const costoEnvio = calcularCostoEnvio(dto.distrito);
     try {
       // Crear el pedido y sus items en una transacción atómica
       return await this.prisma.$transaction(
@@ -101,12 +114,12 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
             throw new BadRequestException('El carrito está vacío');
           }
 
-          // Validar si el usuario ya tiene un pedido PENDIENTE sin comprobante
+          // Evitar pedidos duplicados mientras el cliente aún puede pagar el pendiente.
           const pedidoPendiente = await tx.pedido.findFirst({
             where: {
               usuarioId,
               estado: EstadoPedido.PENDIENTE,
-              comprobante: null,
+              metodoPago: MetodoPago.MERCADOPAGO,
             },
             include: {
               items: {
@@ -120,19 +133,28 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
               Date.now() - MINUTOS_EXPIRACION_PEDIDO * 60 * 1000,
             );
             if (pedidoPendiente.creadoEn <= fechaLimite) {
-              await tx.pedido.update({
-                where: { id: pedidoPendiente.id },
-                data: { estado: EstadoPedido.CANCELADO },
+              const cancelado = await tx.pedido.updateMany({
+                where: {
+                  id: pedidoPendiente.id,
+                  estado: EstadoPedido.PENDIENTE,
+                  creadoEn: { lte: fechaLimite },
+                },
+                data: {
+                  estado: EstadoPedido.CANCELADO,
+                  inventarioReservado: false,
+                },
               });
-              for (const item of pedidoPendiente.items) {
-                await tx.tallaProducto.update({
-                  where: { id: item.tallaProductoId },
-                  data: { stock: { increment: item.cantidad } },
-                });
+              if (cancelado.count === 1) {
+                for (const item of pedidoPendiente.items) {
+                  await tx.tallaProducto.update({
+                    where: { id: item.tallaProductoId },
+                    data: { stock: { increment: item.cantidad } },
+                  });
+                }
               }
             } else {
               throw new BadRequestException(
-                `Ya tienes el pedido #${pedidoPendiente.id} pendiente de pago. Adjunta el comprobante o cancélalo antes de realizar uno nuevo.`,
+                `Ya tienes el pedido #${pedidoPendiente.id} pendiente de pago. Continúa el pago desde Mis pedidos o cancélalo antes de realizar uno nuevo.`,
               );
             }
           }
@@ -154,6 +176,24 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
           if (productosNoDisponibles.length) {
             throw new BadRequestException(
               `Productos no disponibles: ${productosNoDisponibles.map((producto) => `"${producto.nombre}"`).join(', ')}`,
+            );
+          }
+
+          const totalProductos = carrito.items.reduce((total, item) => {
+            const subtotal = new Prisma.Decimal(
+              item.tallaProducto.producto.precio,
+            ).mul(item.cantidad);
+            if (subtotal.gt(MAXIMO_DECIMAL_PEDIDO)) {
+              throw new BadRequestException(
+                'El subtotal de un producto supera el máximo permitido para el pedido.',
+              );
+            }
+            return total.plus(subtotal);
+          }, new Prisma.Decimal(0));
+          const totalPedido = totalProductos.plus(costoEnvio);
+          if (totalPedido.gt(MAXIMO_DECIMAL_PEDIDO)) {
+            throw new BadRequestException(
+              'El total del pedido supera el máximo permitido.',
             );
           }
 
@@ -201,15 +241,11 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
           return tx.pedido.create({
             data: {
               usuarioId,
-              total: carrito.total,
-              metodoPago:
-                dto.metodoPago === 'MERCADOPAGO'
-                  ? MetodoPago.MERCADOPAGO
-                  : dto.metodoPago === 'YAPE'
-                    ? MetodoPago.YAPE
-                    : MetodoPago.PLIN,
+              total: totalPedido,
+              costoEnvio,
+              metodoPago: MetodoPago.MERCADOPAGO,
               telefono: dto.telefono,
-              ciudad: dto.ciudad,
+              ciudad: dto.distrito,
               direccion: dto.direccion,
               // Crear todos los items del pedido como snapshot
               items: {
@@ -223,7 +259,11 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
                   talla: item.tallaProducto.talla,
                   cantidad: item.cantidad,
                   precio: item.tallaProducto.producto.precio,
-                  subtotal: item.subtotal,
+                  subtotal: new Prisma.Decimal(
+                    item.tallaProducto.producto.precio,
+                  )
+                    .mul(item.cantidad)
+                    .toNumber(),
                 })),
               },
             },
@@ -245,129 +285,15 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  // ─── Subir comprobante Yape/Plin ─────────────────────────────────────────────
-  async subirComprobante(
-    usuarioId: number,
-    pedidoId: number,
-    archivo: Express.Multer.File | undefined,
-    dto: SubirComprobanteDto,
-  ) {
-    if (!archivo?.buffer) {
-      throw new BadRequestException(
-        'Debes adjuntar el archivo del comprobante',
-      );
-    }
+  obtenerOpcionesEnvio() {
+    return DISTRITOS_ENVIO.map((distrito) => ({
+      distrito,
+      costoEnvio: calcularCostoEnvio(distrito),
+    }));
+  }
 
-    const pedido = await this.buscarPorId(pedidoId);
-
-    // Solo el dueño del pedido puede subir el comprobante.
-    // Respondemos 404 para evitar que un atacante enumere IDs ajenos (en lugar de 403).
-    if (pedido.usuario.id !== usuarioId) {
-      throw new NotFoundException(`Pedido #${pedidoId} no encontrado`);
-    }
-
-    if (pedido.estado !== 'PENDIENTE') {
-      throw new BadRequestException(
-        'Solo se puede subir comprobante en pedidos PENDIENTES',
-      );
-    }
-
-    const fechaLimite = new Date(
-      Date.now() - MINUTOS_EXPIRACION_PEDIDO * 60 * 1000,
-    );
-    if (!pedido.comprobante && pedido.creadoEn <= fechaLimite) {
-      await this.cancelarPedidoExpirado(pedido);
-      throw new BadRequestException(
-        `El tiempo límite de ${MINUTOS_EXPIRACION_PEDIDO} minutos para pagar este pedido ha expirado. Por favor, realiza un nuevo pedido.`,
-      );
-    }
-
-    // Verificar que el número de operación no esté duplicado
-    const numeroOperacion = dto.numeroOperacion?.trim() || null;
-    if (numeroOperacion) {
-      const duplicado = await this.prisma.pedido.findFirst({
-        where: {
-          numeroOperacion,
-          NOT: { id: pedidoId },
-        },
-      });
-
-      if (duplicado) {
-        throw new BadRequestException(
-          'Este número de operación ya fue registrado en otro pedido',
-        );
-      }
-    }
-
-    // Subir imagen a Cloudinary
-    const { url, publicId } = await this.cloudinary.subirImagen(
-      archivo,
-      `SOHO/comprobantes/${pedidoId}`,
-    );
-
-    let pedidoActualizado;
-    try {
-      pedidoActualizado = await this.prisma.$transaction(async (tx) => {
-        const resultado = await tx.pedido.updateMany({
-          where: {
-            id: pedidoId,
-            estado: EstadoPedido.PENDIENTE,
-            comprobantePublicId: pedido.comprobantePublicId,
-          },
-          data: {
-            comprobante: url,
-            comprobantePublicId: publicId,
-            numeroOperacion,
-          },
-        });
-        if (resultado.count !== 1) {
-          throw new BadRequestException(
-            'El pedido cambió mientras se subía el comprobante. Vuelve a intentarlo.',
-          );
-        }
-
-        return tx.pedido.findUniqueOrThrow({
-          where: { id: pedidoId },
-          include: INCLUDE_PEDIDO,
-        });
-      });
-    } catch (error) {
-      try {
-        await this.cloudinary.eliminarImagen(publicId);
-      } catch (cleanupError) {
-        const detalle =
-          cleanupError instanceof Error
-            ? cleanupError.message
-            : 'Error desconocido';
-        throw new BadGatewayException(
-          `No se pudo guardar el comprobante y tampoco eliminar el archivo subido: ${detalle}`,
-        );
-      }
-
-      if (esConflictoUnico(error)) {
-        throw new BadRequestException(
-          'Este número de operación ya fue registrado en otro pedido',
-        );
-      }
-      throw error;
-    }
-
-    const publicIdAnterior =
-      pedido.comprobantePublicId ??
-      this.publicIdDesdeComprobanteCloudinary(pedido.comprobante, pedidoId);
-    if (publicIdAnterior && publicIdAnterior !== publicId) {
-      try {
-        await this.cloudinary.eliminarImagen(publicIdAnterior);
-      } catch (error) {
-        const detalle =
-          error instanceof Error ? error.message : 'Error desconocido';
-        throw new BadGatewayException(
-          `El comprobante nuevo se guardó, pero no se pudo eliminar el anterior: ${detalle}`,
-        );
-      }
-    }
-
-    return pedidoActualizado;
+  cotizarEnvio(distrito: DistritoEnvio) {
+    return { distrito, costoEnvio: calcularCostoEnvio(distrito) };
   }
 
   // ─── Consultas ────────────────────────────────────────────────────────────────
@@ -454,11 +380,11 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
     ];
     const whereVentasActuales: Prisma.PedidoWhereInput = {
       estado: { in: estadosConfirmados },
-      creadoEn: { gte: inicioActual, lt: finActual },
+      pagadoEn: { gte: inicioActual, lt: finActual },
     };
     const whereVentasAnteriores: Prisma.PedidoWhereInput = {
       estado: { in: estadosConfirmados },
-      creadoEn: { gte: inicioAnterior, lt: inicioActual },
+      pagadoEn: { gte: inicioAnterior, lt: inicioActual },
     };
     const [
       totalPedidos,
@@ -468,7 +394,9 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
       ventasDiarias,
       topProductos,
     ] = await Promise.all([
-      this.prisma.pedido.count(),
+      this.prisma.pedido.count({
+        where: { estado: { not: EstadoPedido.CANCELADO } },
+      }),
       this.prisma.pedido.findMany({
         take: 5,
         include: INCLUDE_PEDIDO,
@@ -485,13 +413,13 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
       this.prisma.$queryRaw<{ fecha: string; total: Prisma.Decimal }[]>(
         Prisma.sql`
             SELECT DATE_FORMAT(
-              DATE_ADD(\`creadoEn\`, INTERVAL ${filtros.desfaseZonaHoraria} MINUTE),
+              DATE_ADD(\`pagadoEn\`, INTERVAL ${filtros.desfaseZonaHoraria} MINUTE),
               '%Y-%m-%d'
             ) AS fecha, SUM(\`total\`) AS total
             FROM \`pedidos\`
             WHERE \`estado\` IN (${Prisma.join(estadosConfirmados)})
-              AND \`creadoEn\` >= ${inicioActual}
-              AND \`creadoEn\` < ${finActual}
+              AND \`pagadoEn\` >= ${inicioActual}
+              AND \`pagadoEn\` < ${finActual}
             GROUP BY fecha
           `,
       ),
@@ -505,8 +433,8 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
             INNER JOIN \`tallas_producto\` AS tallas
               ON tallas.\`id\` = items.\`tallaProductoId\`
             WHERE pedidos.\`estado\` IN (${Prisma.join(estadosConfirmados)})
-              AND pedidos.\`creadoEn\` >= ${inicioActual}
-              AND pedidos.\`creadoEn\` < ${finActual}
+              AND pedidos.\`pagadoEn\` >= ${inicioActual}
+              AND pedidos.\`pagadoEn\` < ${finActual}
             GROUP BY tallas.\`productoId\`
             ORDER BY cantidad DESC, productoId ASC
             LIMIT 5
@@ -567,6 +495,14 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
 
   async actualizarEstado(id: number, dto: ActualizarEstadoDto) {
     const pedido = await this.buscarPorId(id);
+    if (
+      dto.estado === EstadoPedido.PAGO_VERIFICADO &&
+      pedido.estado === EstadoPedido.PENDIENTE
+    ) {
+      throw new BadRequestException(
+        'El pago de Mercado Pago solo se confirma automáticamente tras validar su notificación.',
+      );
+    }
     this.validarTransicion(pedido.estado, dto.estado);
 
     if (!(await this.aplicarTransicion(pedido, dto.estado))) {
@@ -597,11 +533,7 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
     this.validarTransicion(pedido.estado, EstadoPedido.CANCELADO);
 
     if (
-      !(await this.aplicarTransicion(
-        pedido,
-        EstadoPedido.CANCELADO,
-        usuarioId,
-      ))
+      !(await this.aplicarTransicion(pedido, EstadoPedido.CANCELADO, usuarioId))
     ) {
       const estadoActual = await this.buscarPorId(pedidoId);
       throw new ConflictException(
@@ -635,14 +567,29 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
           estado: pedido.estado,
           ...(usuarioId !== undefined ? { usuarioId } : {}),
         },
-        data: { estado: estadoSolicitado },
+        data: {
+          estado: estadoSolicitado,
+          ...(estadoSolicitado === EstadoPedido.CANCELADO
+            ? { inventarioReservado: false }
+            : {}),
+          ...(estadoSolicitado === EstadoPedido.PAGO_VERIFICADO &&
+          pedido.estado === EstadoPedido.PAGO_REQUIERE_REVISION
+            ? {
+                inventarioReservado: true,
+                pagadoEn: pedido.pagadoEn ?? new Date(),
+              }
+            : {}),
+        },
       });
 
       if (actualizacion.count !== 1) {
         return false;
       }
 
-      if (estadoSolicitado === EstadoPedido.CANCELADO) {
+      if (
+        estadoSolicitado === EstadoPedido.CANCELADO &&
+        pedido.inventarioReservado
+      ) {
         for (const item of pedido.items) {
           await tx.tallaProducto.update({
             where: { id: item.tallaProductoId },
@@ -651,15 +598,29 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
+      if (
+        estadoSolicitado === EstadoPedido.PAGO_VERIFICADO &&
+        pedido.estado === EstadoPedido.PAGO_REQUIERE_REVISION &&
+        !pedido.inventarioReservado
+      ) {
+        for (const item of pedido.items) {
+          const reserva = await tx.tallaProducto.updateMany({
+            where: {
+              id: item.tallaProductoId,
+              stock: { gte: item.cantidad },
+            },
+            data: { stock: { decrement: item.cantidad } },
+          });
+          if (reserva.count !== 1) {
+            throw new BadRequestException(
+              `No hay stock suficiente para reactivar el pedido #${pedido.id}.`,
+            );
+          }
+        }
+      }
+
       return true;
     });
-  }
-
-  private publicIdDesdeComprobanteCloudinary(
-    comprobante: string | null,
-    pedidoId: number,
-  ): string | null {
-    return publicIdDesdeUrlCloudinary(comprobante, `SOHO/comprobantes/${pedidoId}`);
   }
 
   async cancelarPedidosExpirados(): Promise<number> {
@@ -672,7 +633,6 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
       const pedidosExpirados = await this.prisma.pedido.findMany({
         where: {
           estado: EstadoPedido.PENDIENTE,
-          comprobante: null,
           creadoEn: { lte: fechaLimite },
         },
         include: {
@@ -691,9 +651,11 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
               where: {
                 id: pedido.id,
                 estado: EstadoPedido.PENDIENTE,
-                comprobante: null,
               },
-              data: { estado: EstadoPedido.CANCELADO },
+              data: {
+                estado: EstadoPedido.CANCELADO,
+                inventarioReservado: false,
+              },
             });
 
             if (actualizacion.count !== 1) {
@@ -713,8 +675,11 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
           if (resultado) {
             cancelados++;
           }
-        } catch {
-          // Continuar con los demás pedidos si ocurre algún fallo puntual
+        } catch (error) {
+          this.logger.error(
+            `No se pudo cancelar el pedido expirado #${pedido.id}.`,
+            error,
+          );
         }
       }
 
@@ -733,9 +698,11 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
         where: {
           id: pedido.id,
           estado: EstadoPedido.PENDIENTE,
-          comprobante: null,
         },
-        data: { estado: EstadoPedido.CANCELADO },
+        data: {
+          estado: EstadoPedido.CANCELADO,
+          inventarioReservado: false,
+        },
       });
 
       if (actualizacion.count === 1) {

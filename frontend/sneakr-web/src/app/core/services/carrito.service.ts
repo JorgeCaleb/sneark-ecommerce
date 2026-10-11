@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import {
   EMPTY,
@@ -11,7 +11,7 @@ import {
   finalize,
   tap,
 } from 'rxjs';
-import { environment } from '../../../environments/environment';
+import { ApiUrlService } from './api-url.service';
 import type { ValorMonetario } from '../models/valor-monetario';
 
 export interface ItemCarrito {
@@ -24,7 +24,7 @@ export interface ItemCarrito {
     colorId: number;
     color: { id: number; nombre: string; codigo: string };
     talla: string;
-    stock: number;
+    disponible: boolean;
     sku: string;
     producto: {
       id: number;
@@ -46,7 +46,7 @@ export interface Carrito {
 
 @Injectable({ providedIn: 'root' })
 export class CarritoService {
-  private readonly API = `${environment.apiUrl}/carrito`;
+  private readonly API = inject(ApiUrlService).endpoint('carrito');
   private revision = 0;
   private lecturaActual = 0;
   private readonly colaMutaciones = new Subject<{

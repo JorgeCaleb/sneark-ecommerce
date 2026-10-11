@@ -1,7 +1,6 @@
 import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
-import { of, Subject } from 'rxjs';
+import { NEVER, of, Subject, throwError } from 'rxjs';
 import { Carrito, CarritoService } from '../../core/services/carrito.service';
 import { PedidosService } from '../../core/services/pedidos.service';
 import { PagosService } from '../../core/services/pagos.service';
@@ -27,7 +26,7 @@ function itemCarrito() {
       colorId: 3,
       color: { id: 3, nombre: 'Negro', codigo: 'BK' },
       talla: '42',
-      stock: 5,
+      disponible: true,
       sku: 'SN-M-BK-42',
       producto: {
         id: 8,
@@ -48,16 +47,17 @@ describe('CheckoutComponent cart loading', () => {
   let limpiarLocal: ReturnType<typeof vi.fn>;
   let crearPedido: ReturnType<typeof vi.fn>;
   let crearPreferencia: ReturnType<typeof vi.fn>;
-  let navigate: ReturnType<typeof vi.fn>;
+  let cotizarEnvio: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     carritoSignal = signal<Carrito | null>(null);
     obtener = vi.fn();
     limpiarLocal = vi.fn(() => carritoSignal.set(null));
     crearPedido = vi.fn().mockReturnValue(of({ id: 45 }));
-    crearPreferencia = vi.fn().mockReturnValue(of({ urlPago: 'https://sandbox.mercadopago.com/checkout', preferenciaId: 'pref-123' }));
-    navigate = vi.fn();
-
+    crearPreferencia = vi.fn().mockReturnValue(NEVER);
+    cotizarEnvio = vi.fn().mockImplementation((distrito: string) =>
+      of({ distrito, costoEnvio: distrito === 'La Esperanza' ? 0 : 15 }),
+    );
     TestBed.configureTestingModule({
       providers: [
         {
@@ -71,25 +71,35 @@ describe('CheckoutComponent cart loading', () => {
         },
         {
           provide: PedidosService,
-          useValue: { crear: crearPedido },
+          useValue: {
+            crear: crearPedido,
+            opcionesEnvio: vi.fn().mockReturnValue(
+              of([
+                { distrito: 'La Esperanza', costoEnvio: 0 },
+                { distrito: 'Trujillo', costoEnvio: 15 },
+              ]),
+            ),
+            cotizarEnvio,
+          },
         },
         {
           provide: PagosService,
           useValue: { crearPreferencia },
-        },
-        {
-          provide: Router,
-          useValue: { navigate },
         },
       ],
     });
     component = TestBed.runInInjectionContext(() => new CheckoutComponent());
   });
 
+  function elegirDistritoGratis() {
+    component.distrito = 'La Esperanza';
+    component.costoEnvio.set(0);
+  }
+
   it('keeps confirmation disabled while the initial cart request is pending', () => {
     obtener.mockReturnValue(new Subject<Carrito>());
     component.telefono = '999999999';
-    component.ciudad = 'Lima';
+    elegirDistritoGratis();
     component.direccion = 'Calle 1';
 
     component.ngOnInit();
@@ -103,13 +113,10 @@ describe('CheckoutComponent cart loading', () => {
   it('shows a load error and retries without losing entered form data', () => {
     const primeraCarga = new Subject<Carrito>();
     const reintento = new Subject<Carrito>();
-    obtener
-      .mockReturnValueOnce(primeraCarga)
-      .mockReturnValueOnce(reintento);
+    obtener.mockReturnValueOnce(primeraCarga).mockReturnValueOnce(reintento);
     component.telefono = '999999999';
-    component.ciudad = 'Lima';
+    elegirDistritoGratis();
     component.direccion = 'Calle 1';
-    component.metodoPago = 'PLIN';
 
     component.ngOnInit();
     primeraCarga.error({ error: { message: 'API no disponible' } });
@@ -121,9 +128,8 @@ describe('CheckoutComponent cart loading', () => {
 
     expect(component.cargandoCarrito()).toBe(true);
     expect(component.telefono).toBe('999999999');
-    expect(component.ciudad).toBe('Lima');
+    expect(component.distrito).toBe('La Esperanza');
     expect(component.direccion).toBe('Calle 1');
-    expect(component.metodoPago).toBe('PLIN');
 
     const carritoDisponible = carrito([itemCarrito()]);
     carritoSignal.set(carritoDisponible);
@@ -138,7 +144,7 @@ describe('CheckoutComponent cart loading', () => {
   it('keeps confirmation disabled when the successfully loaded cart is empty', () => {
     obtener.mockReturnValue(of(carrito([])));
     component.telefono = '999999999';
-    component.ciudad = 'Lima';
+    elegirDistritoGratis();
     component.direccion = 'Calle 1';
 
     component.ngOnInit();
@@ -154,7 +160,7 @@ describe('CheckoutComponent cart loading', () => {
     obtener.mockReturnValue(of(carritoDisponible));
     carritoSignal.set(carritoDisponible);
     component.telefono = '999999999';
-    component.ciudad = 'Lima';
+    elegirDistritoGratis();
     component.direccion = 'Calle 1';
 
     component.ngOnInit();
@@ -162,6 +168,27 @@ describe('CheckoutComponent cart loading', () => {
 
     expect(limpiarLocal).toHaveBeenCalledOnce();
     expect(carritoSignal()).toBeNull();
+    expect(crearPreferencia).toHaveBeenCalledWith(45);
+  });
+
+  it('preserves a created pending order for payment retry if preference creation fails', () => {
+    const carritoDisponible = carrito([itemCarrito()]);
+    obtener.mockReturnValue(of(carritoDisponible));
+    carritoSignal.set(carritoDisponible);
+    crearPreferencia.mockReturnValue(
+      throwError(() => ({ error: { message: 'Mercado Pago no disponible' } })),
+    );
+    component.telefono = '999999999';
+    elegirDistritoGratis();
+    component.direccion = 'Calle 1';
+
+    component.ngOnInit();
+    component.confirmar();
+
+    expect(limpiarLocal).toHaveBeenCalledOnce();
+    expect(component.pedidoPendientePagoId()).toBe(45);
+    expect(component.mostrarAccesoPedidos()).toBe(true);
+    expect(component.error()).toBe('Mercado Pago no disponible');
     expect(crearPreferencia).toHaveBeenCalledWith(45);
   });
 });

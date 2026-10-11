@@ -13,9 +13,23 @@ Instala las dependencias desde este directorio:
 npm install
 ```
 
-La URL de la API se define en los archivos de entorno bajo `src/environments/`.
+La URL de desarrollo de la API se define en `src/environments/environment.ts`.
 
-> **Antes de operar:** los datos actuales de pago para Yape y Plin están pendientes de confirmación. Se mantienen centralizados en `src/app/core/config/datos-pago.ts`.
+## Configuración de API
+
+El build de producción carga la URL desde `runtime-config.json`, que se sirve junto al frontend y se copia desde `public/runtime-config.json`.
+
+Antes de iniciar la aplicación desplegada, reemplaza ese archivo por un JSON con la URL HTTPS real del backend, por ejemplo:
+
+```json
+{
+  "apiUrl": "https://tu-dominio-real/api"
+}
+```
+
+No dejes `apiUrl` vacío en producción: la aplicación detendrá el arranque con un error claro si falta la configuración o no es una URL HTTPS válida. El archivo puede inyectarse o reemplazarse en el servidor de archivos estáticos al desplegar; no hace falta recompilar el frontend cuando solo cambia el dominio de la API.
+
+El checkout usa Mercado Pago. Para probarlo sin cobros reales, configura en el backend credenciales de prueba de Mercado Pago Developers; las preferencias creadas con un token `TEST-...` dirigen al sandbox.
 
 ## Desarrollo
 

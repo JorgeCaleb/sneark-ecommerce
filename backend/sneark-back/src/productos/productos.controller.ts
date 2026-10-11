@@ -58,6 +58,12 @@ export class ProductosController {
     return this.productosService.buscarVariantesInventario(filtros);
   }
 
+  @Admin()
+  @Get('admin/:id')
+  buscarPorIdAdmin(@Param('id', ParseIntPipe) id: number) {
+    return this.productosService.buscarPorId(id);
+  }
+
   // GET /api/productos/:id — público
   @Get(':id')
   buscarPorId(@Param('id', ParseIntPipe) id: number) {

@@ -6,6 +6,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
+import { esConflictoSerializacion } from '../prisma/es-conflicto-serializacion.js';
 import { ActualizarColorDto } from './dto/actualizar-color.dto.js';
 import { CrearColorDto } from './dto/crear-color.dto.js';
 
@@ -61,6 +62,11 @@ export class ColoresService {
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
+      if (esConflictoSerializacion(error)) {
+        throw new ConflictException(
+          'Los datos del color cambiaron durante la operación. Vuelve a intentarlo.',
+        );
+      }
       if (esConflictoUnico(error)) {
         throw new ConflictException('El nombre o código de color ya existe');
       }

@@ -45,12 +45,6 @@ export const routes: Routes = [
       import('./pages/checkout/checkout.component').then((m) => m.CheckoutComponent),
   },
   {
-    path: 'comprobante/:id',
-    canActivate: [authGuard],
-    loadComponent: () =>
-      import('./pages/comprobante/comprobante.component').then((m) => m.ComprobanteComponent),
-  },
-  {
     path: 'pago/resultado',
     canActivate: [authGuard],
     loadComponent: () =>

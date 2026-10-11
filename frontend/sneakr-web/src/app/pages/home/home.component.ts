@@ -1,7 +1,7 @@
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { ProductosService, Producto } from '../../core/services/productos.service';
+import { ProductosService, ProductoPublico } from '../../core/services/productos.service';
 import { MarcasService, Marca } from '../../core/services/marcas.service';
 import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
@@ -17,7 +17,7 @@ export class HomeComponent implements OnInit {
   private productosService = inject(ProductosService);
   private marcasService = inject(MarcasService);
 
-  readonly destacados = signal<Producto[]>([]);
+  readonly destacados = signal<ProductoPublico[]>([]);
   readonly marcas = signal<Marca[]>([]);
   readonly cargando = signal(true);
   readonly errorCarga = signal(false);
@@ -50,7 +50,7 @@ export class HomeComponent implements OnInit {
   }
 
   // Verifica si el producto tiene stock disponible
-  tieneStock(producto: Producto): boolean {
-    return producto.tallas.some((t) => t.stock > 0);
+  tieneStock(producto: ProductoPublico): boolean {
+    return producto.tallas.some((t) => t.disponible);
   }
 }

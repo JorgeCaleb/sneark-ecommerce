@@ -111,15 +111,15 @@ model ImagenProducto {
 // VARIANTES Y STOCK
 // ─────────────────────────────────────────────
 model TallaProducto {
-  id          Int    @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   genero      Genero
   colorId     Int
-  color       Color  @relation(fields: [colorId], references: [id], onDelete: Restrict)
-  talla       String @db.VarChar(20)
+  color       Color   @relation(fields: [colorId], references: [id], onDelete: Restrict)
+  talla       String  @db.VarChar(20)
   // Valor numérico de talla para ordenación correcta (ej: 10.5 en lugar de "10.5" texto)
   tallaNumero Decimal @db.Decimal(4, 1)
-  stock   Int    @default(0)
-  sku     String @unique @db.VarChar(60)
+  stock       Int     @default(0)
+  sku         String  @unique @db.VarChar(60)
 
   productoId Int
   producto   Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
@@ -193,20 +193,17 @@ model Pedido {
   items ItemPedido[]
 
   total Decimal @db.Decimal(10, 2)
+  costoEnvio Decimal @default(0) @db.Decimal(10, 2)
 
-  estado     EstadoPedido @default(PENDIENTE)
-  metodoPago MetodoPago
-
-  // URL de Cloudinary del comprobante de Yape/Plin
-  comprobante         String? @db.VarChar(500)
-  comprobantePublicId String? @db.VarChar(255)
-  // Código de operación del comprobante (ayuda a verificar y detectar repetidos)
-  numeroOperacion     String? @db.VarChar(50)
+  estado              EstadoPedido @default(PENDIENTE)
+  metodoPago          MetodoPago
+  inventarioReservado Boolean      @default(true)
 
   // Mercado Pago: ID de la preferencia de pago (para redirigir al checkout)
   mpPreferenciaId String? @db.VarChar(255)
+  mpCheckoutUrl   String? @db.VarChar(500)
   // Mercado Pago: ID del pago recibido por webhook tras la transacción
-  mpPagoId        String? @db.VarChar(100)
+  mpPagoId        String? @unique @db.VarChar(100)
 
   // Datos de entrega, guardados tal como estaban al hacer el pedido
   telefono  String @db.VarChar(20)
@@ -214,12 +211,13 @@ model Pedido {
   direccion String @db.VarChar(255)
 
   creadoEn      DateTime @default(now())
+  pagadoEn      DateTime?
   actualizadoEn DateTime @updatedAt
 
-  @@unique([numeroOperacion])
   @@index([usuarioId])
   @@index([estado])
   @@index([creadoEn])
+  @@index([pagadoEn])
   @@map("pedidos")
 }
 
@@ -276,13 +274,12 @@ enum EstadoPedido {
   ENVIADO
   ENTREGADO
   CANCELADO
+  PAGO_REQUIERE_REVISION
 }
 
 // ─────────────────────────────────────────────
 // MÉTODOS DE PAGO
 // ─────────────────────────────────────────────
 enum MetodoPago {
-  YAPE
-  PLIN
   MERCADOPAGO
 }

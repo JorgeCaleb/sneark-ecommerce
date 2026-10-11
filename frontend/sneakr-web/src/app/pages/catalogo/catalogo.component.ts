@@ -2,7 +2,11 @@ import { Component, DestroyRef, OnInit, inject, signal, computed } from '@angula
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { ProductosService, Producto, FiltrosProducto } from '../../core/services/productos.service';
+import {
+  ProductosService,
+  ProductoPublico,
+  FiltrosProducto,
+} from '../../core/services/productos.service';
 import { MarcasService, Marca } from '../../core/services/marcas.service';
 import { CategoriasService, Categoria } from '../../core/services/categorias.service';
 import { ColoresService, Color } from '../../core/services/colores.service';
@@ -168,11 +172,11 @@ export class CatalogoComponent implements OnInit {
     !!this.precioMax || !!this.genero || !!this.colorId
   );
 
-  imagenPrincipal(producto: Producto): string {
+  imagenPrincipal(producto: ProductoPublico): string {
     return producto.imagenes?.[0]?.url ?? '/placeholder-shoe.svg';
   }
 
-  tieneStock(producto: Producto): boolean {
-    return producto.tallas.some((t) => t.stock > 0);
+  tieneStock(producto: ProductoPublico): boolean {
+    return producto.tallas.some((t) => t.disponible);
   }
 }

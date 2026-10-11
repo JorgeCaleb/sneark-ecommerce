@@ -1,11 +1,18 @@
 <div class="checkout-page">
   <div class="container">
-
     <div class="checkout-page__header">
       <a routerLink="/carrito" class="checkout-page__back">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M19 12H5M12 19l-7-7 7-7" />
         </svg>
         Volver al carrito
       </a>
@@ -13,10 +20,8 @@
     </div>
 
     <div class="checkout-layout">
-
       <!-- ── Formulario ──────────────────────────────────── -->
       <div class="checkout-form-wrap">
-
         <!-- Datos de entrega -->
         <section class="checkout-section">
           <h2 class="checkout-section__title">
@@ -38,15 +43,24 @@
             </div>
 
             <div class="form-field">
-              <label class="form-label" for="ciudad">Ciudad</label>
-              <input
-                id="ciudad"
-                type="text"
+              <label class="form-label" for="distrito">Distrito de entrega</label>
+              <select
+                id="distrito"
                 class="form-input"
-                placeholder="Ej: Lima"
-                [(ngModel)]="ciudad"
-                maxlength="100"
-              />
+                [ngModel]="distrito"
+                (ngModelChange)="seleccionarDistrito($event)"
+                [disabled]="opcionesEnvio().length === 0"
+              >
+                <option value="">Seleccioná un distrito</option>
+                @for (opcion of opcionesEnvio(); track opcion.distrito) {
+                  <option [value]="opcion.distrito">{{ opcion.distrito }}</option>
+                }
+              </select>
+              @if (cargandoEnvio()) {
+                <small role="status">Calculando envío…</small>
+              } @else if (errorEnvio()) {
+                <small role="alert">{{ errorEnvio() }}</small>
+              }
             </div>
 
             <div class="form-field form-field--full">
@@ -71,13 +85,8 @@
           </h2>
 
           <div class="metodos-pago">
-            <!-- Mercado Pago -->
-            <button
-              type="button"
-              class="metodo-btn metodo-btn--activo"
-              (click)="seleccionarMetodo('MERCADOPAGO')"
-            >
-              <div class="metodo-btn__radio">
+            <div class="metodo-btn metodo-btn--activo">
+              <div class="metodo-btn__radio" aria-hidden="true">
                 <div class="metodo-btn__radio-dot"></div>
               </div>
               <div class="metodo-btn__content">
@@ -87,17 +96,27 @@
                 </div>
                 <span class="metodo-btn__desc">Tarjetas de crédito, débito o saldo en cuenta</span>
               </div>
-            </button>
+            </div>
           </div>
 
           <!-- Instrucciones de pago -->
           <div class="pago-instrucciones">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
             <p>
-              Al hacer clic en pagar, serás redirigido al portal oficial de <strong>Mercado Pago</strong> para completar tu compra de forma 100% segura. Tu pedido se actualizará automáticamente.
+              Al hacer clic en pagar, serás redirigido al portal oficial de
+              <strong>Mercado Pago</strong> para completar tu compra de forma 100% segura. Tu pedido
+              se actualizará automáticamente.
             </p>
           </div>
         </section>
@@ -106,9 +125,17 @@
         @if (error()) {
           <div class="checkout-error animate-fade-up">
             {{ error() }}
+            @if (mostrarAccesoPedidos()) {
+              <p>
+                @if (pedidoPendientePagoId()) {
+                  Tu pedido #{{ pedidoPendientePagoId() }} ya está creado.
+                }
+                Puedes revisar tus pedidos y continuar cualquier pago pendiente.
+              </p>
+              <a routerLink="/mis-pedidos" class="btn-primary">Ir a Mis pedidos</a>
+            }
           </div>
         }
-
       </div>
 
       <!-- ── Resumen ──────────────────────────────────────── -->
@@ -141,18 +168,23 @@
               <div class="checkout-item">
                 <div class="checkout-item__img-wrap">
                   <img
-                    [src]="item.tallaProducto.producto.imagenes?.[0]?.url ?? '/placeholder-shoe.svg'"
+                    [src]="
+                      item.tallaProducto.producto.imagenes?.[0]?.url ?? '/placeholder-shoe.svg'
+                    "
                     [alt]="item.tallaProducto.producto.nombre"
                     class="checkout-item__img"
-                    onerror="this.onerror=null; this.src='/placeholder-shoe.svg'"
+                    onerror="
+                      this.onerror = null;
+                      this.src = '/placeholder-shoe.svg';
+                    "
                   />
                   <span class="checkout-item__qty">{{ item.cantidad }}</span>
                 </div>
                 <div class="checkout-item__info">
                   <p class="checkout-item__nombre">{{ item.tallaProducto.producto.nombre }}</p>
                   <p class="checkout-item__talla">
-                    {{ item.tallaProducto.genero }} · {{ item.tallaProducto.color.nombre }}
-                    · Talla {{ item.tallaProducto.talla }}
+                    {{ item.tallaProducto.genero }} · {{ item.tallaProducto.color.nombre }} · Talla
+                    {{ item.tallaProducto.talla }}
                   </p>
                 </div>
                 <p class="checkout-item__precio">{{ item.subtotal | moneda }}</p>
@@ -161,8 +193,24 @@
           </div>
 
           <div class="checkout-resumen__total">
-            <span>Total a pagar</span>
+            <span>Productos</span>
             <span class="checkout-resumen__total-num">{{ total() | moneda }}</span>
+          </div>
+          <div class="checkout-resumen__total">
+            <span>Envío</span>
+            <span class="checkout-resumen__total-num">
+              @if (cargandoEnvio()) {
+                Calculando…
+              } @else if (costoEnvio() !== null) {
+                {{ costoEnvio() | moneda }}
+              } @else {
+                Seleccioná un distrito
+              }
+            </span>
+          </div>
+          <div class="checkout-resumen__total">
+            <span>Total a pagar</span>
+            <span class="checkout-resumen__total-num">{{ totalCheckout() | moneda }}</span>
           </div>
         }
 
@@ -177,9 +225,17 @@
             Conectando con Mercado Pago...
           } @else {
             Pagar con Mercado Pago
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           }
         </button>
@@ -188,7 +244,6 @@
           Al confirmar aceptás nuestros términos. El pedido se procesa luego de verificar el pago.
         </p>
       </aside>
-
     </div>
   </div>
 </div>

@@ -36,6 +36,6 @@ export class PrevisualizarSkuDto {
     typeof value === 'string' ? value.trim() : value,
   )
   @IsString()
-  @Matches(/^\d+(?:\.0|\.5)?$/)
+  @Matches(/^(?:\d{1,2}|[1-9]\d{2})(?:\.0|\.5)?$/)
   talla: string;
 }

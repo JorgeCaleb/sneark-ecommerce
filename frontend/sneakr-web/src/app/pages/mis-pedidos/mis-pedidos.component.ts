@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { PedidosService, Pedido, EstadoPedido } from '../../core/services/pedidos.service';
 import { PagosService } from '../../core/services/pagos.service';
 import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
+import { extraerMensajeError } from '../../core/utils/error.util';
 
 @Component({
   selector: 'app-mis-pedidos',
@@ -13,28 +14,47 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 })
 export class MisPedidosComponent implements OnInit {
   private pedidosService = inject(PedidosService);
-  private pagosService   = inject(PagosService);
+  private pagosService = inject(PagosService);
 
-  readonly pedidos      = signal<Pedido[]>([]);
-  readonly cargando     = signal(true);
+  readonly pedidos = signal<Pedido[]>([]);
+  readonly cargando = signal(true);
   readonly pedidoAbierto = signal<number | null>(null);
   readonly errorCancelacion = signal('');
-  readonly pagandoId    = signal<number | null>(null);
+  readonly errorCarga = signal('');
+  readonly pagandoId = signal<number | null>(null);
 
   // Mapa de labels y colores por estado
   readonly estadoConfig: Record<EstadoPedido, { label: string; color: string }> = {
-    PENDIENTE:       { label: 'Pendiente de pago',  color: 'warning' },
-    PAGO_VERIFICADO: { label: 'Pago verificado',    color: 'info'    },
-    EN_PREPARACION:  { label: 'En preparación',     color: 'info'    },
-    ENVIADO:         { label: 'Enviado',             color: 'success' },
-    ENTREGADO:       { label: 'Entregado',           color: 'success' },
-    CANCELADO:       { label: 'Cancelado',           color: 'error'   },
+    PENDIENTE: { label: 'Pendiente de pago', color: 'warning' },
+    PAGO_VERIFICADO: { label: 'Pago verificado', color: 'info' },
+    EN_PREPARACION: { label: 'En preparación', color: 'info' },
+    ENVIADO: { label: 'Enviado', color: 'success' },
+    ENTREGADO: { label: 'Entregado', color: 'success' },
+    CANCELADO: { label: 'Cancelado', color: 'error' },
+    PAGO_REQUIERE_REVISION: { label: 'Pago en revisión', color: 'error' },
   };
 
   ngOnInit() {
+    this.cargarPedidos();
+  }
+
+  cargarPedidos() {
+    this.cargando.set(true);
+    this.errorCarga.set('');
     this.pedidosService.misPedidos().subscribe({
-      next:  (p) => { this.pedidos.set(p); this.cargando.set(false); },
-      error: ()  => this.cargando.set(false),
+      next: (p) => {
+        this.pedidos.set(p);
+        this.cargando.set(false);
+      },
+      error: (err) => {
+        this.errorCarga.set(
+          extraerMensajeError(
+            err,
+            'No se pudieron cargar tus pedidos. Revisa tu conexión e inténtalo nuevamente.',
+          ),
+        );
+        this.cargando.set(false);
+      },
     });
   }
 
@@ -69,11 +89,6 @@ export class MisPedidosComponent implements OnInit {
     });
   }
 
-  // Devuelve true si el pedido requiere comprobante manual (pedidos legacy)
-  puedeSubirComprobante(pedido: Pedido): boolean {
-    return pedido.metodoPago !== 'MERCADOPAGO' && pedido.estado === 'PENDIENTE' && !pedido.comprobante;
-  }
-
   // Devuelve true si el pedido puede ser cancelado
   puedeCancelar(pedido: Pedido): boolean {
     return pedido.estado === 'PENDIENTE';
@@ -85,7 +100,7 @@ export class MisPedidosComponent implements OnInit {
     this.pedidosService.cancelar(pedidoId).subscribe({
       next: (pedidoActualizado) => {
         this.pedidos.update((lista) =>
-          lista.map((p) => (p.id === pedidoId ? pedidoActualizado : p))
+          lista.map((p) => (p.id === pedidoId ? pedidoActualizado : p)),
         );
       },
       error: (err) => {

@@ -1,6 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../environments/environment';
+import { ApiUrlService } from './api-url.service';
 
 export interface Color {
   id: number;
@@ -10,7 +10,7 @@ export interface Color {
 
 @Injectable({ providedIn: 'root' })
 export class ColoresService {
-  private readonly API = `${environment.apiUrl}/colores`;
+  private readonly API = inject(ApiUrlService).endpoint('colores');
 
   constructor(private http: HttpClient) {}
 
@@ -30,4 +30,3 @@ export class ColoresService {
     return this.http.delete<Color>(`${this.API}/${id}`);
   }
 }
-

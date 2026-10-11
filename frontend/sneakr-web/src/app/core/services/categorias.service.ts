@@ -1,6 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../environments/environment';
+import { ApiUrlService } from './api-url.service';
 
 export interface Categoria {
   id: number;
@@ -10,7 +10,7 @@ export interface Categoria {
 
 @Injectable({ providedIn: 'root' })
 export class CategoriasService {
-  private readonly API = `${environment.apiUrl}/categorias`;
+  private readonly API = inject(ApiUrlService).endpoint('categorias');
 
   constructor(private http: HttpClient) {}
 

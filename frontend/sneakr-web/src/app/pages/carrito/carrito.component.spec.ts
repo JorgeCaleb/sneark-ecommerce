@@ -5,6 +5,31 @@ import { of, throwError } from 'rxjs';
 import { CarritoService, ItemCarrito } from '../../core/services/carrito.service';
 import { CarritoComponent } from './carrito.component';
 
+function itemCarrito(id: number, disponible: boolean): ItemCarrito {
+  return {
+    id,
+    cantidad: 1,
+    subtotal: 25,
+    tallaProductoId: 10,
+    tallaProducto: {
+      genero: 'M',
+      colorId: 3,
+      color: { id: 3, nombre: 'Negro', codigo: 'BK' },
+      talla: '42',
+      disponible,
+      sku: 'SN-M-BK-42',
+      producto: {
+        id: 8,
+        nombre: 'SOHO',
+        precio: 25,
+        activo: disponible,
+        marca: { nombre: 'SOHO' },
+        imagenes: [],
+      },
+    },
+  };
+}
+
 describe('CarritoComponent', () => {
   let carritoService: {
     carrito: ReturnType<typeof signal>;
@@ -38,14 +63,7 @@ describe('CarritoComponent', () => {
     const component = TestBed.runInInjectionContext(
       () => new CarritoComponent(),
     );
-    const item = {
-      id: 9,
-      cantidad: 1,
-      tallaProducto: {
-        stock: 5,
-        producto: { activo: false },
-      },
-    } as ItemCarrito;
+    const item = itemCarrito(9, false);
 
     component.incrementar(item);
     component.decrementar(item);
@@ -97,11 +115,7 @@ describe('CarritoComponent', () => {
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
-    const item = {
-      id: 10,
-      cantidad: 2,
-      tallaProducto: { stock: 5, producto: { activo: true } },
-    } as ItemCarrito;
+    const item = itemCarrito(10, true);
 
     component.incrementar(item);
 
@@ -133,4 +147,3 @@ describe('CarritoComponent', () => {
     expect(component.vaciando()).toBe(false);
   });
 });
-

@@ -12,16 +12,26 @@ describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+    vi.stubEnv('MP_ACCESS_TOKEN', ' ');
+    const moduleBuilder = Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    });
 
+    moduleBuilder
+      .overrideProvider(PrismaService)
+      .useValue({
+        usuario: { findUnique: vi.fn() },
+        pedido: { findMany: vi.fn().mockResolvedValue([]) },
+        cloudinaryDeleteJob: { findMany: vi.fn().mockResolvedValue([]) },
+      });
+
+    const moduleFixture: TestingModule = await moduleBuilder.compile();
     app = moduleFixture.createNestApplication();
     configurarAplicacion(app);
     await app.init();
   });
 
-  it('/api (GET)', () => {
+  it('starts without Mercado Pago credentials', () => {
     return request(app.getHttpServer())
       .get('/api')
       .expect(200)
@@ -78,5 +88,6 @@ describe('AppController (e2e)', () => {
 
   afterEach(async () => {
     await app.close();
+    vi.unstubAllEnvs();
   });
 });

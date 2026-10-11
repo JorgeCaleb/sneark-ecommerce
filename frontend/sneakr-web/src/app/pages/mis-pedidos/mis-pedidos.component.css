@@ -38,14 +38,23 @@
   height: 80px;
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-md);
-  background: linear-gradient(90deg, var(--color-surface) 25%, var(--color-border) 50%, var(--color-surface) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface) 25%,
+    var(--color-border) 50%,
+    var(--color-surface) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
 @keyframes shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* ── Vacío ───────────────────────────────────────────────── */
@@ -102,7 +111,9 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .pedido-card:hover { box-shadow: var(--shadow-md); }
+  .pedido-card:hover {
+    box-shadow: var(--shadow-md);
+  }
 }
 
 /* Cabecera clickeable */
@@ -119,7 +130,9 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .pedido-card__header:hover { background-color: var(--color-surface); }
+  .pedido-card__header:hover {
+    background-color: var(--color-surface);
+  }
 }
 
 .pedido-card__meta {
@@ -216,16 +229,6 @@
 
 .metodo-badge--mercadopago {
   background-color: #009ee3;
-  color: #fff;
-}
-
-.metodo-badge--yape {
-  background-color: #7c3aed;
-  color: #fff;
-}
-
-.metodo-badge--plin {
-  background-color: #059669;
   color: #fff;
 }
 
@@ -351,37 +354,6 @@
   letter-spacing: -0.02em;
 }
 
-/* ── Comprobante ─────────────────────────────────────────── */
-.pedido-comprobante {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-md);
-  background-color: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: var(--radius-md);
-}
-
-.pedido-comprobante__label {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-success);
-}
-
-.pedido-comprobante__link {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-success);
-  transition: opacity 150ms ease;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .pedido-comprobante__link:hover { opacity: 0.7; }
-}
-
 /* ── Acciones ────────────────────────────────────────────── */
 .pedido-acciones {
   display: flex;
@@ -403,7 +375,9 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .pedido-acciones__cancelar:hover { opacity: 0.7; }
+  .pedido-acciones__cancelar:hover {
+    opacity: 0.7;
+  }
 }
 
 /* ── Responsive ──────────────────────────────────────────── */

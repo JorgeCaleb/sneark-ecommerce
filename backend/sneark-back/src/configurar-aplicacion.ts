@@ -1,11 +1,17 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import { obtenerOrigenPublico } from './common/origen-publico.util.js';
 
 export function configurarAplicacion(app: INestApplication) {
   app.use(helmet());
 
   app.enableCors({
-    origin: process.env.FRONTEND_ORIGIN ?? 'http://localhost:4200',
+    origin: obtenerOrigenPublico(
+      process.env.FRONTEND_ORIGIN,
+      'FRONTEND_ORIGIN',
+      process.env.NODE_ENV === 'production',
+      'http://localhost:4200',
+    ),
   });
 
   app.setGlobalPrefix('api');

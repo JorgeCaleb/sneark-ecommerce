@@ -16,6 +16,7 @@ import { FiltrarProductosAdminDto } from './dto/filtrar-productos-admin.dto.js';
 import { PrevisualizarSkuDto } from './dto/previsualizar-sku.dto.js';
 import { FiltrarInventarioDto } from './dto/filtrar-inventario.dto.js';
 import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
+import { esConflictoSerializacion } from '../prisma/es-conflicto-serializacion.js';
 import { construirMetaPaginacion } from '../common/paginacion.util.js';
 
 // Campos completos para endpoints de ADMIN
@@ -54,6 +55,19 @@ const INCLUDE_PRODUCTO_PUBLICO = {
     orderBy: { tallaNumero: 'asc' as const },
   },
 };
+
+function ocultarStockExacto<T extends { tallas: { stock: number }[] }>(
+  producto: T,
+) {
+  const { tallas, ...datosProducto } = producto;
+  return {
+    ...datosProducto,
+    tallas: tallas.map(({ stock, ...talla }) => ({
+      ...talla,
+      disponible: stock > 0,
+    })),
+  };
+}
 
 @Injectable()
 export class ProductosService {
@@ -135,6 +149,7 @@ export class ProductosService {
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
+      this.lanzarConflictoSerializacion(error);
       this.lanzarConflictoUnico(error);
     }
   }
@@ -151,6 +166,14 @@ export class ProductosService {
           ? false
           : undefined;
     return this.listarProductos(filtros, activo, false);
+  }
+
+  private lanzarConflictoSerializacion(error: unknown): void {
+    if (esConflictoSerializacion(error)) {
+      throw new ConflictException(
+        'Los datos cambiaron durante la operación. Vuelve a intentarlo.',
+      );
+    }
   }
 
   private async listarProductos(
@@ -219,7 +242,7 @@ export class ProductosService {
     ]);
 
     return {
-      datos: productos,
+      datos: esPublico ? productos.map(ocultarStockExacto) : productos,
       meta: construirMetaPaginacion(total, pagina, limite),
     };
   }
@@ -247,7 +270,7 @@ export class ProductosService {
       throw new NotFoundException(`Producto con id ${id} no encontrado`);
     }
 
-    return producto;
+    return ocultarStockExacto(producto);
   }
 
   async actualizar(id: number, dto: ActualizarProductoDto) {
@@ -428,6 +451,7 @@ export class ProductosService {
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
+      this.lanzarConflictoSerializacion(error);
       this.lanzarConflictoUnico(error);
     }
   }

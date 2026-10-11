@@ -1,6 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { environment } from '../../../environments/environment';
+import { ApiUrlService } from './api-url.service';
 import type { ValorMonetario } from '../models/valor-monetario';
 
 export interface ItemPedido {
@@ -26,17 +26,22 @@ export interface ItemPedido {
 }
 
 export type EstadoPedido =
-  'PENDIENTE' | 'PAGO_VERIFICADO' | 'EN_PREPARACION' | 'ENVIADO' | 'ENTREGADO' | 'CANCELADO';
+  | 'PENDIENTE'
+  | 'PAGO_VERIFICADO'
+  | 'EN_PREPARACION'
+  | 'ENVIADO'
+  | 'ENTREGADO'
+  | 'CANCELADO'
+  | 'PAGO_REQUIERE_REVISION';
 
-export type MetodoPago = 'YAPE' | 'PLIN' | 'MERCADOPAGO';
+export type MetodoPago = 'MERCADOPAGO';
 
 export interface Pedido {
   id: number;
   total: ValorMonetario;
+  costoEnvio: ValorMonetario;
   estado: EstadoPedido;
   metodoPago: MetodoPago;
-  comprobante: string | null;
-  numeroOperacion: string | null;
   telefono: string;
   ciudad: string;
   direccion: string;
@@ -46,10 +51,14 @@ export interface Pedido {
 }
 
 export interface CrearPedidoData {
-  metodoPago: MetodoPago;
   telefono: string;
-  ciudad: string;
+  distrito: string;
   direccion: string;
+}
+
+export interface OpcionEnvio {
+  distrito: string;
+  costoEnvio: number;
 }
 
 export interface PedidosPaginados {
@@ -80,12 +89,24 @@ export interface ResumenPedidosDashboard {
 
 @Injectable({ providedIn: 'root' })
 export class PedidosService {
-  private readonly API = `${environment.apiUrl}/pedidos`;
+  private readonly API = inject(ApiUrlService).endpoint('pedidos');
 
   constructor(private http: HttpClient) {}
 
   crear(data: CrearPedidoData) {
-    return this.http.post<Pedido>(this.API, data);
+    return this.http.post<Pedido>(this.API, {
+      ...data,
+      metodoPago: 'MERCADOPAGO',
+    });
+  }
+
+  opcionesEnvio() {
+    return this.http.get<OpcionEnvio[]>(`${this.API}/envio/opciones`);
+  }
+
+  cotizarEnvio(distrito: string) {
+    const params = new HttpParams().set('distrito', distrito);
+    return this.http.get<OpcionEnvio>(`${this.API}/envio/cotizar`, { params });
   }
 
   misPedidos() {
@@ -96,18 +117,12 @@ export class PedidosService {
     return this.http.get<Pedido>(`${this.API}/${id}`);
   }
 
-  subirComprobante(pedidoId: number, formData: FormData) {
-    return this.http.post<Pedido>(`${this.API}/${pedidoId}/comprobante`, formData);
-  }
-
   cancelar(pedidoId: number) {
     return this.http.patch<Pedido>(`${this.API}/${pedidoId}/cancelar`, {});
   }
 
   buscarPagina(pagina: number, limite = 25, estado?: EstadoPedido) {
-    let params = new HttpParams()
-      .set('pagina', pagina)
-      .set('limite', limite);
+    let params = new HttpParams().set('pagina', pagina).set('limite', limite);
     if (estado) params = params.set('estado', estado);
     return this.http.get<PedidosPaginados>(`${this.API}/admin/list`, { params });
   }

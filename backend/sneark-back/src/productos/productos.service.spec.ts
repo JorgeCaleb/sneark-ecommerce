@@ -353,14 +353,22 @@ describe('ProductosService actualizar stock de talla', () => {
 
   describe('ProductosService búsqueda pública por id', () => {
     it('returns an active product', async () => {
-      const producto = { id: 3, activo: true };
+      const producto = {
+        id: 3,
+        activo: true,
+        tallas: [{ stock: 4 }, { stock: 0 }],
+      };
       const findFirst = vi.fn().mockResolvedValue(producto);
       const service = new ProductosService(
         { producto: { findFirst } } as unknown as PrismaService,
         {} as CloudinaryService,
       );
 
-      await expect(service.buscarPorIdPublico(3)).resolves.toBe(producto);
+      await expect(service.buscarPorIdPublico(3)).resolves.toEqual({
+        id: 3,
+        activo: true,
+        tallas: [{ disponible: true }, { disponible: false }],
+      });
       expect(findFirst).toHaveBeenCalledWith({
         where: { id: 3, activo: true },
         include: expect.any(Object),

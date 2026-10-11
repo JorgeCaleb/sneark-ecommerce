@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../environments/environment';
+import { ApiUrlService } from './api-url.service';
 import type { EstadoPedido, MetodoPago } from './pedidos.service';
 import type { ValorMonetario } from '../models/valor-monetario';
 
@@ -25,7 +25,7 @@ export interface EstadoPagoResponse {
 })
 export class PagosService {
   private http = inject(HttpClient);
-  private apiUrl = `${environment.apiUrl}/pagos`;
+  private apiUrl = inject(ApiUrlService).endpoint('pagos');
 
   crearPreferencia(pedidoId: number): Observable<PreferenciaPagoResponse> {
     return this.http.post<PreferenciaPagoResponse>(

@@ -2,7 +2,8 @@ export function extraerMensajeError(
   err: unknown,
   fallback = 'Ocurrió un error inesperado.',
 ): string {
-  const message = (err as any)?.error?.message;
+  const message = (err as { error?: { message?: unknown } } | null | undefined)?.error
+    ?.message;
   if (Array.isArray(message)) {
     const formatted = message.filter(Boolean).join('. ');
     return formatted.length > 0 ? formatted : fallback;

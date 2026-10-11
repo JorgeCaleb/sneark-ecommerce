@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 import { ColoresService } from '../../../core/services/colores.service';
 import { AdminColoresComponent } from './admin-colores.component';
 

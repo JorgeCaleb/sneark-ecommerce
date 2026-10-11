@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Injectable,
   ConflictException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -13,9 +14,12 @@ import { CrearMarcaDto } from './dto/crear-marca.dto.js';
 import { ActualizarMarcaDto } from './dto/actualizar-marca.dto.js';
 import { publicIdDesdeUrlCloudinary } from '../cloudinary/public-id-cloudinary.util.js';
 import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
+import { esConflictoSerializacion } from '../prisma/es-conflicto-serializacion.js';
 
 @Injectable()
 export class MarcasService {
+  private readonly logger = new Logger(MarcasService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cloudinary: CloudinaryService,
@@ -113,6 +117,11 @@ export class MarcasService {
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
+      if (esConflictoSerializacion(error)) {
+        throw new ConflictException(
+          'Los datos de la marca cambiaron durante la operación. Vuelve a intentarlo.',
+        );
+      }
       this.lanzarConflictoDuplicado(error, dto.nombre, codigo);
     }
   }
@@ -158,8 +167,8 @@ export class MarcasService {
       } catch (error) {
         const detalle =
           error instanceof Error ? error.message : 'Error desconocido';
-        throw new BadGatewayException(
-          `El logo nuevo se guardó, pero no se pudo eliminar el anterior: ${detalle}`,
+        this.logger.warn(
+          `El logo de la marca #${id} se guardó, pero falló la limpieza de la imagen anterior: ${detalle}`,
         );
       }
     }

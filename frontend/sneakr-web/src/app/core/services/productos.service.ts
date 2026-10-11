@@ -1,7 +1,7 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { finalize, tap } from 'rxjs/operators';
-import { environment } from '../../../environments/environment';
+import { ApiUrlService } from './api-url.service';
 import type { ValorMonetario } from '../models/valor-monetario';
 
 export type { ValorMonetario } from '../models/valor-monetario';
@@ -22,6 +22,10 @@ export interface TallaProducto {
   sku?: string; // solo disponible en endpoints de admin
 }
 
+export type TallaProductoPublica = Omit<TallaProducto, 'stock' | 'sku'> & {
+  disponible: boolean;
+};
+
 export interface Producto {
   id: number;
   nombre: string;
@@ -37,6 +41,10 @@ export interface Producto {
   tallas: TallaProducto[];
 }
 
+export type ProductoPublico = Omit<Producto, 'tallas'> & {
+  tallas: TallaProductoPublica[];
+};
+
 export interface PaginacionMeta {
   total: number;
   pagina: number;
@@ -46,6 +54,11 @@ export interface PaginacionMeta {
 
 export interface ProductosPaginados {
   datos: Producto[];
+  meta: PaginacionMeta;
+}
+
+export interface ProductosPublicosPaginados {
+  datos: ProductoPublico[];
   meta: PaginacionMeta;
 }
 
@@ -127,10 +140,10 @@ export interface VariantesInventarioPaginadas {
 
 @Injectable({ providedIn: 'root' })
 export class ProductosService {
-  private readonly API = `${environment.apiUrl}/productos`;
+  private readonly API = inject(ApiUrlService).endpoint('productos');
 
   // Signal con la lista de productos del catálogo
-  readonly productos = signal<Producto[]>([]);
+  readonly productos = signal<ProductoPublico[]>([]);
   readonly meta = signal<PaginacionMeta | null>(null);
   readonly cargando = signal(false);
   private busquedaActiva = 0;
@@ -142,7 +155,7 @@ export class ProductosService {
   }
 
   buscarTodosAdmin(filtros: FiltrosProductosAdmin) {
-    return this.buscarYActualizar(this.buscarAdminPagina(filtros));
+    return this.buscarAdminPagina(filtros);
   }
 
   private buscarYActualizar(request: ReturnType<ProductosService['buscarPagina']>) {
@@ -162,7 +175,7 @@ export class ProductosService {
 
   buscarPagina(filtros: FiltrosProducto = {}) {
     const params = this.crearParametros(filtros);
-    return this.http.get<ProductosPaginados>(this.API, { params });
+    return this.http.get<ProductosPublicosPaginados>(this.API, { params });
   }
 
   buscarAdminPagina(filtros: FiltrosProductosAdmin) {
@@ -186,7 +199,11 @@ export class ProductosService {
   }
 
   buscarPorId(id: number) {
-    return this.http.get<Producto>(`${this.API}/${id}`);
+    return this.http.get<ProductoPublico>(`${this.API}/${id}`);
+  }
+
+  buscarPorIdAdmin(id: number) {
+    return this.http.get<Producto>(`${this.API}/admin/${id}`);
   }
 
   inventarioActivo() {

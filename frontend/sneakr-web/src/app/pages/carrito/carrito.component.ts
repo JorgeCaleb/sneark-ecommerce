@@ -41,8 +41,7 @@ export class CarritoComponent implements OnInit {
   }
 
   incrementar(item: ItemCarrito) {
-    const maxStock = item.tallaProducto.stock;
-    if (!item.tallaProducto.producto.activo || item.cantidad >= maxStock) return;
+    if (!item.tallaProducto.producto.activo || !item.tallaProducto.disponible) return;
     this.errorAccion.set('');
     this.marcarActualizando(item.id, true);
     this.carritoService.actualizarCantidad(item.id, item.cantidad + 1).subscribe({
@@ -116,4 +115,3 @@ export class CarritoComponent implements OnInit {
     });
   }
 }
-

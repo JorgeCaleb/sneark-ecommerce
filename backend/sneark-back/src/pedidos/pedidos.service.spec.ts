@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import { EstadoPedido, Prisma } from '@prisma/client';
 import { CarritoService } from '../carrito/carrito.service.js';
-import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MetodoPagoDto } from './dto/crear-pedido.dto.js';
 import { PedidosService } from './pedidos.service.js';
@@ -18,7 +17,6 @@ describe('PedidosService ownership lookup', () => {
     findFirst = vi.fn();
     service = new PedidosService(
       { pedido: { findFirst } } as unknown as PrismaService,
-      {} as CloudinaryService,
       {} as CarritoService,
     );
   });
@@ -102,7 +100,6 @@ describe('PedidosService order creation inventory reservation', () => {
     };
     service = new PedidosService(
       prisma as unknown as PrismaService,
-      {} as CloudinaryService,
       carritoService as unknown as CarritoService,
     );
   });
@@ -116,15 +113,14 @@ describe('PedidosService order creation inventory reservation', () => {
     );
     const service = new PedidosService(
       { $transaction: transaction } as unknown as PrismaService,
-      {} as CloudinaryService,
       {} as CarritoService,
     );
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.YAPE,
+        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
-        ciudad: 'Lima',
+        distrito: 'La Esperanza',
         direccion: 'Calle 1',
       }),
     ).rejects.toThrow(BadRequestException);
@@ -135,9 +131,9 @@ describe('PedidosService order creation inventory reservation', () => {
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.YAPE,
+        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
-        ciudad: 'Lima',
+        distrito: 'La Esperanza',
         direccion: 'Calle 1',
       }),
     ).resolves.toEqual({ id: 35 });
@@ -159,6 +155,7 @@ describe('PedidosService order creation inventory reservation', () => {
       actualizarStock.mock.invocationCallOrder[0],
     );
     expect(crearPedido).toHaveBeenCalledOnce();
+    expect(crearPedido.mock.calls[0][0].data.metodoPago).toBe('MERCADOPAGO');
     expect(crearPedido.mock.calls[0][0].data.items.create).toEqual([
       {
         tallaProductoId: 21,
@@ -180,9 +177,9 @@ describe('PedidosService order creation inventory reservation', () => {
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.YAPE,
+        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
-        ciudad: 'Lima',
+        distrito: 'La Esperanza',
         direccion: 'Calle 1',
       }),
     ).rejects.toThrow('El carrito cambió durante la compra');
@@ -197,9 +194,9 @@ describe('PedidosService order creation inventory reservation', () => {
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.YAPE,
+        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
-        ciudad: 'Lima',
+        distrito: 'La Esperanza',
         direccion: 'Calle 1',
       }),
     ).rejects.toThrow('El carrito cambió durante la compra');
@@ -238,15 +235,14 @@ describe('PedidosService order creation inventory reservation', () => {
     };
     const service = new PedidosService(
       prisma as unknown as PrismaService,
-      {} as CloudinaryService,
       carritoService as unknown as CarritoService,
     );
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.YAPE,
+        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
-        ciudad: 'Lima',
+        distrito: 'La Esperanza',
         direccion: 'Calle 1',
       }),
     ).rejects.toThrow('Productos no disponibles: "SOHO One"');
@@ -289,9 +285,9 @@ describe('PedidosService order creation inventory reservation', () => {
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.YAPE,
+        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
-        ciudad: 'Lima',
+        distrito: 'La Esperanza',
         direccion: 'Calle 1',
       }),
     ).rejects.toThrow('Stock insuficiente para "SOHO One" talla 43');
@@ -307,29 +303,31 @@ describe('PedidosService admin order state transitions', () => {
     id: 42,
     usuarioId: 7,
     estado: EstadoPedido.PENDIENTE,
+    inventarioReservado: true,
     items: [{ tallaProductoId: 21, cantidad: 2 }],
   };
 
   let service: PedidosService;
   let updateMany: ReturnType<typeof vi.fn>;
   let updateStock: ReturnType<typeof vi.fn>;
+  let reservarStock: ReturnType<typeof vi.fn>;
   let findUniqueOrThrow: ReturnType<typeof vi.fn>;
   let transaction: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     updateMany = vi.fn().mockResolvedValue({ count: 1 });
     updateStock = vi.fn().mockResolvedValue({});
+    reservarStock = vi.fn().mockResolvedValue({ count: 1 });
     findUniqueOrThrow = vi
       .fn()
       .mockResolvedValue({ ...order, estado: EstadoPedido.CANCELADO });
     const tx = {
       pedido: { updateMany, findUniqueOrThrow },
-      tallaProducto: { update: updateStock },
+      tallaProducto: { update: updateStock, updateMany: reservarStock },
     };
     transaction = vi.fn((callback) => callback(tx));
     service = new PedidosService(
       { $transaction: transaction } as unknown as PrismaService,
-      {} as CloudinaryService,
       {} as CarritoService,
     );
     vi.spyOn(service, 'buscarPorId').mockResolvedValue(
@@ -338,38 +336,70 @@ describe('PedidosService admin order state transitions', () => {
   });
 
   it.each([
-    [EstadoPedido.PENDIENTE, EstadoPedido.PAGO_VERIFICADO],
     [EstadoPedido.PENDIENTE, EstadoPedido.CANCELADO],
     [EstadoPedido.PAGO_VERIFICADO, EstadoPedido.EN_PREPARACION],
     [EstadoPedido.PAGO_VERIFICADO, EstadoPedido.CANCELADO],
     [EstadoPedido.EN_PREPARACION, EstadoPedido.ENVIADO],
     [EstadoPedido.ENVIADO, EstadoPedido.ENTREGADO],
-  ])('permite la transición %s → %s', async (estadoActual, estadoSolicitado) => {
-    const pedidoActual = { ...order, estado: estadoActual };
-    vi.spyOn(service, 'buscarPorId')
-      .mockReset()
-      .mockResolvedValueOnce(
-        pedidoActual as Awaited<ReturnType<typeof service.buscarPorId>>,
-      )
-      .mockResolvedValueOnce({
-        ...pedidoActual,
-        estado: estadoSolicitado,
-      } as Awaited<ReturnType<typeof service.buscarPorId>>);
+    [EstadoPedido.PAGO_REQUIERE_REVISION, EstadoPedido.PAGO_VERIFICADO],
+    [EstadoPedido.PAGO_REQUIERE_REVISION, EstadoPedido.CANCELADO],
+  ])(
+    'permite la transición %s → %s',
+    async (estadoActual, estadoSolicitado) => {
+      const pedidoActual = {
+        ...order,
+        estado: estadoActual,
+        inventarioReservado:
+          estadoActual !== EstadoPedido.PAGO_REQUIERE_REVISION,
+      };
+      vi.spyOn(service, 'buscarPorId')
+        .mockReset()
+        .mockResolvedValueOnce(
+          pedidoActual as Awaited<ReturnType<typeof service.buscarPorId>>,
+        )
+        .mockResolvedValueOnce({
+          ...pedidoActual,
+          estado: estadoSolicitado,
+        } as Awaited<ReturnType<typeof service.buscarPorId>>);
 
-    await expect(
-      service.actualizarEstado(42, { estado: estadoSolicitado }),
-    ).resolves.toMatchObject({ estado: estadoSolicitado });
+      await expect(
+        service.actualizarEstado(42, { estado: estadoSolicitado }),
+      ).resolves.toMatchObject({ estado: estadoSolicitado });
 
-    expect(updateMany).toHaveBeenCalledWith({
-      where: { id: 42, estado: estadoActual },
-      data: { estado: estadoSolicitado },
-    });
-    if (estadoSolicitado === EstadoPedido.CANCELADO) {
-      expect(updateStock).toHaveBeenCalledOnce();
-    } else {
-      expect(updateStock).not.toHaveBeenCalled();
-    }
-  });
+      expect(updateMany).toHaveBeenCalledWith({
+        where: { id: 42, estado: estadoActual },
+        data: {
+          estado: estadoSolicitado,
+          ...(estadoSolicitado === EstadoPedido.CANCELADO
+            ? { inventarioReservado: false }
+            : {}),
+          ...(estadoSolicitado === EstadoPedido.PAGO_VERIFICADO &&
+          estadoActual === EstadoPedido.PAGO_REQUIERE_REVISION
+            ? {
+                inventarioReservado: true,
+                pagadoEn: expect.any(Date),
+              }
+            : {}),
+        },
+      });
+      if (
+        estadoSolicitado === EstadoPedido.CANCELADO &&
+        pedidoActual.inventarioReservado
+      ) {
+        expect(updateStock).toHaveBeenCalledOnce();
+      } else {
+        expect(updateStock).not.toHaveBeenCalled();
+      }
+      if (
+        estadoSolicitado === EstadoPedido.PAGO_VERIFICADO &&
+        estadoActual === EstadoPedido.PAGO_REQUIERE_REVISION
+      ) {
+        expect(reservarStock).toHaveBeenCalledOnce();
+      } else {
+        expect(reservarStock).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   it.each([
     [EstadoPedido.ENTREGADO, EstadoPedido.PENDIENTE],
@@ -377,20 +407,38 @@ describe('PedidosService admin order state transitions', () => {
     [EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO],
     [EstadoPedido.CANCELADO, EstadoPedido.PENDIENTE],
     [EstadoPedido.ENTREGADO, EstadoPedido.ENTREGADO],
-  ])('rechaza la transición %s → %s', async (estadoActual, estadoSolicitado) => {
+  ])(
+    'rechaza la transición %s → %s',
+    async (estadoActual, estadoSolicitado) => {
+      vi.spyOn(service, 'buscarPorId').mockResolvedValue({
+        ...order,
+        estado: estadoActual,
+      } as Awaited<ReturnType<typeof service.buscarPorId>>);
+
+      await expect(
+        service.actualizarEstado(42, { estado: estadoSolicitado }),
+      ).rejects.toThrow(
+        `No se permite cambiar el pedido del estado ${estadoActual} al estado ${estadoSolicitado}.`,
+      );
+
+      expect(transaction).not.toHaveBeenCalled();
+      expect(updateStock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not allow admins to mark a pending order paid manually', async () => {
     vi.spyOn(service, 'buscarPorId').mockResolvedValue({
       ...order,
-      estado: estadoActual,
+      estado: EstadoPedido.PENDIENTE,
     } as Awaited<ReturnType<typeof service.buscarPorId>>);
 
     await expect(
-      service.actualizarEstado(42, { estado: estadoSolicitado }),
+      service.actualizarEstado(42, { estado: EstadoPedido.PAGO_VERIFICADO }),
     ).rejects.toThrow(
-      `No se permite cambiar el pedido del estado ${estadoActual} al estado ${estadoSolicitado}.`,
+      'El pago de Mercado Pago solo se confirma automáticamente tras validar su notificación.',
     );
 
     expect(transaction).not.toHaveBeenCalled();
-    expect(updateStock).not.toHaveBeenCalled();
   });
 
   it('conflicta sin reponer stock si otra solicitud ya cambió el estado', async () => {
@@ -413,7 +461,9 @@ describe('PedidosService admin order state transitions', () => {
   });
 
   it('revierte la transición si falla la reposición de stock', async () => {
-    updateStock.mockRejectedValue(new Error('Falló la actualización del inventario'));
+    updateStock.mockRejectedValue(
+      new Error('Falló la actualización del inventario'),
+    );
 
     await expect(
       service.actualizarEstado(42, { estado: EstadoPedido.CANCELADO }),
@@ -429,6 +479,7 @@ describe('PedidosService customer order cancellation', () => {
     id: 42,
     usuarioId: 7,
     estado: EstadoPedido.PENDIENTE,
+    inventarioReservado: true,
     usuario: { id: 7 },
     items: [{ tallaProductoId: 21, cantidad: 2 }],
   };
@@ -451,7 +502,6 @@ describe('PedidosService customer order cancellation', () => {
     transaction = prisma.$transaction;
     service = new PedidosService(
       prisma as unknown as PrismaService,
-      {} as CloudinaryService,
       {} as CarritoService,
     );
     vi.spyOn(service, 'buscarPorId')
@@ -475,7 +525,10 @@ describe('PedidosService customer order cancellation', () => {
         usuarioId: 7,
         estado: EstadoPedido.PENDIENTE,
       },
-      data: { estado: EstadoPedido.CANCELADO },
+      data: {
+        estado: EstadoPedido.CANCELADO,
+        inventarioReservado: false,
+      },
     });
     expect(updateStock).toHaveBeenCalledWith({
       where: { id: 21 },
@@ -537,7 +590,8 @@ describe('PedidosService customer order cancellation', () => {
         lecturas += 1;
         return {
           ...order,
-          estado: lecturas <= 2 ? EstadoPedido.PENDIENTE : EstadoPedido.CANCELADO,
+          estado:
+            lecturas <= 2 ? EstadoPedido.PENDIENTE : EstadoPedido.CANCELADO,
         } as Awaited<ReturnType<typeof service.buscarPorId>>;
       });
 
@@ -546,86 +600,13 @@ describe('PedidosService customer order cancellation', () => {
       service.cancelar(7, 42),
     ]);
 
-    expect(resultados.filter((resultado) => resultado.status === 'fulfilled')).toHaveLength(1);
-    expect(resultados.filter((resultado) => resultado.status === 'rejected')).toHaveLength(1);
+    expect(
+      resultados.filter((resultado) => resultado.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      resultados.filter((resultado) => resultado.status === 'rejected'),
+    ).toHaveLength(1);
     expect(updateStock).toHaveBeenCalledOnce();
-  });
-});
-
-describe('PedidosService receipt replacement conflicts', () => {
-  it('removes the uploaded receipt when the order changes during upload', async () => {
-    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
-    const prisma = {
-      pedido: { findFirst: vi.fn().mockResolvedValue(null) },
-      $transaction: vi.fn((callback) =>
-        callback({
-          pedido: { updateMany, findUniqueOrThrow: vi.fn() },
-        }),
-      ),
-    };
-    const cloudinary = {
-      subirImagen: vi.fn().mockResolvedValue({
-        url: 'https://example.test/receipt.png',
-        publicId: 'SOHO/comprobantes/42/receipt',
-      }),
-      eliminarImagen: vi.fn().mockResolvedValue(undefined),
-    };
-    const service = new PedidosService(
-      prisma as unknown as PrismaService,
-      cloudinary as unknown as CloudinaryService,
-      {} as CarritoService,
-    );
-    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
-      id: 42,
-      estado: 'PENDIENTE',
-      usuario: { id: 7 },
-      comprobante: null,
-      comprobantePublicId: null,
-    } as Awaited<ReturnType<typeof service.buscarPorId>>);
-
-    await expect(
-      service.subirComprobante(
-        7,
-        42,
-        { buffer: Buffer.from('receipt') } as Express.Multer.File,
-        { numeroOperacion: ' OP-1 ' },
-      ),
-    ).rejects.toThrow(BadRequestException);
-
-    expect(updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          estado: 'PENDIENTE',
-          comprobantePublicId: null,
-        }),
-        data: expect.objectContaining({ numeroOperacion: 'OP-1' }),
-      }),
-    );
-    expect(cloudinary.eliminarImagen).toHaveBeenCalledWith(
-      'SOHO/comprobantes/42/receipt',
-    );
-  });
-});
-
-describe('PedidosService missing receipt file', () => {
-  it('returns a client error before looking up the order or uploading to Cloudinary', async () => {
-    const buscarPorId = vi.fn();
-    const subirImagen = vi.fn();
-    const service = new PedidosService(
-      { pedido: { findFirst: buscarPorId } } as unknown as PrismaService,
-      { subirImagen } as unknown as CloudinaryService,
-      {} as CarritoService,
-    );
-    const lookup = vi.spyOn(service, 'buscarPorId');
-
-    await expect(
-      service.subirComprobante(7, 42, undefined, {
-        numeroOperacion: undefined,
-      }),
-    ).rejects.toThrow('Debes adjuntar el archivo del comprobante');
-
-    expect(lookup).not.toHaveBeenCalled();
-    expect(subirImagen).not.toHaveBeenCalled();
   });
 });
 
@@ -636,7 +617,6 @@ describe('PedidosService admin pagination', () => {
     const count = vi.fn().mockResolvedValue(42);
     const service = new PedidosService(
       { pedido: { findMany, count } } as unknown as PrismaService,
-      {} as CloudinaryService,
       {} as CarritoService,
     );
 
@@ -693,7 +673,6 @@ describe('PedidosService dashboard summary', () => {
         producto: { findMany: productoFindMany },
         $queryRaw: queryRaw,
       } as unknown as PrismaService,
-      {} as CloudinaryService,
       {} as CarritoService,
     );
 
@@ -734,7 +713,7 @@ describe('PedidosService dashboard summary', () => {
       [Prisma.Sql],
       [Prisma.Sql],
     ];
-    expect(ventasQueryCall[0].sql).toContain('`creadoEn` >=');
+    expect(ventasQueryCall[0].sql).toContain('`pagadoEn` >=');
     expect(ventasQueryCall[0].values).toEqual(
       expect.arrayContaining([
         EstadoPedido.PAGO_VERIFICADO,
@@ -745,8 +724,8 @@ describe('PedidosService dashboard summary', () => {
         new Date('2026-10-06T05:00:00.000Z'),
       ]),
     );
-    expect(topProductosQueryCall[0].sql).toContain('pedidos.`creadoEn` >= ?');
-    expect(topProductosQueryCall[0].sql).toContain('pedidos.`creadoEn` < ?');
+    expect(topProductosQueryCall[0].sql).toContain('pedidos.`pagadoEn` >= ?');
+    expect(topProductosQueryCall[0].sql).toContain('pedidos.`pagadoEn` < ?');
     expect(topProductosQueryCall[0].values).toEqual(
       expect.arrayContaining([
         EstadoPedido.PAGO_VERIFICADO,
@@ -762,7 +741,6 @@ describe('PedidosService dashboard summary', () => {
   it('rejects invalid or excessively wide dashboard date intervals', async () => {
     const service = new PedidosService(
       {} as PrismaService,
-      {} as CloudinaryService,
       {} as CarritoService,
     );
 
@@ -779,7 +757,6 @@ describe('PedidosService dashboard summary', () => {
   it('rejects an unbounded previous-period range', async () => {
     const service = new PedidosService(
       {} as PrismaService,
-      {} as CloudinaryService,
       {} as CarritoService,
     );
 
@@ -832,19 +809,18 @@ describe('PedidosService stock reservation expiry and limits', () => {
     };
     const service = new PedidosService(
       prisma as unknown as PrismaService,
-      {} as CloudinaryService,
       carritoService as unknown as CarritoService,
     );
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.YAPE,
+        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
-        ciudad: 'Lima',
+        distrito: 'La Esperanza',
         direccion: 'Calle 1',
       }),
     ).rejects.toThrow(
-      'Ya tienes el pedido #88 pendiente de pago. Adjunta el comprobante o cancélalo antes de realizar uno nuevo.',
+      'Ya tienes el pedido #88 pendiente de pago. Continúa el pago desde Mis pedidos o cancélalo antes de realizar uno nuevo.',
     );
   });
 
@@ -852,10 +828,11 @@ describe('PedidosService stock reservation expiry and limits', () => {
     const hace20Minutos = new Date(Date.now() - 20 * 60 * 1000);
     const pedidoPendienteExpirado = {
       id: 88,
+      estado: EstadoPedido.PENDIENTE,
       creadoEn: hace20Minutos,
       items: [{ tallaProductoId: 21, cantidad: 2 }],
     };
-    const cancelarPedido = vi.fn().mockResolvedValue({});
+    const cancelarPedido = vi.fn().mockResolvedValue({ count: 1 });
     const reponerStock = vi.fn().mockResolvedValue({});
     const actualizarStock = vi.fn().mockResolvedValue({ count: 1 });
     const crearPedido = vi.fn().mockResolvedValue({ id: 99 });
@@ -864,7 +841,7 @@ describe('PedidosService stock reservation expiry and limits', () => {
     const tx = {
       pedido: {
         findFirst: vi.fn().mockResolvedValue(pedidoPendienteExpirado),
-        update: cancelarPedido,
+        updateMany: cancelarPedido,
         create: crearPedido,
       },
       tallaProducto: {
@@ -889,21 +866,27 @@ describe('PedidosService stock reservation expiry and limits', () => {
     };
     const service = new PedidosService(
       prisma as unknown as PrismaService,
-      {} as CloudinaryService,
       carritoService as unknown as CarritoService,
     );
 
     const resultado = await service.crear(7, {
-      metodoPago: MetodoPagoDto.YAPE,
+      metodoPago: MetodoPagoDto.MERCADOPAGO,
       telefono: '999999999',
-      ciudad: 'Lima',
+      distrito: 'La Esperanza',
       direccion: 'Calle 1',
     });
 
     expect(resultado).toEqual({ id: 99 });
     expect(cancelarPedido).toHaveBeenCalledWith({
-      where: { id: 88 },
-      data: { estado: EstadoPedido.CANCELADO },
+      where: {
+        id: 88,
+        estado: EstadoPedido.PENDIENTE,
+        creadoEn: { lte: expect.any(Date) },
+      },
+      data: {
+        estado: EstadoPedido.CANCELADO,
+        inventarioReservado: false,
+      },
     });
     expect(reponerStock).toHaveBeenCalledWith({
       where: { id: 21 },
@@ -929,7 +912,6 @@ describe('PedidosService stock reservation expiry and limits', () => {
     };
     const service = new PedidosService(
       prisma as unknown as PrismaService,
-      {} as CloudinaryService,
       {} as CarritoService,
     );
 
@@ -940,65 +922,15 @@ describe('PedidosService stock reservation expiry and limits', () => {
       where: {
         id: 105,
         estado: EstadoPedido.PENDIENTE,
-        comprobante: null,
       },
-      data: { estado: EstadoPedido.CANCELADO },
+      data: {
+        estado: EstadoPedido.CANCELADO,
+        inventarioReservado: false,
+      },
     });
     expect(updateStock).toHaveBeenCalledWith({
       where: { id: 30 },
       data: { stock: { increment: 1 } },
     });
   });
-
-  it('subirComprobante rejects and frees stock if receipt is submitted after expiration', async () => {
-    const hace30Minutos = new Date(Date.now() - 30 * 60 * 1000);
-    const pedidoExpirado = {
-      id: 77,
-      estado: EstadoPedido.PENDIENTE,
-      comprobante: null,
-      creadoEn: hace30Minutos,
-      usuario: { id: 5 },
-      items: [{ tallaProductoId: 44, cantidad: 3 }],
-    };
-    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
-    const updateStock = vi.fn().mockResolvedValue({});
-    const tx = {
-      pedido: { updateMany },
-      tallaProducto: { update: updateStock },
-    };
-    const prisma = {
-      $transaction: vi.fn((callback) => callback(tx)),
-    };
-    const service = new PedidosService(
-      prisma as unknown as PrismaService,
-      {} as CloudinaryService,
-      {} as CarritoService,
-    );
-    vi.spyOn(service, 'buscarPorId').mockResolvedValue(
-      pedidoExpirado as unknown as Awaited<ReturnType<typeof service.buscarPorId>>,
-    );
-
-    await expect(
-      service.subirComprobante(
-        5,
-        77,
-        { buffer: Buffer.from('fake') } as Express.Multer.File,
-        { numeroOperacion: '123456' },
-      ),
-    ).rejects.toThrow('El tiempo límite de 15 minutos para pagar este pedido ha expirado');
-
-    expect(updateMany).toHaveBeenCalledWith({
-      where: {
-        id: 77,
-        estado: EstadoPedido.PENDIENTE,
-        comprobante: null,
-      },
-      data: { estado: EstadoPedido.CANCELADO },
-    });
-    expect(updateStock).toHaveBeenCalledWith({
-      where: { id: 44 },
-      data: { stock: { increment: 3 } },
-    });
-  });
 });
-

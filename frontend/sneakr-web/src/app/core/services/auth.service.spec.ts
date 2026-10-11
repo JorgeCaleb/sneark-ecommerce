@@ -10,6 +10,9 @@ import { AuthService } from './auth.service';
 
 describe('AuthService storage resilience', () => {
   let http: HttpTestingController;
+  const tokenValido = `header.${btoa(
+    JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }),
+  )}.signature`;
 
   beforeEach(() => {
     localStorage.clear();
@@ -57,7 +60,7 @@ describe('AuthService storage resilience', () => {
 
     auth.login('admin@example.test', 'password').subscribe();
     http.expectOne(`${environment.apiUrl}/auth/login`).flush({
-      token: 'header.payload.signature',
+      token: tokenValido,
       usuario: {
         id: 1,
         nombre: 'Admin',

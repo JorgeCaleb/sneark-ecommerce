@@ -8,6 +8,8 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Headers,
+  Query,
 } from '@nestjs/common';
 import { PagosService } from './pagos.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
@@ -30,11 +32,21 @@ export class PagosController {
 
   // POST /api/pagos/webhook
   // Mercado Pago llama aquí cuando hay un cambio de estado en el pago
-  // Sin autenticación JWT — MP firma la notificación con su propia clave
+  // Sin JWT: se valida la firma de Mercado Pago antes de procesar el pago.
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
-  procesarWebhook(@Body() body: Record<string, unknown>) {
-    return this.pagosService.procesarWebhook(body);
+  procesarWebhook(
+    @Body() body: Record<string, unknown>,
+    @Headers('x-signature') firma?: string,
+    @Headers('x-request-id') requestId?: string,
+    @Query('data.id') idConsulta?: string,
+  ) {
+    return this.pagosService.procesarWebhook(
+      body,
+      firma,
+      requestId,
+      idConsulta,
+    );
   }
 
   // GET /api/pagos/estado/:pedidoId

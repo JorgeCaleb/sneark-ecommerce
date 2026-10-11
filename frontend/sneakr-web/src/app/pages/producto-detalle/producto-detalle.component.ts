@@ -1,6 +1,10 @@
 import { Component, OnChanges, inject, signal, computed, Input } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { ProductosService, Producto, TallaProducto } from '../../core/services/productos.service';
+import {
+  ProductosService,
+  ProductoPublico,
+  TallaProductoPublica,
+} from '../../core/services/productos.service';
 import { CarritoService } from '../../core/services/carrito.service';
 import { AuthService } from '../../core/services/auth.service';
 import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
@@ -22,10 +26,10 @@ export class ProductoDetalleComponent implements OnChanges {
   private router           = inject(Router);
   private solicitudProducto = 0;
 
-  readonly producto      = signal<Producto | null>(null);
+  readonly producto      = signal<ProductoPublico | null>(null);
   readonly cargando      = signal(true);
   readonly imagenActiva  = signal(0);
-  readonly tallaSeleccionada = signal<TallaProducto | null>(null);
+  readonly tallaSeleccionada = signal<TallaProductoPublica | null>(null);
   readonly generoSeleccionado = signal<'M' | 'W' | 'X' | null>(null);
   readonly colorSeleccionadoId = signal<number | null>(null);
   readonly cantidad      = signal(1);
@@ -33,8 +37,8 @@ export class ProductoDetalleComponent implements OnChanges {
   readonly mensajeExito  = signal(false);
   readonly error         = signal('');
 
-  readonly stockDisponible = computed(() =>
-    this.tallaSeleccionada()?.stock ?? 0
+  readonly hayStockSeleccionado = computed(
+    () => this.tallaSeleccionada()?.disponible ?? false,
   );
   readonly generosDisponibles = computed(() => [
     ...new Set(this.producto()?.tallas.map((variante) => variante.genero) ?? []),
@@ -43,12 +47,15 @@ export class ProductoDetalleComponent implements OnChanges {
     const genero = this.generoSeleccionado();
     if (!genero) return [];
     const variantes = this.producto()?.tallas.filter((v) => v.genero === genero) ?? [];
-    const colores = new Map<number, { id: number; nombre: string; codigo: string; stock: number }>();
+    const colores = new Map<
+      number,
+      { id: number; nombre: string; codigo: string; disponible: boolean }
+    >();
     for (const variante of variantes) {
       const color = colores.get(variante.color.id);
       colores.set(variante.color.id, {
         ...variante.color,
-        stock: (color?.stock ?? 0) + variante.stock,
+        disponible: (color?.disponible ?? false) || variante.disponible,
       });
     }
     return [...colores.values()];
@@ -62,10 +69,11 @@ export class ProductoDetalleComponent implements OnChanges {
       .sort((a, b) => Number(a.talla) - Number(b.talla));
   });
 
-  readonly puedeAgregar = computed(() =>
-    !!this.tallaSeleccionada() &&
-    this.tallaSeleccionada()!.stock > 0 &&
-    this.cantidad() <= this.tallaSeleccionada()!.stock
+  readonly puedeAgregar = computed(
+    () =>
+      this.hayStockSeleccionado() &&
+      Number.isInteger(this.cantidad()) &&
+      this.cantidad() > 0,
   );
 
   ngOnChanges() {
@@ -98,8 +106,8 @@ export class ProductoDetalleComponent implements OnChanges {
     this.imagenActiva.set(index);
   }
 
-  seleccionarTalla(talla: TallaProducto) {
-    if (talla.stock === 0) return;
+  seleccionarTalla(talla: TallaProductoPublica) {
+    if (!talla.disponible) return;
     this.tallaSeleccionada.set(talla);
     this.cantidad.set(1);
     this.error.set('');
@@ -123,7 +131,7 @@ export class ProductoDetalleComponent implements OnChanges {
   }
 
   incrementar() {
-    if (this.cantidad() < this.stockDisponible()) {
+    if (this.cantidad() < 2_147_483_647) {
       this.cantidad.update((v) => v + 1);
     }
   }
