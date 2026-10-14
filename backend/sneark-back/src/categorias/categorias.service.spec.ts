@@ -10,8 +10,8 @@ function prismaP2002() {
   });
 }
 
-describe('CategoriasService unique names', () => {
-  it('translates a concurrent duplicate create into a conflict', async () => {
+describe('CategoriasService nombres únicos', () => {
+  it('traduce un duplicate create concurrente en conflicto', async () => {
     const categoria = {
       findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockRejectedValue(prismaP2002()),
@@ -25,7 +25,7 @@ describe('CategoriasService unique names', () => {
     );
   });
 
-  it('translates a concurrent duplicate rename into a conflict', async () => {
+  it('traduce un duplicate rename concurrente en conflicto', async () => {
     const categoria = {
       findUnique: vi.fn().mockResolvedValue({ id: 2 }),
       findFirst: vi.fn().mockResolvedValue(null),
@@ -40,17 +40,15 @@ describe('CategoriasService unique names', () => {
     );
   });
 
-  it('propagates non-unique database failures', async () => {
-    const databaseError = new Error('Database unavailable');
+  it('propaga errores de base de datos que no son de unicidad', async () => {
+    const errorBD = new Error('Base de datos no disponible');
     const service = new CategoriasService({
       categoria: {
         findUnique: vi.fn().mockResolvedValue(null),
-        create: vi.fn().mockRejectedValue(databaseError),
+        create: vi.fn().mockRejectedValue(errorBD),
       },
     } as unknown as PrismaService);
 
-    await expect(service.crear({ nombre: 'Running' })).rejects.toBe(
-      databaseError,
-    );
+    await expect(service.crear({ nombre: 'Running' })).rejects.toBe(errorBD);
   });
 });

@@ -1,9 +1,12 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, MaxLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, Matches, MinLength, MaxLength } from 'class-validator';
 
 export class CrearUsuarioDto {
   @IsString()
   @IsNotEmpty({ message: 'El nombre es obligatorio' })
   @MaxLength(100, { message: 'El nombre no puede superar los 100 caracteres' })
+  @Matches(/^[\p{L}\p{M} '\-.]+$/u, {
+    message: 'El nombre solo puede contener letras, espacios, guiones, apóstrofes y puntos',
+  })
   nombre: string;
 
   @IsEmail({}, { message: 'El email no es válido' })

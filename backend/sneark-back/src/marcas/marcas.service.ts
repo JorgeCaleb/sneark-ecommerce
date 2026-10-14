@@ -32,13 +32,6 @@ export class MarcasService {
       codigo,
       ...(dto.logo !== undefined ? { logo: dto.logo } : {}),
     };
-    const existe = await this.prisma.marca.findUnique({
-      where: { nombre: dto.nombre },
-    });
-
-    if (existe) {
-      throw new ConflictException(`La marca "${dto.nombre}" ya existe`);
-    }
 
     try {
       return await this.prisma.marca.create({ data: datos });

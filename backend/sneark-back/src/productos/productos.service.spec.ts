@@ -288,33 +288,11 @@ describe('ProductosService actualizar tallas', () => {
 });
 
 describe('ProductosService actualizar stock de talla', () => {
-  it.each([-1, 1.5])(
-    'rejects invalid stock %p before accessing the database',
-    async (stock) => {
-      const findFirst = vi.fn();
-      const updateMany = vi.fn();
-      const service = new ProductosService(
-        { tallaProducto: { findFirst, updateMany } } as unknown as PrismaService,
-        {} as CloudinaryService,
-      );
-      vi.spyOn(service, 'buscarPorId').mockResolvedValue({
-        id: 3,
-      } as Awaited<ReturnType<typeof service.buscarPorId>>);
-
-      await expect(
-        service.actualizarStockTalla(3, 10, stock, 3),
-      ).rejects.toThrow(BadRequestException);
-
-      expect(findFirst).not.toHaveBeenCalled();
-      expect(updateMany).not.toHaveBeenCalled();
-    },
-  );
-
-  it.each([0, 8])('persists valid non-negative stock %i', async (stock) => {
-    const findFirst = vi.fn().mockResolvedValue({ id: 10, stock });
+  it.each([0, 8])('persiste stock no negativo válido %i', async (stock) => {
+    const findUnique = vi.fn().mockResolvedValue({ id: 10, productoId: 3, stock });
     const updateMany = vi.fn().mockResolvedValue({ count: 1 });
     const service = new ProductosService(
-      { tallaProducto: { findFirst, updateMany } } as unknown as PrismaService,
+      { tallaProducto: { findUnique, updateMany } } as unknown as PrismaService,
       {} as CloudinaryService,
     );
     vi.spyOn(service, 'buscarPorId').mockResolvedValue({
@@ -323,21 +301,21 @@ describe('ProductosService actualizar stock de talla', () => {
 
     await expect(
       service.actualizarStockTalla(3, 10, stock, 3),
-    ).resolves.toEqual({ id: 10, stock });
+    ).resolves.toEqual({ id: 10, productoId: 3, stock });
     expect(updateMany).toHaveBeenCalledWith({
       where: { id: 10, productoId: 3, stock: 3 },
       data: { stock },
     });
   });
 
-  it('rejects a stale stock write and returns the current value', async () => {
-    const findFirst = vi
+  it('rechaza una escritura de stock obsoleta y devuelve el valor actual', async () => {
+    const findUnique = vi
       .fn()
-      .mockResolvedValueOnce({ id: 10, stock: 3 })
-      .mockResolvedValueOnce({ id: 10, stock: 2 });
+      .mockResolvedValueOnce({ id: 10, productoId: 3, stock: 3 })
+      .mockResolvedValueOnce({ id: 10, productoId: 3, stock: 2 });
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const service = new ProductosService(
-      { tallaProducto: { findFirst, updateMany } } as unknown as PrismaService,
+      { tallaProducto: { findUnique, updateMany } } as unknown as PrismaService,
       {} as CloudinaryService,
     );
     vi.spyOn(service, 'buscarPorId').mockResolvedValue({
@@ -350,17 +328,18 @@ describe('ProductosService actualizar stock de talla', () => {
       response: expect.objectContaining({ stockActual: 2 }),
     });
   });
+});
 
   describe('ProductosService búsqueda pública por id', () => {
-    it('returns an active product', async () => {
+    it('devuelve un producto activo con stock oculto', async () => {
       const producto = {
         id: 3,
         activo: true,
         tallas: [{ stock: 4 }, { stock: 0 }],
       };
-      const findFirst = vi.fn().mockResolvedValue(producto);
+      const findUnique = vi.fn().mockResolvedValue(producto);
       const service = new ProductosService(
-        { producto: { findFirst } } as unknown as PrismaService,
+        { producto: { findUnique } } as unknown as PrismaService,
         {} as CloudinaryService,
       );
 
@@ -369,16 +348,29 @@ describe('ProductosService actualizar stock de talla', () => {
         activo: true,
         tallas: [{ disponible: true }, { disponible: false }],
       });
-      expect(findFirst).toHaveBeenCalledWith({
-        where: { id: 3, activo: true },
+      expect(findUnique).toHaveBeenCalledWith({
+        where: { id: 3 },
         include: expect.any(Object),
       });
     });
 
-    describe('ProductosService variants and inventory', () => {
-      it('stores a readable half-size and builds the SKU only on the server', async () => {
-        const tx = {
-          marca: { findUnique: vi.fn().mockResolvedValue({ codigo: 'NK' }) },
+    it('no expone un producto inactivo', async () => {
+      const findUnique = vi.fn().mockResolvedValue({ id: 3, activo: false });
+      const service = new ProductosService(
+        { producto: { findUnique } } as unknown as PrismaService,
+        {} as CloudinaryService,
+      );
+
+      await expect(service.buscarPorIdPublico(3)).rejects.toThrow(
+        'Producto con id 3 no encontrado',
+      );
+    });
+  });
+
+  describe('ProductosService variantes e inventario', () => {
+    it('almacena una media talla legible y construye el SKU solo en el servidor', async () => {
+      const tx = {
+        marca: { findUnique: vi.fn().mockResolvedValue({ codigo: 'NK' }) },
           categoria: { findUnique: vi.fn().mockResolvedValue({ id: 3 }) },
           color: { findUnique: vi.fn().mockResolvedValue({ codigo: 'BK' }) },
           producto: {
@@ -420,7 +412,7 @@ describe('ProductosService actualizar stock de talla', () => {
       });
 
       it.each(['42,5', '4.25', '-42', '4e1'])(
-        'rejects invalid size %s when previewing a SKU',
+        'rechaza talla inválida %s al previsualizar un SKU',
         async (talla) => {
           const prisma = {
             marca: { findUnique: vi.fn().mockResolvedValue({ codigo: 'NK' }) },
@@ -443,7 +435,7 @@ describe('ProductosService actualizar stock de talla', () => {
         },
       );
 
-      it('normalizes whole sizes ending in .0 for the generated SKU', async () => {
+      it('normaliza tallas enteras terminadas en .0 para el SKU generado', async () => {
         const service = new ProductosService(
           {
             marca: { findUnique: vi.fn().mockResolvedValue({ codigo: 'NK' }) },
@@ -463,7 +455,7 @@ describe('ProductosService actualizar stock de talla', () => {
         ).resolves.toEqual({ sku: 'NK-AF1-M-BK-42' });
       });
 
-      it('applies active-product filters to every inventory metric query', async () => {
+      it('aplica filtros de producto activo a todas las consultas de métricas de inventario', async () => {
         const whereContainsActiveProduct = { producto: { activo: true } };
         const findMany = vi.fn().mockResolvedValue([]);
         const aggregate = vi.fn().mockResolvedValue({ _sum: { stock: 0 } });
@@ -637,18 +629,7 @@ describe('ProductosService actualizar stock de talla', () => {
       });
     });
 
-    it('does not expose an inactive product', async () => {
-      const findFirst = vi.fn().mockResolvedValue(null);
-      const service = new ProductosService(
-        { producto: { findFirst } } as unknown as PrismaService,
-        {} as CloudinaryService,
-      );
-
-      await expect(service.buscarPorIdPublico(3)).rejects.toThrow(
-        'Producto con id 3 no encontrado',
-      );
-    });
-
+  describe('ProductosService validación de categorías', () => {
     it('crear lanza NotFoundException si la categoriaId no existe', async () => {
       const tx = {
         marca: { findUnique: vi.fn().mockResolvedValue({ codigo: 'NK' }) },
@@ -733,4 +714,3 @@ describe('ProductosService actualizar stock de talla', () => {
       ).rejects.toThrow('Categoría no encontrada');
     });
   });
-});

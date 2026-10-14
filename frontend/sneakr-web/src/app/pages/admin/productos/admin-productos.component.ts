@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { catchError, finalize } from 'rxjs/operators';
+import { catchError, finalize, switchMap } from 'rxjs/operators';
 import { forkJoin, of, Subscription } from 'rxjs';
 import {
   ProductosService,
@@ -438,17 +438,18 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
   eliminarImagen(imagenId: number) {
     const producto = this.productoImagenes();
     if (!producto) return;
-    this.productosService.eliminarImagen(producto.id, imagenId).subscribe(() => {
-      this.productosService
-        .buscarPorIdAdmin(producto.id)
-        .subscribe((p) => this.productoImagenes.set(p));
-      this.cargar();
-    }, (err) => {
-      this.errorImagenes.set(err?.error?.message ?? 'No se pudo eliminar la imagen.');
-      this.productosService.buscarPorIdAdmin(producto.id).subscribe({
-        next: (actualizado) => this.productoImagenes.set(actualizado),
-      });
-      this.cargar();
+
+    this.productosService.eliminarImagen(producto.id, imagenId).pipe(
+      switchMap(() => this.productosService.buscarPorIdAdmin(producto.id)),
+      catchError((err) => {
+        this.errorImagenes.set(err?.error?.message ?? 'No se pudo eliminar la imagen.');
+        return this.productosService.buscarPorIdAdmin(producto.id);
+      }),
+    ).subscribe({
+      next: (actualizado) => {
+        this.productoImagenes.set(actualizado);
+        this.cargar();
+      },
     });
   }
 

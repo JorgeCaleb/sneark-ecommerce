@@ -18,7 +18,7 @@ describe('Creación inicial de administrador', () => {
 
     await ejecutarCreacionAdmin({
       entorno,
-      crearCliente: () => prisma,
+      crearCliente: () => prisma as unknown as import('@prisma/client').PrismaClient,
       informar,
     });
 
@@ -59,7 +59,7 @@ describe('Creación inicial de administrador', () => {
 
     await ejecutarCreacionAdmin({
       entorno,
-      crearCliente: () => prisma,
+      crearCliente: () => prisma as unknown as import('@prisma/client').PrismaClient,
       informar: vi.fn(),
     });
 

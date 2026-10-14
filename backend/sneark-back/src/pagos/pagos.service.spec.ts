@@ -107,7 +107,7 @@ describe('PagosService', () => {
     vi.clearAllMocks();
   });
 
-  it('aligns preference expiration to the order deadline and uses the production URL', async () => {
+  it('alinea la expiración de la preferencia con el plazo del pedido y usa la URL de producción', async () => {
     const pedido = crearPedido(EstadoPedido.PENDIENTE, {
       mpPreferenciaId: null,
       creadoEn: new Date(Date.now() - 4 * 60 * 1000),
@@ -143,7 +143,7 @@ describe('PagosService', () => {
     });
   });
 
-  it('adds a non-zero delivery charge to the Mercado Pago preference', async () => {
+  it('agrega el costo de envío no nulo a la preferencia de Mercado Pago', async () => {
     const pedido = crearPedido(EstadoPedido.PENDIENTE, {
       mpPreferenciaId: null,
       costoEnvio: 15,
@@ -166,7 +166,7 @@ describe('PagosService', () => {
     });
   });
 
-  it('selects sandbox checkout only for test credentials', async () => {
+  it('selecciona el checkout sandbox solo para credenciales de prueba', async () => {
     const { service } = crearServicio({
       token: 'TEST-token',
       pedido: crearPedido(EstadoPedido.PENDIENTE, {
@@ -184,7 +184,7 @@ describe('PagosService', () => {
     });
   });
 
-  it('does not fall back to a sandbox URL with production credentials', async () => {
+  it('no usa la URL sandbox con credenciales de producción', async () => {
     const { service } = crearServicio({
       pedido: crearPedido(EstadoPedido.PENDIENTE, {
         mpPreferenciaId: null,
@@ -200,7 +200,7 @@ describe('PagosService', () => {
     );
   });
 
-  it('does not create a preference for an expired order', async () => {
+  it('no crea una preferencia para un pedido vencido', async () => {
     const pedido = crearPedido(EstadoPedido.PENDIENTE, {
       creadoEn: new Date(Date.now() - 16 * 60 * 1000),
     });
@@ -212,7 +212,7 @@ describe('PagosService', () => {
     expect(mercadoPago.crearPreferencia).not.toHaveBeenCalled();
   });
 
-  it('starts without an access token but reports a payment configuration error when used', async () => {
+  it('arranca sin access token pero reporta error de configuración al usarlo', async () => {
     const { service } = crearServicio({
       token: '',
       pedido: crearPedido(EstadoPedido.PENDIENTE, {
@@ -226,7 +226,7 @@ describe('PagosService', () => {
     );
   });
 
-  it('rejects an invalid webhook signature before querying Mercado Pago', async () => {
+  it('rechaza una firma de webhook inválida antes de consultar Mercado Pago', async () => {
     const { service } = crearServicio();
 
     await expect(
@@ -239,7 +239,7 @@ describe('PagosService', () => {
     expect(mercadoPago.obtenerPago).not.toHaveBeenCalled();
   });
 
-  it('verifies the payment and marks a valid approval as paid', async () => {
+  it('verifica el pago y marca una aprobación válida como pagado', async () => {
     const pedido = crearPedido(EstadoPedido.PENDIENTE);
     pedido.mpPreferenciaId = 'pref-7';
     const { service, tx } = crearServicio({ pedido });
@@ -274,7 +274,7 @@ describe('PagosService', () => {
     });
   });
 
-  it('records an approved payment with the wrong amount for manual review', async () => {
+  it('registra un pago aprobado con importe incorrecto para revisión manual', async () => {
     const pedido = crearPedido(EstadoPedido.PENDIENTE);
     const { service, prisma } = crearServicio({ pedido });
     mercadoPago.obtenerPago.mockResolvedValue({
@@ -310,7 +310,7 @@ describe('PagosService', () => {
     });
   });
 
-  it('keeps a late approved payment under review when inventory cannot be reserved', async () => {
+  it('mantiene un pago aprobado tardío en revisión cuando no se puede reservar inventario', async () => {
     const pedido = crearPedido(EstadoPedido.CANCELADO);
     const { service, tx } = crearServicio({ pedido });
     tx.pedido.updateMany
@@ -345,7 +345,7 @@ describe('PagosService', () => {
     expect(tx.pedido.updateMany).toHaveBeenCalledTimes(2);
   });
 
-  it('reactivates a canceled order atomically when all inventory is available', async () => {
+  it('reactiva un pedido cancelado atómicamente cuando todo el inventario está disponible', async () => {
     const pedido = crearPedido(EstadoPedido.CANCELADO);
     const { service, tx } = crearServicio({ pedido });
     tx.pedido.updateMany
@@ -384,7 +384,7 @@ describe('PagosService', () => {
     });
   });
 
-  it('treats duplicate payment notifications as idempotent', async () => {
+  it('trata las notificaciones de pago duplicadas como idempotentes', async () => {
     const pedido = crearPedido(EstadoPedido.PAGO_VERIFICADO, {
       mpPagoId: '127',
     });

@@ -11,7 +11,7 @@ describe('UsuariosService crear', () => {
     });
   }
 
-  it('translates a concurrent email duplicate into a conflict', async () => {
+  it('traduce un duplicate email concurrente en conflicto', async () => {
     const usuario = {
       findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockRejectedValue(prismaP2002()),
@@ -29,12 +29,12 @@ describe('UsuariosService crear', () => {
     ).rejects.toThrow(ConflictException);
   });
 
-  it('propagates errors other than unique constraint conflicts', async () => {
-    const databaseError = new Error('Database unavailable');
+  it('propaga errores que no son conflictos de unicidad', async () => {
+    const errorBD = new Error('Base de datos no disponible');
     const service = new UsuariosService({
       usuario: {
         findUnique: vi.fn().mockResolvedValue(null),
-        create: vi.fn().mockRejectedValue(databaseError),
+        create: vi.fn().mockRejectedValue(errorBD),
       },
     } as unknown as PrismaService);
 
@@ -44,7 +44,7 @@ describe('UsuariosService crear', () => {
         email: 'cliente@example.test',
         password: 'password',
       }),
-    ).rejects.toBe(databaseError);
+    ).rejects.toBe(errorBD);
   });
 
   it('crea las cuentas públicas sin elegir rol para que Prisma asigne CLIENTE', async () => {
@@ -77,7 +77,7 @@ describe('UsuariosService crear', () => {
 });
 
 describe('UsuariosService buscarClientes', () => {
-  it('returns a paginated customer directory without password fields', async () => {
+  it('devuelve un directorio paginado de clientes sin campos de contraseña', async () => {
     const clientes = [
       {
         id: 8,

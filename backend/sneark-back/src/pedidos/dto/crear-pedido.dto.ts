@@ -1,6 +1,5 @@
 import { Transform } from 'class-transformer';
 import {
-  IsEnum,
   IsIn,
   IsNotEmpty,
   IsString,
@@ -8,16 +7,7 @@ import {
 } from 'class-validator';
 import { DISTRITOS_ENVIO, type DistritoEnvio } from '../envio.util.js';
 
-export enum MetodoPagoDto {
-  MERCADOPAGO = 'MERCADOPAGO',
-}
-
 export class CrearPedidoDto {
-  @IsEnum(MetodoPagoDto, {
-    message: 'El método de pago debe ser MERCADOPAGO',
-  })
-  metodoPago: MetodoPagoDto;
-
   @IsString()
   @IsNotEmpty({ message: 'El teléfono es obligatorio' })
   @MaxLength(20)

@@ -94,10 +94,7 @@ export class PedidosService {
   constructor(private http: HttpClient) {}
 
   crear(data: CrearPedidoData) {
-    return this.http.post<Pedido>(this.API, {
-      ...data,
-      metodoPago: 'MERCADOPAGO',
-    });
+    return this.http.post<Pedido>(this.API, data);
   }
 
   opcionesEnvio() {

@@ -90,7 +90,7 @@ describe('CarritoService agregar', () => {
     } as unknown as PrismaService);
   });
 
-  it('uses a conditional atomic increment bounded by available stock', async () => {
+  it('usa un incremento atómico condicional acotado por el stock disponible', async () => {
     await expect(
       service.agregar(7, { tallaProductoId: 9, cantidad: 1 }),
     ).resolves.toMatchObject({
@@ -107,7 +107,7 @@ describe('CarritoService agregar', () => {
     });
   });
 
-  it('applies only the concurrent addition that fits the stock', async () => {
+  it('aplica solo la adición concurrente que cabe en el stock', async () => {
     stock = 2;
 
     const resultados = await Promise.allSettled([
@@ -124,7 +124,7 @@ describe('CarritoService agregar', () => {
     expect(cantidad).toBe(2);
   });
 
-  it('retries a concurrent first insert as a conditional increment', async () => {
+  it('reintenta un primer insert concurrente como incremento condicional', async () => {
     cantidad = null;
     create.mockImplementationOnce(({ data }) => {
       cantidad = data.cantidad;
@@ -141,7 +141,7 @@ describe('CarritoService agregar', () => {
     expect(updateMany).toHaveBeenCalledTimes(2);
   });
 
-  it('rejects additions when the product is inactive', async () => {
+  it('rechaza adiciones cuando el producto está inactivo', async () => {
     const tallaFindUnique = vi.fn().mockResolvedValue({
       id: 9,
       stock,
@@ -163,7 +163,7 @@ describe('CarritoService agregar', () => {
 });
 
 describe('CarritoService actualizar artículo inactivo', () => {
-  it('rejects quantity changes but allows removing an inactive item', async () => {
+  it('rechaza cambios de cantidad pero permite eliminar un artículo inactivo', async () => {
     const item = {
       id: 5,
       tallaProductoId: 9,
@@ -209,7 +209,7 @@ describe('CarritoService actualizar artículo inactivo', () => {
     expect(itemDelete).toHaveBeenCalledWith({ where: { id: 5 } });
   });
 
-  it('rejects a quantity update if the cart row changed concurrently', async () => {
+  it('rechaza una actualización de cantidad si la fila del carrito cambió de forma concurrente', async () => {
     const item = {
       id: 5,
       cantidad: 1,

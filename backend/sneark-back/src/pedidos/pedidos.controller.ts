@@ -66,12 +66,10 @@ export class PedidosController {
     @UsuarioActual() usuario: UsuarioAutenticado,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    const usuarioReal = (usuario as any)?.user ?? usuario;
-    if (usuarioReal?.rol === 'ADMIN') {
+    if (usuario.rol === 'ADMIN') {
       return this.pedidosService.buscarPorId(id);
     }
-
-    return this.pedidosService.buscarPorUsuario(id, usuarioReal?.id);
+    return this.pedidosService.buscarPorUsuario(id, usuario.id);
   }
 
   // PATCH /api/pedidos/:id/cancelar — cancelar mi pedido
@@ -84,13 +82,6 @@ export class PedidosController {
   }
 
   // ─── Rutas ADMIN ─────────────────────────────────────────────────────────────
-
-  // GET /api/pedidos — pedidos paginados (ADMIN, compatibilidad)
-  @Admin()
-  @Get()
-  buscarTodos(@Query() filtros: FiltrarPedidosDto) {
-    return this.pedidosService.buscarPagina(filtros);
-  }
 
   // PATCH /api/pedidos/:id/estado — cambiar estado del pedido (ADMIN)
   @Admin()

@@ -4,7 +4,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryService } from './cloudinary.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
-describe('CloudinaryService image deletion', () => {
+describe('CloudinaryService eliminación de imágenes', () => {
   let service: CloudinaryService;
   let destroy: ReturnType<typeof vi.spyOn>;
   let prisma: {
@@ -37,9 +37,9 @@ describe('CloudinaryService image deletion', () => {
     vi.restoreAllMocks();
   });
 
-  it('retries a transient deletion failure and succeeds on the next attempt', async () => {
+  it('reintenta un fallo transitorio y tiene éxito en el siguiente intento', async () => {
     destroy
-      .mockRejectedValueOnce(new Error('temporary network error'))
+      .mockRejectedValueOnce(new Error('error de red temporal'))
       .mockResolvedValueOnce({ result: 'ok' } as Awaited<
         ReturnType<typeof cloudinary.uploader.destroy>
       >);
@@ -50,7 +50,7 @@ describe('CloudinaryService image deletion', () => {
     expect(destroy).toHaveBeenCalledWith('SOHO/productos/item/image');
   });
 
-  it('treats an already missing remote image as successfully deleted', async () => {
+  it('trata una imagen ya inexistente en remoto como eliminada exitosamente', async () => {
     destroy.mockResolvedValue({
       result: 'not found',
     } as Awaited<ReturnType<typeof cloudinary.uploader.destroy>>);
@@ -61,7 +61,7 @@ describe('CloudinaryService image deletion', () => {
     expect(destroy).toHaveBeenCalledOnce();
   });
 
-  it('reports a persistent failure after bounded retries', async () => {
+  it('reporta un fallo persistente tras los reintentos acotados', async () => {
     destroy.mockRejectedValue(new Error('Cloudinary unavailable'));
 
     await expect(
@@ -70,7 +70,7 @@ describe('CloudinaryService image deletion', () => {
     expect(destroy).toHaveBeenCalledTimes(3);
   });
 
-  it('persists a failed deletion and exposes the queued retry to the caller', async () => {
+  it('persiste un fallo de eliminación y expone la cola de reintentos al llamante', async () => {
     destroy.mockRejectedValue(new Error('Cloudinary unavailable'));
 
     await expect(
@@ -87,7 +87,7 @@ describe('CloudinaryService image deletion', () => {
     );
   });
 
-  it('deletes queued jobs after Cloudinary confirms a retry', async () => {
+  it('elimina los trabajos encolados después de que Cloudinary confirma un reintento', async () => {
     prisma.cloudinaryDeleteJob.findMany.mockResolvedValue([
       { id: 4, publicId: 'SOHO/productos/item/retry', attempts: 1 },
     ]);
@@ -103,7 +103,7 @@ describe('CloudinaryService image deletion', () => {
     });
   });
 
-  it('schedules a later retry and records its error when the queue worker fails', async () => {
+  it('programa un reintento posterior y registra su error cuando el worker falla', async () => {
     prisma.cloudinaryDeleteJob.findMany.mockResolvedValue([
       { id: 5, publicId: 'SOHO/productos/item/retry', attempts: 2 },
     ]);

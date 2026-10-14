@@ -103,7 +103,6 @@ export class PagosService {
       );
     }
 
-    const accessToken = this.config.get<string>('MP_ACCESS_TOKEN')?.trim();
     const cliente = this.clienteMercadoPago();
     const frontendUrl = this.origenConfigurado('FRONTEND_ORIGIN');
     const backendUrl = this.origenConfigurado('BACKEND_URL');
@@ -149,7 +148,7 @@ export class PagosService {
       },
     });
 
-    const usaSandbox = accessToken?.startsWith('TEST-') ?? false;
+    const usaSandbox = this.config.get<string>('MP_ACCESS_TOKEN')?.trim().startsWith('TEST-') ?? false;
     const urlPago = usaSandbox
       ? resultado.sandbox_init_point
       : resultado.init_point;

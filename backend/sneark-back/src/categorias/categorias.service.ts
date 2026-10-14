@@ -14,14 +14,6 @@ export class CategoriasService {
   constructor(private readonly prisma: PrismaService) {}
 
   async crear(dto: CrearCategoriaDto) {
-    const existe = await this.prisma.categoria.findUnique({
-      where: { nombre: dto.nombre },
-    });
-
-    if (existe) {
-      throw new ConflictException(`La categoría "${dto.nombre}" ya existe`);
-    }
-
     try {
       return await this.prisma.categoria.create({ data: dto });
     } catch (error) {

@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { ColoresService } from './colores.service.js';
 
 describe('ColoresService', () => {
-  it('normalizes color codes when creating a color', async () => {
+  it('normaliza los códigos de color al crear', async () => {
     const create = vi
       .fn()
       .mockResolvedValue({ id: 1, nombre: 'Negro', codigo: 'BK' });
@@ -19,7 +19,7 @@ describe('ColoresService', () => {
     });
   });
 
-  it('blocks changing a color code while variants depend on it', async () => {
+  it('bloquea el cambio de código de color cuando hay variantes que dependen de él', async () => {
     const color = { id: 2, codigo: 'BK' };
     const tx = {
       color: {
@@ -39,7 +39,7 @@ describe('ColoresService', () => {
     expect(tx.color.update).not.toHaveBeenCalled();
   });
 
-  it('reports duplicate color names or codes as a conflict', async () => {
+  it('reporta nombres o códigos duplicados como conflicto', async () => {
     const duplicate = new Prisma.PrismaClientKnownRequestError(
       'Unique constraint failed',
       { code: 'P2002', clientVersion: 'test' },

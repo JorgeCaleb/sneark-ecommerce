@@ -18,6 +18,7 @@
     "skipLibCheck": true,
     "strict": true,
     "strictPropertyInitialization": false,
+    "allowJs": true,
     "types": ["vitest/globals", "node"]
   }
 }

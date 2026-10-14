@@ -1,13 +1,13 @@
 import { obtenerOrigenPublico } from './origen-publico.util.js';
 
 describe('obtenerOrigenPublico', () => {
-  it('uses the local fallback outside production', () => {
+  it('usa el fallback local fuera de producción', () => {
     expect(
       obtenerOrigenPublico(undefined, 'FRONTEND_ORIGIN', false, 'http://localhost:4200'),
     ).toBe('http://localhost:4200');
   });
 
-  it('requires an HTTPS origin in production', () => {
+  it('exige un origen HTTPS en producción', () => {
     expect(() =>
       obtenerOrigenPublico(undefined, 'BACKEND_URL', true),
     ).toThrow('BACKEND_URL es obligatorio');
@@ -19,7 +19,7 @@ describe('obtenerOrigenPublico', () => {
     ).toThrow('BACKEND_URL no puede apuntar a localhost');
   });
 
-  it('rejects paths so the configured value is a single origin', () => {
+  it('rechaza rutas para que el valor configurado sea un solo origen', () => {
     expect(() =>
       obtenerOrigenPublico(
         'https://shop.example/store',

@@ -20,15 +20,6 @@ export class UsuariosService {
   constructor(private readonly prisma: PrismaService) {}
 
   async crear(dto: CrearUsuarioDto) {
-    // Verificar que el email no esté en uso
-    const existe = await this.prisma.usuario.findUnique({
-      where: { email: dto.email },
-    });
-
-    if (existe) {
-      throw new ConflictException('El email ya está registrado');
-    }
-
     // Hashear la contraseña antes de guardar
     const hash = await bcrypt.hash(dto.password, 10);
 

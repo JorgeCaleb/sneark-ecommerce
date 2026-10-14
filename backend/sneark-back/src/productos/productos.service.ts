@@ -261,12 +261,12 @@ export class ProductosService {
   }
 
   async buscarPorIdPublico(id: number) {
-    const producto = await this.prisma.producto.findFirst({
-      where: { id, activo: true },
+    const producto = await this.prisma.producto.findUnique({
+      where: { id },
       include: INCLUDE_PRODUCTO_PUBLICO,
     });
 
-    if (!producto) {
+    if (!producto || !producto.activo) {
       throw new NotFoundException(`Producto con id ${id} no encontrado`);
     }
 
@@ -842,22 +842,13 @@ export class ProductosService {
     stock: number,
     stockEsperado: number,
   ) {
-    if (
-      !Number.isInteger(stock) ||
-      stock < 0 ||
-      !Number.isInteger(stockEsperado) ||
-      stockEsperado < 0
-    ) {
-      throw new BadRequestException('El stock debe ser un entero no negativo');
-    }
-
     await this.buscarPorId(productoId);
 
-    const talla = await this.prisma.tallaProducto.findFirst({
-      where: { id: tallaId, productoId },
+    const talla = await this.prisma.tallaProducto.findUnique({
+      where: { id: tallaId },
     });
 
-    if (!talla) {
+    if (!talla || talla.productoId !== productoId) {
       throw new NotFoundException('Talla no encontrada');
     }
 
@@ -866,10 +857,10 @@ export class ProductosService {
       data: { stock },
     });
     if (actualizacion.count !== 1) {
-      const tallaActual = await this.prisma.tallaProducto.findFirst({
-        where: { id: tallaId, productoId },
+      const tallaActual = await this.prisma.tallaProducto.findUnique({
+        where: { id: tallaId },
       });
-      if (!tallaActual) {
+      if (!tallaActual || tallaActual.productoId !== productoId) {
         throw new NotFoundException('Talla no encontrada');
       }
       throw new ConflictException({
@@ -879,10 +870,10 @@ export class ProductosService {
       });
     }
 
-    const tallaActualizada = await this.prisma.tallaProducto.findFirst({
-      where: { id: tallaId, productoId },
+    const tallaActualizada = await this.prisma.tallaProducto.findUnique({
+      where: { id: tallaId },
     });
-    if (!tallaActualizada) {
+    if (!tallaActualizada || tallaActualizada.productoId !== productoId) {
       throw new NotFoundException('Talla no encontrada');
     }
     return tallaActualizada;

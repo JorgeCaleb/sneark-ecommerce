@@ -688,31 +688,4 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
       this.procesandoExpiraciones = false;
     }
   }
-
-  private async cancelarPedidoExpirado(pedido: {
-    id: number;
-    items: { tallaProductoId: number; cantidad: number }[];
-  }) {
-    await this.prisma.$transaction(async (tx) => {
-      const actualizacion = await tx.pedido.updateMany({
-        where: {
-          id: pedido.id,
-          estado: EstadoPedido.PENDIENTE,
-        },
-        data: {
-          estado: EstadoPedido.CANCELADO,
-          inventarioReservado: false,
-        },
-      });
-
-      if (actualizacion.count === 1) {
-        for (const item of pedido.items) {
-          await tx.tallaProducto.update({
-            where: { id: item.tallaProductoId },
-            data: { stock: { increment: item.cantidad } },
-          });
-        }
-      }
-    });
-  }
 }

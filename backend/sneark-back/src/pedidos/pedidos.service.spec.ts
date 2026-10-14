@@ -6,10 +6,9 @@ import {
 import { EstadoPedido, Prisma } from '@prisma/client';
 import { CarritoService } from '../carrito/carrito.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { MetodoPagoDto } from './dto/crear-pedido.dto.js';
 import { PedidosService } from './pedidos.service.js';
 
-describe('PedidosService ownership lookup', () => {
+describe('PedidosService búsqueda por propietario', () => {
   let service: PedidosService;
   let findFirst: ReturnType<typeof vi.fn>;
 
@@ -21,7 +20,7 @@ describe('PedidosService ownership lookup', () => {
     );
   });
 
-  it('returns the order when it belongs to the requesting user', async () => {
+  it('devuelve el pedido cuando pertenece al usuario que lo solicita', async () => {
     const order = { id: 12, usuarioId: 7 };
     findFirst.mockResolvedValue(order);
 
@@ -32,7 +31,7 @@ describe('PedidosService ownership lookup', () => {
     });
   });
 
-  it('does not return an order owned by another user', async () => {
+  it('no devuelve un pedido que pertenece a otro usuario', async () => {
     findFirst.mockResolvedValue(null);
 
     await expect(service.buscarPorUsuario(12, 9)).rejects.toThrow(
@@ -45,7 +44,7 @@ describe('PedidosService ownership lookup', () => {
   });
 });
 
-describe('PedidosService order creation inventory reservation', () => {
+describe('PedidosService reserva de inventario al crear', () => {
   const item = {
     id: 14,
     tallaProductoId: 21,
@@ -104,7 +103,7 @@ describe('PedidosService order creation inventory reservation', () => {
     );
   });
 
-  it('reports serialization conflicts as a retryable checkout error', async () => {
+  it('reporta conflictos de serialización como error de checkout reintentable', async () => {
     const transaction = vi.fn().mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError('Transaction conflict', {
         code: 'P2034',
@@ -118,7 +117,6 @@ describe('PedidosService order creation inventory reservation', () => {
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
         distrito: 'La Esperanza',
         direccion: 'Calle 1',
@@ -126,12 +124,11 @@ describe('PedidosService order creation inventory reservation', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('conditionally reserves stock before creating the order', async () => {
+  it('reserva el stock condicionalmente antes de crear el pedido', async () => {
     actualizarStock.mockResolvedValue({ count: 1 });
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
         distrito: 'La Esperanza',
         direccion: 'Calle 1',
@@ -172,12 +169,11 @@ describe('PedidosService order creation inventory reservation', () => {
     ]);
   });
 
-  it('rejects a concurrent request that can no longer consume the cart', async () => {
+  it('rechaza una solicitud concurrente que ya no puede consumir el carrito', async () => {
     vaciarCarrito.mockResolvedValue({ count: 0 });
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
         distrito: 'La Esperanza',
         direccion: 'Calle 1',
@@ -188,13 +184,12 @@ describe('PedidosService order creation inventory reservation', () => {
     expect(crearPedido).not.toHaveBeenCalled();
   });
 
-  it('rejects checkout if another item remains after consuming the snapshot', async () => {
+  it('rechaza el checkout si queda otro artículo tras consumir el snapshot', async () => {
     actualizarStock.mockResolvedValue({ count: 1 });
     contarArticulosRestantes.mockResolvedValue(1);
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
         distrito: 'La Esperanza',
         direccion: 'Calle 1',
@@ -205,7 +200,7 @@ describe('PedidosService order creation inventory reservation', () => {
     expect(crearPedido).not.toHaveBeenCalled();
   });
 
-  it('rejects disabled products inside the transaction without consuming the cart or stock', async () => {
+  it('rechaza productos desactivados dentro de la transacción sin consumir el carrito ni el stock', async () => {
     const productosInactivos = [{ nombre: 'SOHO One' }];
     const encontrarInactivos = vi.fn().mockResolvedValue(productosInactivos);
     const carritoConsumido = vi.fn();
@@ -240,7 +235,6 @@ describe('PedidosService order creation inventory reservation', () => {
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
         distrito: 'La Esperanza',
         direccion: 'Calle 1',
@@ -256,7 +250,7 @@ describe('PedidosService order creation inventory reservation', () => {
     expect(crearPedido).not.toHaveBeenCalled();
   });
 
-  it('aborts the transaction if a later size has insufficient stock', async () => {
+  it('aborta la transacción si una talla posterior tiene stock insuficiente', async () => {
     carritoService.obtenerEnTransaccion.mockResolvedValue({
       id: 9,
       total: 400,
@@ -285,7 +279,6 @@ describe('PedidosService order creation inventory reservation', () => {
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
         distrito: 'La Esperanza',
         direccion: 'Calle 1',
@@ -298,7 +291,7 @@ describe('PedidosService order creation inventory reservation', () => {
   });
 });
 
-describe('PedidosService admin order state transitions', () => {
+describe('PedidosService transiciones de estado admin', () => {
   const order = {
     id: 42,
     usuarioId: 7,
@@ -426,7 +419,7 @@ describe('PedidosService admin order state transitions', () => {
     },
   );
 
-  it('does not allow admins to mark a pending order paid manually', async () => {
+  it('no permite a los admins marcar un pedido pendiente como pagado manualmente', async () => {
     vi.spyOn(service, 'buscarPorId').mockResolvedValue({
       ...order,
       estado: EstadoPedido.PENDIENTE,
@@ -474,7 +467,7 @@ describe('PedidosService admin order state transitions', () => {
   });
 });
 
-describe('PedidosService customer order cancellation', () => {
+describe('PedidosService cancelación de pedido por el cliente', () => {
   const order = {
     id: 42,
     usuarioId: 7,
@@ -514,7 +507,7 @@ describe('PedidosService customer order cancellation', () => {
       } as Awaited<ReturnType<typeof service.buscarPorId>>);
   });
 
-  it('conditionally changes the order state before restoring stock', async () => {
+  it('cambia el estado del pedido condicionalmente antes de reponer el stock', async () => {
     await expect(service.cancelar(7, 42)).resolves.toMatchObject({
       estado: EstadoPedido.CANCELADO,
     });
@@ -539,7 +532,7 @@ describe('PedidosService customer order cancellation', () => {
     );
   });
 
-  it('does not restore stock when a concurrent cancellation already won', async () => {
+  it('no repone stock cuando una cancelación concurrente ya ganó', async () => {
     updateMany.mockResolvedValue({ count: 0 });
     vi.spyOn(service, 'buscarPorId')
       .mockReset()
@@ -610,8 +603,8 @@ describe('PedidosService customer order cancellation', () => {
   });
 });
 
-describe('PedidosService admin pagination', () => {
-  it('filters, orders and paginates pedidos while returning total metadata', async () => {
+describe('PedidosService paginación admin', () => {
+  it('filtra, ordena y pagina pedidos devolviendo metadatos de total', async () => {
     const pedidos = [{ id: 8 }, { id: 7 }];
     const findMany = vi.fn().mockResolvedValue(pedidos);
     const count = vi.fn().mockResolvedValue(42);
@@ -642,8 +635,8 @@ describe('PedidosService admin pagination', () => {
   });
 });
 
-describe('PedidosService dashboard summary', () => {
-  it('aggregates sales and top products in the backend, with only five recent orders', async () => {
+describe('PedidosService resumen del dashboard', () => {
+  it('agrega ventas y top productos en el backend, con solo cinco pedidos recientes', async () => {
     const recientes = [{ id: 3 }];
     const findMany = vi.fn().mockResolvedValue(recientes);
     const count = vi.fn().mockResolvedValue(74);
@@ -738,7 +731,7 @@ describe('PedidosService dashboard summary', () => {
     );
   });
 
-  it('rejects invalid or excessively wide dashboard date intervals', async () => {
+  it('rechaza intervalos de fechas del dashboard inválidos o demasiado amplios', async () => {
     const service = new PedidosService(
       {} as PrismaService,
       {} as CarritoService,
@@ -754,7 +747,7 @@ describe('PedidosService dashboard summary', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('rejects an unbounded previous-period range', async () => {
+  it('rechaza un rango de período anterior sin acotar', async () => {
     const service = new PedidosService(
       {} as PrismaService,
       {} as CarritoService,
@@ -771,7 +764,7 @@ describe('PedidosService dashboard summary', () => {
   });
 });
 
-describe('PedidosService stock reservation expiry and limits', () => {
+describe('PedidosService expiración y límites de reserva de stock', () => {
   const item = {
     id: 14,
     tallaProductoId: 21,
@@ -786,7 +779,7 @@ describe('PedidosService stock reservation expiry and limits', () => {
     },
   };
 
-  it('rejects creating a new order when user already has an active pending order without voucher', async () => {
+  it('rechaza crear un nuevo pedido cuando el usuario ya tiene uno pendiente activo sin comprobante', async () => {
     const pedidoPendienteReciente = {
       id: 88,
       creadoEn: new Date(),
@@ -814,7 +807,6 @@ describe('PedidosService stock reservation expiry and limits', () => {
 
     await expect(
       service.crear(7, {
-        metodoPago: MetodoPagoDto.MERCADOPAGO,
         telefono: '999999999',
         distrito: 'La Esperanza',
         direccion: 'Calle 1',
@@ -824,7 +816,7 @@ describe('PedidosService stock reservation expiry and limits', () => {
     );
   });
 
-  it('auto-cancels and restores stock of an expired pending order when user creates a new order', async () => {
+  it('auto-cancela y repone el stock de un pedido pendiente expirado al crear uno nuevo', async () => {
     const hace20Minutos = new Date(Date.now() - 20 * 60 * 1000);
     const pedidoPendienteExpirado = {
       id: 88,
@@ -870,7 +862,6 @@ describe('PedidosService stock reservation expiry and limits', () => {
     );
 
     const resultado = await service.crear(7, {
-      metodoPago: MetodoPagoDto.MERCADOPAGO,
       telefono: '999999999',
       distrito: 'La Esperanza',
       direccion: 'Calle 1',
@@ -894,7 +885,7 @@ describe('PedidosService stock reservation expiry and limits', () => {
     });
   });
 
-  it('cancelarPedidosExpirados cancels expired orders and restores stock', async () => {
+  it('cancelarPedidosExpirados cancela pedidos vencidos y repone el stock', async () => {
     const pedidoExpirado = {
       id: 105,
       items: [{ tallaProductoId: 30, cantidad: 1 }],

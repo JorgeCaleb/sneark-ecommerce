@@ -9,7 +9,7 @@ describe('ActualizarStockTallaDto', () => {
   };
 
   it.each([0, 8])(
-    'accepts non-negative integer stock %i with its expected value',
+    'acepta stock entero no negativo %i con su valor esperado',
     async (stock) => {
       await expect(
         pipe.transform({ stock, stockEsperado: 3 }, metadata),
@@ -18,7 +18,7 @@ describe('ActualizarStockTallaDto', () => {
   );
 
   it.each([-1, 1.5, '8'])(
-    'rejects invalid stock value %p',
+    'rechaza un valor de stock inválido: %p',
     async (stock) => {
       await expect(
         pipe.transform({ stock, stockEsperado: 3 }, metadata),
@@ -26,14 +26,14 @@ describe('ActualizarStockTallaDto', () => {
     },
   );
 
-  it('requires the expected stock value', async () => {
+  it('requiere el valor de stock esperado', async () => {
     await expect(
       pipe.transform({ stock: 4 }, metadata),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it.each([-1, 1.5])(
-    'rejects invalid expected stock value %p',
+    'rechaza un valor de stock esperado inválido: %p',
     async (stockEsperado) => {
       await expect(
         pipe.transform({ stock: 4, stockEsperado }, metadata),

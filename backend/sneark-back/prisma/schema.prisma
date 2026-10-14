@@ -227,8 +227,8 @@ model CloudinaryDeleteJob {
   attempts      Int      @default(0)
   nextAttemptAt DateTime @default(now())
   lastError     String?  @db.Text
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  creadoEn      DateTime @default(now()) @map("createdAt")
+  actualizadoEn DateTime @updatedAt @map("updatedAt")
 
   @@index([nextAttemptAt])
   @@map("cloudinary_delete_jobs")

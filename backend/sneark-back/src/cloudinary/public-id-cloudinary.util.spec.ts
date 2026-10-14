@@ -3,7 +3,7 @@
 describe('publicIdDesdeUrlCloudinary', () => {
   const carpeta = 'SOHO/productos/42';
 
-  it('extracts the public ID with a version and extension', () => {
+  it('extrae el publicId con versión y extensión', () => {
     expect(
       publicIdDesdeUrlCloudinary(
         'https://res.cloudinary.com/demo/image/upload/v123/SOHO/productos/42/shoe.jpg',
@@ -12,7 +12,7 @@ describe('publicIdDesdeUrlCloudinary', () => {
     ).toBe('SOHO/productos/42/shoe');
   });
 
-  it('extracts the public ID without a version segment', () => {
+  it('extrae el publicId sin segmento de versión', () => {
     expect(
       publicIdDesdeUrlCloudinary(
         'https://res.cloudinary.com/demo/image/upload/SOHO/productos/42/shoe.webp',
@@ -23,11 +23,11 @@ describe('publicIdDesdeUrlCloudinary', () => {
 
   it.each([
     null,
-    'not a URL',
+    'no es una URL',
     'https://example.com/demo/image/upload/SOHO/productos/42/shoe.jpg',
     'https://res.cloudinary.com/demo/image/upload/SOHO/productos/7/shoe.jpg',
     'https://res.cloudinary.com/demo/image/upload/SOHO/productos/42/',
-  ])('returns null for an invalid or out-of-folder URL: %s', (url) => {
+  ])('retorna null para una URL inválida o fuera de la carpeta: %s', (url) => {
     expect(publicIdDesdeUrlCloudinary(url, carpeta)).toBeNull();
   });
 });
