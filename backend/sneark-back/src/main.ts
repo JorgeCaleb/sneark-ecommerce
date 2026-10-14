@@ -6,6 +6,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   configurarAplicacion(app);
 
+  // Health check para Render (responde antes del global prefix /api)
+  app.use('/health', (_req: any, res: any) => {
+    res.status(200).json({ status: 'ok' });
+  });
+
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   console.log(`Servidor corriendo en: http://localhost:${port}/api`);
