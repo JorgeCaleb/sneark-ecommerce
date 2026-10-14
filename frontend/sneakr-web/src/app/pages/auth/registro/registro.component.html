@@ -1,12 +1,11 @@
 ﻿<div class="auth-page">
   <div class="auth-card animate-fade-up">
 
-    <!-- Logo -->
-    <a routerLink="/" class="auth-card__logo">SOHO</a>
+    <a routerLink="/" class="auth-card__logo">SNEARK</a>
 
     <div class="auth-card__header">
       <h1 class="auth-card__title">Crear cuenta</h1>
-      <p class="auth-card__subtitle">Registrate gratis y empezá a comprar</p>
+      <p class="auth-card__subtitle">Registrate gratis y empieza a comprar</p>
     </div>
 
     <form class="auth-form" (ngSubmit)="submit()">
@@ -21,17 +20,10 @@
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
             <circle cx="12" cy="7" r="4"/>
           </svg>
-          <input
-            id="nombre"
-            type="text"
-            class="form-input form-input--icon"
-            placeholder="Tu nombre"
-            [(ngModel)]="nombre"
-            name="nombre"
-            autocomplete="name"
-            maxlength="100"
-            required
-          />
+          <input id="nombre" type="text" class="form-input form-input--icon"
+                 placeholder="Tu nombre"
+                 [(ngModel)]="nombre" name="nombre"
+                 autocomplete="name" maxlength="100" required />
         </div>
       </div>
 
@@ -45,22 +37,16 @@
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
             <polyline points="22,6 12,13 2,6"/>
           </svg>
-          <input
-            id="email"
-            type="email"
-            class="form-input form-input--icon"
-            placeholder="tu@email.com"
-            [(ngModel)]="email"
-            name="email"
-            autocomplete="email"
-            required
-          />
+          <input id="email" type="email" class="form-input form-input--icon"
+                 placeholder="tu@email.com"
+                 [(ngModel)]="email" name="email"
+                 autocomplete="email" required />
         </div>
       </div>
 
       <!-- Password -->
       <div class="form-field">
-        <label class="form-label" for="password">Contraseña</label>
+        <label class="form-label" for="password">Contrasena</label>
         <div class="form-input-wrap">
           <svg class="form-input-icon" width="16" height="16" viewBox="0 0 24 24"
                fill="none" stroke="currentColor" stroke-width="2"
@@ -68,19 +54,14 @@
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
-          <input
-            id="password"
-            [type]="mostrarPass() ? 'text' : 'password'"
-            class="form-input form-input--icon form-input--icon-right"
-            placeholder="Mínimo 8 caracteres"
-            minlength="8"
-            [(ngModel)]="password"
-            name="password"
-            autocomplete="new-password"
-            required
-          />
+          <input id="password" [type]="mostrarPass() ? 'text' : 'password'"
+                 class="form-input form-input--icon form-input--icon-right"
+                 placeholder="Minimo 8 caracteres"
+                 minlength="8"
+                 [(ngModel)]="password" name="password"
+                 autocomplete="new-password" required />
           <button type="button" class="form-input-toggle" (click)="togglePass()"
-                  [attr.aria-label]="mostrarPass() ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+                  [attr.aria-label]="mostrarPass() ? 'Ocultar contrasena' : 'Mostrar contrasena'">
             @if (mostrarPass()) {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -100,23 +81,18 @@
 
       <!-- Confirmar password -->
       <div class="form-field">
-        <label class="form-label" for="confirmar">Confirmar contraseña</label>
+        <label class="form-label" for="confirmar">Confirmar contrasena</label>
         <div class="form-input-wrap">
           <svg class="form-input-icon" width="16" height="16" viewBox="0 0 24 24"
                fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
-          <input
-            id="confirmar"
-            [type]="mostrarPass() ? 'text' : 'password'"
-            class="form-input form-input--icon"
-            placeholder="Repetí la contraseña"
-            [(ngModel)]="confirmar"
-            name="confirmar"
-            autocomplete="new-password"
-            required
-          />
+          <input id="confirmar" [type]="mostrarPass() ? 'text' : 'password'"
+                 class="form-input form-input--icon"
+                 placeholder="Repite la contrasena"
+                 [(ngModel)]="confirmar" name="confirmar"
+                 autocomplete="new-password" required />
         </div>
       </div>
 
@@ -129,13 +105,13 @@
                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
-            Las contraseñas coinciden
+            Las contrasenas coinciden
           } @else {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
-            Las contraseñas no coinciden
+            Las contrasenas no coinciden
           }
         </div>
       }
@@ -158,8 +134,8 @@
     </form>
 
     <p class="auth-card__footer">
-      ¿Ya tenés cuenta?
-      <a routerLink="/auth/login" class="auth-card__link">Iniciá sesión</a>
+      ¿Ya tienes cuenta?
+      <a routerLink="/auth/login" class="auth-card__link">Inicia sesion</a>
     </p>
 
   </div>

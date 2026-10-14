@@ -29,13 +29,6 @@
   align-items: center;
 }
 
-.navbar__logo-text {
-  font-size: var(--text-xl);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  color: var(--color-accent);
-}
-
 /* ─── Links desktop ─────────────────────────────────────────── */
 .navbar__links {
   display: flex;
@@ -87,7 +80,7 @@
   gap: var(--space-md);
 }
 
-/* Ícono carrito */
+/* Icono carrito */
 .navbar__icon-btn {
   position: relative;
   display: flex;
@@ -179,7 +172,6 @@
   transition: transform 250ms var(--ease-out), opacity 200ms ease;
 }
 
-/* Las tres líneas usando box-shadow */
 .navbar__hamburger-line::before,
 .navbar__hamburger-line::after {
   content: '';
@@ -206,7 +198,7 @@
   transform: translateY(-6px) rotate(-45deg);
 }
 
-/* ─── Menú mobile ───────────────────────────────────────────── */
+/* ─── Menu mobile ───────────────────────────────────────────── */
 .navbar__mobile {
   position: absolute;
   top: 64px;

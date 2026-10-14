@@ -4,16 +4,18 @@
   <div class="catalogo__header">
     <div class="container catalogo__header-inner">
       <div>
-        <h1 class="catalogo__title">Catálogo</h1>
+        <h1 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(1.75rem,3vw,2.5rem);letter-spacing:0.04em;color:var(--color-text);line-height:1;">
+          CATALOGO
+        </h1>
         @if (meta()) {
-          <p class="catalogo__count">
+          <p style="font-size:var(--text-sm);color:var(--color-muted);margin-top:4px;">
             {{ meta()!.total }} producto{{ meta()!.total !== 1 ? 's' : '' }} encontrado{{ meta()!.total !== 1 ? 's' : '' }}
           </p>
         }
       </div>
 
       <div class="filtros__grupo">
-        <h3 class="filtros__grupo-title">Género</h3>
+        <h3 class="filtros__grupo-title">Genero</h3>
         <div class="filtros__opciones">
           <button class="filtros__opcion" [class.filtros__opcion--activa]="!genero"
                   (click)="genero = ''; aplicarFiltros()">Todos</button>
@@ -40,7 +42,7 @@
         </div>
       </div>
 
-      <!-- Búsqueda -->
+      <!-- Busqueda -->
       <div class="catalogo__search-wrap">
         <svg class="catalogo__search-icon" width="18" height="18" viewBox="0 0 24 24"
              fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -55,7 +57,7 @@
         />
       </div>
 
-      <!-- Botón filtros mobile -->
+      <!-- Boton filtros mobile -->
       <button class="catalogo__filtros-toggle" (click)="toggleFiltros()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -99,9 +101,9 @@
           </div>
         </div>
 
-        <!-- Categoría -->
+        <!-- Categoria -->
         <div class="filtros__grupo">
-          <h3 class="filtros__grupo-title">Categoría</h3>
+          <h3 class="filtros__grupo-title">Categoria</h3>
           <div class="filtros__opciones">
             <button class="filtros__opcion" [class.filtros__opcion--activa]="categoriaId === 0"
                     (click)="categoriaId = 0; aplicarFiltros()">Todas</button>
@@ -118,10 +120,10 @@
         <div class="filtros__grupo">
           <h3 class="filtros__grupo-title">Precio (S/)</h3>
           <div class="filtros__precio">
-            <input type="number" class="filtros__precio-input" placeholder="Mín"
+            <input type="number" class="filtros__precio-input" placeholder="Min"
                    [(ngModel)]="precioMin" min="0" />
             <span class="filtros__precio-sep">—</span>
-            <input type="number" class="filtros__precio-input" placeholder="Máx"
+            <input type="number" class="filtros__precio-input" placeholder="Max"
                    [(ngModel)]="precioMax" min="0" />
           </div>
           <button class="btn-primary filtros__aplicar-precio" (click)="aplicarFiltros()">
@@ -146,11 +148,9 @@
 
       @if (!cargando() && errorCarga()) {
         <div class="catalogo__empty" role="alert">
-          <h3 class="catalogo__empty-title">No se pudo cargar el catálogo</h3>
-          <p class="catalogo__empty-desc">Revisa tu conexión e inténtalo nuevamente.</p>
-          <button class="btn-primary" type="button" (click)="cargarProductos()">
-            Reintentar
-          </button>
+          <h3 class="catalogo__empty-title">No se pudo cargar el catalogo</h3>
+          <p class="catalogo__empty-desc">Revisa tu conexion e intentalo nuevamente.</p>
+          <button class="btn-primary" type="button" (click)="cargarProductos()">Reintentar</button>
         </div>
       }
 
@@ -164,12 +164,8 @@
             </svg>
           </div>
           <h3 class="catalogo__empty-title">Sin resultados</h3>
-          <p class="catalogo__empty-desc">
-            No encontramos productos con esos filtros.
-          </p>
-          <button class="btn-primary" (click)="limpiarFiltros()">
-            Limpiar filtros
-          </button>
+          <p class="catalogo__empty-desc">No encontramos productos con esos filtros.</p>
+          <button class="btn-primary" (click)="limpiarFiltros()">Limpiar filtros</button>
         </div>
       }
 
@@ -203,12 +199,12 @@
           }
         </div>
 
-        <!-- Paginación -->
+        <!-- Paginacion -->
         <app-paginacion
           [pagina]="paginaActual"
           [totalPaginas]="totalPaginas()"
           modo="numeros"
-          ariaLabel="Paginación de productos"
+          ariaLabel="Paginacion de productos"
           (cambioPagina)="irAPagina($event)"
         />
       }

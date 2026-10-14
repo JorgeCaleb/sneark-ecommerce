@@ -1,41 +1,41 @@
 <!-- Skeleton -->
 @if (cargando()) {
-  <div class="container detalle-skeleton">
-    <div class="detalle-skeleton__galeria"></div>
-    <div class="detalle-skeleton__info">
-      <div class="detalle-skeleton__line detalle-skeleton__line--sm"></div>
-      <div class="detalle-skeleton__line detalle-skeleton__line--lg"></div>
-      <div class="detalle-skeleton__line detalle-skeleton__line--md"></div>
-      <div class="detalle-skeleton__line detalle-skeleton__line--sm"></div>
+  <div class="container" style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-xl);padding-block:var(--space-xl);">
+    <div style="aspect-ratio:1;border-radius:var(--radius-md);background:linear-gradient(90deg,var(--color-border) 25%,#e8e7e4 50%,var(--color-border) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;"></div>
+    <div style="display:flex;flex-direction:column;gap:var(--space-md);padding-top:var(--space-md);">
+      <div style="height:16px;width:40%;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--color-border) 25%,#e8e7e4 50%,var(--color-border) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;"></div>
+      <div style="height:48px;width:90%;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--color-border) 25%,#e8e7e4 50%,var(--color-border) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;"></div>
+      <div style="height:20px;width:70%;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--color-border) 25%,#e8e7e4 50%,var(--color-border) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;"></div>
     </div>
   </div>
 }
 
 <!-- Detalle -->
 @if (!cargando() && producto()) {
-  <div class="container detalle animate-fade-in">
+  <div class="container animate-fade-in" style="padding-block:var(--space-lg) var(--space-2xl);">
 
     <!-- Breadcrumb -->
-    <nav class="detalle__breadcrumb" aria-label="Navegación">
-      <a routerLink="/" class="breadcrumb__link">Inicio</a>
-      <span class="breadcrumb__sep">/</span>
-      <a routerLink="/catalogo" class="breadcrumb__link">Catálogo</a>
-      <span class="breadcrumb__sep">/</span>
-      <span class="breadcrumb__actual">{{ producto()!.nombre }}</span>
+    <nav style="display:flex;align-items:center;gap:var(--space-xs);margin-bottom:var(--space-xl);" aria-label="Navegacion">
+      <a routerLink="/" style="font-size:var(--text-sm);color:var(--color-muted);transition:color 150ms ease;"
+         onmouseenter="this.style.color='var(--color-text)'" onmouseleave="this.style.color='var(--color-muted)'">Inicio</a>
+      <span style="font-size:var(--text-sm);color:var(--color-muted-light);">/</span>
+      <a routerLink="/catalogo" style="font-size:var(--text-sm);color:var(--color-muted);transition:color 150ms ease;"
+         onmouseenter="this.style.color='var(--color-text)'" onmouseleave="this.style.color='var(--color-muted)'">Catalogo</a>
+      <span style="font-size:var(--text-sm);color:var(--color-muted-light);">/</span>
+      <span style="font-size:var(--text-sm);color:var(--color-text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;">
+        {{ producto()!.nombre }}
+      </span>
     </nav>
 
     <div class="detalle__grid">
 
-      <!-- ── Galería ──────────────────────────────────────── -->
+      <!-- ── Galeria ──────────────────────────────────────── -->
       <div class="galeria">
-        <!-- Imagen principal -->
         <div class="galeria__principal">
           @if (producto()!.imagenes.length > 0) {
-            <img
-              [src]="producto()!.imagenes[imagenActiva()].url"
-              [alt]="producto()!.nombre"
-              class="galeria__img"
-            />
+            <img [src]="producto()!.imagenes[imagenActiva()].url"
+                 [alt]="producto()!.nombre"
+                 class="galeria__img" />
           } @else {
             <div class="galeria__placeholder">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none"
@@ -48,16 +48,13 @@
           }
         </div>
 
-        <!-- Miniaturas -->
         @if (producto()!.imagenes.length > 1) {
           <div class="galeria__thumbs">
             @for (img of producto()!.imagenes; track img.id; let i = $index) {
-              <button
-                class="galeria__thumb"
-                [class.galeria__thumb--activa]="imagenActiva() === i"
-                (click)="seleccionarImagen(i)"
-                [attr.aria-label]="'Ver imagen ' + (i + 1)"
-              >
+              <button class="galeria__thumb"
+                      [class.galeria__thumb--activa]="imagenActiva() === i"
+                      (click)="seleccionarImagen(i)"
+                      [attr.aria-label]="'Ver imagen ' + (i + 1)">
                 <img [src]="img.url" [alt]="'Imagen ' + (i + 1)" loading="lazy" />
               </button>
             }
@@ -66,110 +63,105 @@
       </div>
 
       <!-- ── Info del producto ────────────────────────────── -->
-      <div class="detalle__info">
+      <div style="display:flex;flex-direction:column;gap:var(--space-lg);">
 
-        <!-- Marca y categoría -->
-        <div class="detalle__tags">
+        <div style="display:flex;align-items:center;gap:var(--space-sm);">
           <span class="badge">{{ producto()!.marca.nombre }}</span>
-          <span class="detalle__categoria">{{ producto()!.categoria.nombre }}</span>
+          <span style="font-size:var(--text-sm);color:var(--color-muted);">{{ producto()!.categoria.nombre }}</span>
         </div>
 
-        <!-- Nombre -->
-        <h1 class="detalle__nombre">{{ producto()!.nombre }}</h1>
+        <h1 style="font-size:clamp(var(--text-2xl),3vw,var(--text-4xl));font-weight:800;letter-spacing:-0.03em;color:var(--color-text);line-height:1.1;">
+          {{ producto()!.nombre }}
+        </h1>
 
-        <!-- Precio -->
-        <p class="detalle__precio">{{ producto()!.precio | moneda }}</p>
+        <p style="font-size:var(--text-3xl);font-weight:800;letter-spacing:-0.03em;color:var(--color-accent);">
+          {{ producto()!.precio | moneda }}
+        </p>
 
-        <!-- Descripción -->
         @if (producto()!.descripcion) {
-          <p class="detalle__descripcion">{{ producto()!.descripcion }}</p>
+          <p style="font-size:var(--text-base);line-height:1.7;color:var(--color-muted);">
+            {{ producto()!.descripcion }}
+          </p>
         }
 
-        <div class="detalle__divider"></div>
+        <div style="height:1px;background-color:var(--color-border);"></div>
 
-        <!-- Selección de variante -->
-        <div class="detalle__tallas-section">
-          <div class="detalle__tallas-header">
-            <span class="detalle__label">Género</span>
+        <!-- Seleccion de variante -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-md);">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:var(--text-sm);font-weight:700;color:var(--color-text);text-transform:uppercase;letter-spacing:0.06em;">Genero</span>
           </div>
-          <div class="detalle__tallas">
+          <div style="display:flex;flex-wrap:wrap;gap:var(--space-sm);">
             @for (genero of generosDisponibles(); track genero) {
-              <button
-                class="talla-btn"
-                [class.talla-btn--activa]="generoSeleccionado() === genero"
-                (click)="seleccionarGenero(genero)"
-              >
+              <button class="talla-btn"
+                      [class.talla-btn--activa]="generoSeleccionado() === genero"
+                      (click)="seleccionarGenero(genero)">
                 {{ etiquetaGenero(genero) }}
               </button>
             }
           </div>
 
           @if (generoSeleccionado()) {
-            <div class="detalle__tallas-header">
-              <span class="detalle__label">Color</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:var(--text-sm);font-weight:700;color:var(--color-text);text-transform:uppercase;letter-spacing:0.06em;">Color</span>
             </div>
-            <div class="detalle__tallas">
+            <div style="display:flex;flex-wrap:wrap;gap:var(--space-sm);">
               @for (color of coloresDisponibles(); track color.id) {
-                <button
-                  class="talla-btn"
-                  [class.talla-btn--activa]="colorSeleccionadoId() === color.id"
-                  [class.talla-btn--agotada]="!color.disponible"
-                  [disabled]="!color.disponible"
-                  (click)="seleccionarColor(color.id)"
-                  [attr.aria-label]="color.nombre + ' (' + color.codigo + ')' + (!color.disponible ? ' - Agotado' : '')"
-                >
+                <button class="talla-btn"
+                        [class.talla-btn--activa]="colorSeleccionadoId() === color.id"
+                        [class.talla-btn--agotada]="!color.disponible"
+                        [disabled]="!color.disponible"
+                        (click)="seleccionarColor(color.id)"
+                        [attr.aria-label]="color.nombre + ' (' + color.codigo + ')' + (!color.disponible ? ' - Agotado' : '')">
                   {{ color.nombre }}
                 </button>
               }
             </div>
             @if (coloresDisponibles().length === 0) {
-              <p class="detalle__talla-stock">No hay colores para este género.</p>
+              <p style="font-size:var(--text-xs);color:var(--color-success);font-weight:600;">No hay colores para este genero.</p>
             }
           }
 
           @if (colorSeleccionadoId()) {
-            <div class="detalle__tallas-header">
-              <span class="detalle__label">Talla</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:var(--text-sm);font-weight:700;color:var(--color-text);text-transform:uppercase;letter-spacing:0.06em;">Talla</span>
               @if (tallaSeleccionada()) {
-                <span class="detalle__talla-stock">Disponible</span>
+                <span style="font-size:var(--text-xs);color:var(--color-success);font-weight:600;">Disponible</span>
               }
             </div>
-            <div class="detalle__tallas">
+            <div style="display:flex;flex-wrap:wrap;gap:var(--space-sm);">
               @for (variante of tallasDisponibles(); track variante.id) {
-                <button
-                  class="talla-btn"
-                  [class.talla-btn--activa]="tallaSeleccionada()?.id === variante.id"
-                  [class.talla-btn--agotada]="!variante.disponible"
-                  [disabled]="!variante.disponible"
-                  (click)="seleccionarTalla(variante)"
-                  [attr.aria-label]="'Talla ' + variante.talla + (!variante.disponible ? ' - Agotada' : '')"
-                >
+                <button class="talla-btn"
+                        [class.talla-btn--activa]="tallaSeleccionada()?.id === variante.id"
+                        [class.talla-btn--agotada]="!variante.disponible"
+                        [disabled]="!variante.disponible"
+                        (click)="seleccionarTalla(variante)"
+                        [attr.aria-label]="'Talla ' + variante.talla + (!variante.disponible ? ' - Agotada' : '')">
                   {{ variante.talla }}
                 </button>
               }
             </div>
             @if (tallasDisponibles().length === 0) {
-              <p class="detalle__talla-stock">No hay tallas para esta combinación.</p>
+              <p style="font-size:var(--text-xs);color:var(--color-muted);font-weight:600;">No hay tallas para esta combinacion.</p>
             }
           }
-
-
-
         </div>
 
         <!-- Cantidad -->
         @if (tallaSeleccionada() && hayStockSeleccionado()) {
-          <div class="detalle__cantidad-section">
-            <span class="detalle__label">Cantidad</span>
-            <div class="cantidad">
-              <button class="cantidad__btn" (click)="decrementar()" [disabled]="cantidad() === 1"
-                      aria-label="Disminuir cantidad">
+          <div style="display:flex;align-items:center;gap:var(--space-lg);">
+            <span style="font-size:var(--text-sm);font-weight:700;color:var(--color-text);text-transform:uppercase;letter-spacing:0.06em;">Cantidad</span>
+            <div style="display:flex;align-items:center;border:1.5px solid var(--color-border);border-radius:var(--radius-sm);overflow:hidden;">
+              <button style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--color-text);background-color:var(--color-surface);transition:background-color 150ms ease;cursor:pointer;"
+                      (click)="decrementar()" [disabled]="cantidad() === 1" aria-label="Disminuir cantidad">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
               </button>
-              <span class="cantidad__num">{{ cantidad() }}</span>
-              <button class="cantidad__btn" (click)="incrementar()"
-                      [disabled]="cantidad() === 2147483647" aria-label="Aumentar cantidad">
+              <span style="min-width:44px;text-align:center;font-size:var(--text-base);font-weight:700;color:var(--color-text);border-inline:1.5px solid var(--color-border);line-height:44px;">
+                {{ cantidad() }}
+              </span>
+              <button style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--color-text);background-color:var(--color-surface);transition:background-color 150ms ease;cursor:pointer;"
+                      (click)="incrementar()" [disabled]="cantidad() === 2147483647" aria-label="Aumentar cantidad">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="2.5" stroke-linecap="round">
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -181,12 +173,14 @@
 
         <!-- Error -->
         @if (error()) {
-          <div class="detalle__error">{{ error() }}</div>
+          <div style="padding:0.75rem var(--space-md);background-color:#fef2f2;border:1px solid #fecaca;border-radius:var(--radius-sm);font-size:var(--text-sm);color:var(--color-error);">
+            {{ error() }}
+          </div>
         }
 
-        <!-- Éxito -->
+        <!-- Exito -->
         @if (mensajeExito()) {
-          <div class="detalle__exito animate-fade-up">
+          <div class="animate-fade-up" style="display:flex;align-items:center;gap:var(--space-sm);padding:0.75rem var(--space-md);background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--radius-sm);font-size:var(--text-sm);font-weight:600;color:var(--color-success);">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"/>
@@ -195,13 +189,12 @@
           </div>
         }
 
-        <!-- Botones CTA -->
-        <div class="detalle__ctas">
-          <button
-            class="btn-primary detalle__agregar"
-            (click)="agregarAlCarrito()"
-            [disabled]="agregando()"
-          >
+        <!-- CTAs -->
+        <div style="display:flex;gap:var(--space-md);flex-wrap:wrap;">
+          <button class="btn-primary"
+                  style="flex:1;min-width:180px;padding:0.875rem var(--space-lg);font-size:var(--text-base);gap:var(--space-sm);"
+                  (click)="agregarAlCarrito()"
+                  [disabled]="agregando()">
             @if (agregando()) {
               <span class="detalle__spinner"></span>
               Agregando...
@@ -215,28 +208,28 @@
               Agregar al carrito
             }
           </button>
-
-          <a routerLink="/carrito" class="btn-secondary detalle__ir-carrito">
+          <a routerLink="/carrito" class="btn-secondary"
+             style="padding:0.875rem var(--space-lg);font-size:var(--text-base);white-space:nowrap;">
             Ver carrito
           </a>
         </div>
 
-        <!-- Info de entrega -->
-        <div class="detalle__entrega">
-          <div class="entrega__item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Info entrega -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-sm);padding:var(--space-md);background-color:var(--color-surface);border-radius:var(--radius-sm);border:1px solid var(--color-border);">
+          <div style="display:flex;align-items:center;gap:var(--space-sm);font-size:var(--text-sm);color:var(--color-muted);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D92B2B"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
               <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
               <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
             </svg>
-            <span>Envío a todo el Perú — 24 a 72 horas</span>
+            <span>Envio a todo el Peru — 24 a 72 horas</span>
           </div>
-          <div class="entrega__item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <div style="display:flex;align-items:center;gap:var(--space-sm);font-size:var(--text-sm);color:var(--color-muted);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D92B2B"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
-            <span>Pago seguro con tarjeta vía Mercado Pago</span>
+            <span>Pago seguro con tarjeta via Mercado Pago</span>
           </div>
         </div>
 
