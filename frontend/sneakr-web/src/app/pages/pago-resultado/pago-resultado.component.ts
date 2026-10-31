@@ -1,13 +1,18 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NgIcon } from '@ng-icons/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { PagosService, EstadoPagoResponse } from '../../core/services/pagos.service';
+import { AuthService } from '../../core/services/auth.service';
 import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 import { DatePipe } from '@angular/common';
+import { etiquetaIncidenciaPago } from '../../core/utils/estado-pago.util';
 import {
   Subject,
   Subscription,
   catchError,
   exhaustMap,
+  finalize,
   of,
   takeUntil,
   takeWhile,
@@ -19,13 +24,15 @@ type TipoResultado = 'exitoso' | 'pendiente' | 'fallido' | 'revision' | 'descono
 @Component({
   selector: 'app-pago-resultado',
   standalone: true,
-  imports: [RouterLink, MonedaPipe, DatePipe],
+  imports: [RouterLink, MonedaPipe, DatePipe, NgIcon],
   templateUrl: './pago-resultado.component.html',
   styleUrl: './pago-resultado.component.css',
 })
 export class PagoResultadoComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private pagosService = inject(PagosService);
+  private readonly auth = inject(AuthService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly cargando = signal(true);
   readonly resultado = signal<TipoResultado>('desconocido');
@@ -101,7 +108,9 @@ export class PagoResultadoComponent implements OnInit, OnDestroy {
         if (info.mpPagoId) {
           this.mpPagoId.set(info.mpPagoId);
         }
-        if (
+        if (etiquetaIncidenciaPago(info)) {
+          this.resultado.set('revision');
+        } else if (
           info.estado === 'PAGO_VERIFICADO' ||
           info.estado === 'EN_PREPARACION' ||
           info.estado === 'ENVIADO' ||
@@ -122,15 +131,23 @@ export class PagoResultadoComponent implements OnInit, OnDestroy {
 
   reintentarPago() {
     const pedidoId = this.pedidoId();
-    if (!pedidoId || this.detalle()?.estado !== 'PENDIENTE') return;
+    const detalle = this.detalle();
+    if (!pedidoId || detalle?.estado !== 'PENDIENTE' || etiquetaIncidenciaPago(detalle)
+      || this.reintentandoPago() || !this.auth.sesionValida()) return;
+    const sesion = this.auth.idSesion;
     this.reintentandoPago.set(true);
     this.errorConsulta.set('');
-    this.pagosService.crearPreferencia(pedidoId).subscribe({
+    this.pagosService.crearPreferencia(pedidoId).pipe(
+      takeUntil(this.auth.cambiosSesion$),
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => this.reintentandoPago.set(false)),
+    ).subscribe({
       next: (respuesta) => {
-        window.location.href = respuesta.urlPago;
+        if (sesion === this.auth.idSesion && this.auth.sesionValida()) {
+          window.location.href = respuesta.urlPago;
+        }
       },
       error: (err) => {
-        this.reintentandoPago.set(false);
         this.errorConsulta.set(
           typeof err?.error?.message === 'string'
             ? err.error.message

@@ -3,10 +3,11 @@ import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MarcasService } from './marcas.service.js';
 
-describe('MarcasService logos', () => {
+describe('MarcasService', () => {
   let service: MarcasService;
   let prisma: {
     marca: {
+      findMany: ReturnType<typeof vi.fn>;
       findUnique: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
       delete: ReturnType<typeof vi.fn>;
@@ -21,6 +22,7 @@ describe('MarcasService logos', () => {
   beforeEach(() => {
     prisma = {
       marca: {
+        findMany: vi.fn(),
         findUnique: vi.fn(),
         update: vi.fn(),
         delete: vi.fn(),
@@ -35,6 +37,21 @@ describe('MarcasService logos', () => {
       prisma as unknown as PrismaService,
       cloudinary as unknown as CloudinaryService,
     );
+  });
+
+  it('incluye el total de productos por marca al listar y vuelve a consultarlo en cada carga', async () => {
+    const marca = { id: 2, nombre: 'Adidas', codigo: 'AD', logo: null };
+    prisma.marca.findMany
+      .mockResolvedValueOnce([{ ...marca, _count: { productos: 0 } }])
+      .mockResolvedValueOnce([{ ...marca, _count: { productos: 1 } }]);
+
+    expect(await service.buscarTodas()).toEqual([{ ...marca, _count: { productos: 0 } }]);
+    expect(await service.buscarTodas()).toEqual([{ ...marca, _count: { productos: 1 } }]);
+    expect(prisma.marca.findMany).toHaveBeenCalledTimes(2);
+    expect(prisma.marca.findMany).toHaveBeenLastCalledWith({
+      orderBy: { nombre: 'asc' },
+      include: { _count: { select: { productos: true } } },
+    });
   });
 
   it('elimina primero la marca y luego su logo de Cloudinary', async () => {

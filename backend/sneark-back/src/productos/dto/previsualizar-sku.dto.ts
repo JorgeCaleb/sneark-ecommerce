@@ -8,6 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { PATRON_TALLA } from '../sku.util.js';
 
 export class PrevisualizarSkuDto {
   @Type(() => Number)
@@ -36,6 +37,6 @@ export class PrevisualizarSkuDto {
     typeof value === 'string' ? value.trim() : value,
   )
   @IsString()
-  @Matches(/^(?:\d{1,2}|[1-9]\d{2})(?:\.0|\.5)?$/)
+  @Matches(PATRON_TALLA)
   talla: string;
 }

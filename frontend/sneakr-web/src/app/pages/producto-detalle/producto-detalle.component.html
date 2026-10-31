@@ -1,239 +1,318 @@
-<!-- Skeleton -->
-@if (cargando()) {
-  <div class="container" style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-xl);padding-block:var(--space-xl);">
-    <div style="aspect-ratio:1;border-radius:var(--radius-md);background:linear-gradient(90deg,var(--color-border) 25%,#e8e7e4 50%,var(--color-border) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;"></div>
-    <div style="display:flex;flex-direction:column;gap:var(--space-md);padding-top:var(--space-md);">
-      <div style="height:16px;width:40%;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--color-border) 25%,#e8e7e4 50%,var(--color-border) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;"></div>
-      <div style="height:48px;width:90%;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--color-border) 25%,#e8e7e4 50%,var(--color-border) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;"></div>
-      <div style="height:20px;width:70%;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--color-border) 25%,#e8e7e4 50%,var(--color-border) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;"></div>
+<div class="detail-shell" [attr.aria-busy]="cargando()">
+  @if (cargando()) {
+    <div class="detail-loading" role="status">
+      <p>Cargando producto…</p>
+      <div class="loading-composition" aria-hidden="true">
+        <div></div>
+        <div></div>
+      </div>
     </div>
-  </div>
-}
-
-<!-- Detalle -->
-@if (!cargando() && producto()) {
-  <div class="container animate-fade-in" style="padding-block:var(--space-lg) var(--space-2xl);">
-
-    <!-- Breadcrumb -->
-    <nav style="display:flex;align-items:center;gap:var(--space-xs);margin-bottom:var(--space-xl);" aria-label="Navegacion">
-      <a routerLink="/" style="font-size:var(--text-sm);color:var(--color-muted);transition:color 150ms ease;"
-         onmouseenter="this.style.color='var(--color-text)'" onmouseleave="this.style.color='var(--color-muted)'">Inicio</a>
-      <span style="font-size:var(--text-sm);color:var(--color-muted-light);">/</span>
-      <a routerLink="/catalogo" style="font-size:var(--text-sm);color:var(--color-muted);transition:color 150ms ease;"
-         onmouseenter="this.style.color='var(--color-text)'" onmouseleave="this.style.color='var(--color-muted)'">Catalogo</a>
-      <span style="font-size:var(--text-sm);color:var(--color-muted-light);">/</span>
-      <span style="font-size:var(--text-sm);color:var(--color-text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;">
-        {{ producto()!.nombre }}
-      </span>
+  } @else if (noEncontrado() || errorCarga()) {
+    <section class="detail-state" aria-labelledby="load-title">
+      <h1 id="load-title">
+        {{
+          noEncontrado() ? 'Este producto no está disponible.' : 'No pudimos cargar el producto.'
+        }}
+      </h1>
+      <p>
+        {{ noEncontrado() ? 'Explora el catálogo para encontrar otros modelos.' : errorCarga() }}
+      </p>
+      @if (!noEncontrado()) {
+        <button type="button" class="detail-button" (click)="cargarProducto()">REINTENTAR</button>
+      }
+      <a routerLink="/catalogo" class="underlined-link">Ver zapatillas</a>
+    </section>
+  } @else if (producto(); as p) {
+    <nav class="detail-breadcrumb" aria-label="Ruta del producto">
+      <a routerLink="/">Inicio</a><span aria-hidden="true"> / </span
+      ><a routerLink="/catalogo">Zapatillas</a><span aria-hidden="true"> / </span
+      ><span>{{ p.marca.nombre }} · {{ p.nombre }}</span>
     </nav>
-
-    <div class="detalle__grid">
-
-      <!-- ── Galeria ──────────────────────────────────────── -->
-      <div class="galeria">
-        <div class="galeria__principal">
-          @if (producto()!.imagenes.length > 0) {
-            <img [src]="producto()!.imagenes[imagenActiva()].url"
-                 [alt]="producto()!.nombre"
-                 class="galeria__img" />
-          } @else {
-            <div class="galeria__placeholder">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
-            </div>
+    <div class="detail-main">
+      <section class="product-gallery" aria-label="Fotografías del producto">
+        <div class="gallery-main">
+          <img
+            [src]="imagenes()[imagenActiva()]?.url || 'placeholder-shoe.svg'"
+            [alt]="p.nombre + ' · vista ' + (imagenActiva() + 1)"
+            width="744"
+            height="550"
+            fetchpriority="high"
+            (error)="imagenAlternativa($event)"
+          />
+          @if (imagenes().length) {
+            <p class="gallery-counter" aria-live="polite">
+              {{ (imagenActiva() + 1).toString().padStart(2, '0') }} /
+              {{ imagenes().length.toString().padStart(2, '0') }}
+            </p>
           }
         </div>
-
-        @if (producto()!.imagenes.length > 1) {
-          <div class="galeria__thumbs">
-            @for (img of producto()!.imagenes; track img.id; let i = $index) {
-              <button class="galeria__thumb"
-                      [class.galeria__thumb--activa]="imagenActiva() === i"
-                      (click)="seleccionarImagen(i)"
-                      [attr.aria-label]="'Ver imagen ' + (i + 1)">
-                <img [src]="img.url" [alt]="'Imagen ' + (i + 1)" loading="lazy" />
+        @if (imagenesComplementarias().length) {
+          <div class="gallery-complementary">
+            @for (imagen of imagenesComplementarias(); track $index) {
+              <button
+                type="button"
+                [attr.aria-label]="'Ver imagen ' + (imagen.index + 1) + ' de ' + p.nombre"
+                (click)="seleccionarImagen(imagen.index)"
+              >
+                <img
+                  [src]="imagen.url"
+                  [alt]="p.nombre + ' · vista ' + (imagen.index + 1)"
+                  width="364"
+                  height="270"
+                  loading="lazy"
+                  (error)="imagenAlternativa($event)"
+                />
               </button>
             }
           </div>
         }
-      </div>
-
-      <!-- ── Info del producto ────────────────────────────── -->
-      <div style="display:flex;flex-direction:column;gap:var(--space-lg);">
-
-        <div style="display:flex;align-items:center;gap:var(--space-sm);">
-          <span class="badge">{{ producto()!.marca.nombre }}</span>
-          <span style="font-size:var(--text-sm);color:var(--color-muted);">{{ producto()!.categoria.nombre }}</span>
-        </div>
-
-        <h1 style="font-size:clamp(var(--text-2xl),3vw,var(--text-4xl));font-weight:800;letter-spacing:-0.03em;color:var(--color-text);line-height:1.1;">
-          {{ producto()!.nombre }}
-        </h1>
-
-        <p style="font-size:var(--text-3xl);font-weight:800;letter-spacing:-0.03em;color:var(--color-accent);">
-          {{ producto()!.precio | moneda }}
-        </p>
-
-        @if (producto()!.descripcion) {
-          <p style="font-size:var(--text-base);line-height:1.7;color:var(--color-muted);">
-            {{ producto()!.descripcion }}
+        @if (tieneVariosColores()) {
+          <p class="product-caption">
+            Las fotografías muestran el modelo y pueden mostrar otro color.
           </p>
         }
-
-        <div style="height:1px;background-color:var(--color-border);"></div>
-
-        <!-- Seleccion de variante -->
-        <div style="display:flex;flex-direction:column;gap:var(--space-md);">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-size:var(--text-sm);font-weight:700;color:var(--color-text);text-transform:uppercase;letter-spacing:0.06em;">Genero</span>
-          </div>
-          <div style="display:flex;flex-wrap:wrap;gap:var(--space-sm);">
-            @for (genero of generosDisponibles(); track genero) {
-              <button class="talla-btn"
-                      [class.talla-btn--activa]="generoSeleccionado() === genero"
-                      (click)="seleccionarGenero(genero)">
-                {{ etiquetaGenero(genero) }}
-              </button>
-            }
-          </div>
-
-          @if (generoSeleccionado()) {
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <span style="font-size:var(--text-sm);font-weight:700;color:var(--color-text);text-transform:uppercase;letter-spacing:0.06em;">Color</span>
+      </section>
+      <section class="purchase-panel" aria-labelledby="product-title">
+        <header class="product-identity">
+          <p class="product-brand">{{ p.marca.nombre }}</p>
+          <h1 id="product-title">{{ p.nombre }}</h1>
+          <p class="product-category">
+            {{ p.categoria.nombre }}{{ nombresGeneros() ? ' · ' + nombresGeneros() : '' }}
+          </p>
+          <p class="product-price">{{ p.precio | moneda: true }}</p>
+          <p class="product-caption">
+            {{
+              agotado()
+                ? 'Modelo sin disponibilidad en este momento.'
+                : 'Consulta la disponibilidad al seleccionar tu talla.'
+            }}
+          </p>
+        </header>
+        <hr />
+        @if (generosDisponibles().length > 1) {
+          <fieldset class="variant-group">
+            <legend>Género</legend>
+            <div class="gender-options">
+              @for (genero of generosDisponibles(); track genero) {
+                <button
+                  type="button"
+                  [attr.aria-pressed]="generoSeleccionado() === genero"
+                  [disabled]="agregando()"
+                  (click)="seleccionarGenero(genero)"
+                >
+                  {{ etiquetaGenero(genero) }}
+                </button>
+              }
             </div>
-            <div style="display:flex;flex-wrap:wrap;gap:var(--space-sm);">
+          </fieldset>
+        }
+        @if (cargandoModelos()) {
+          <p class="product-caption" role="status">Cargando modelos y colores…</p>
+        } @else if (errorModelos()) {
+          <p class="product-caption" role="status">No pudimos cargar los otros modelos y colores.
+            <button type="button" class="underlined-link" (click)="cargarModelosGrupo()">Reintentar</button>
+          </p>
+        } @else if (modelosGrupo().length > 1) {
+          <nav class="model-options" aria-labelledby="model-options-title">
+            <h2 id="model-options-title">Modelos y colores</h2>
+            <div class="model-options-grid">
+              @for (modelo of modelosGrupo(); track modelo.id) {
+                <a [routerLink]="['/producto', modelo.id]" [attr.aria-current]="modelo.id === p.id ? 'page' : null"
+                   [attr.aria-label]="modelo.nombre" [title]="modelo.nombre">
+                  <img [src]="modelo.imagenes[0]?.url || 'placeholder-shoe.svg'" alt="" width="64" height="64"
+                       loading="lazy" (error)="imagenAlternativa($event)" />
+                </a>
+              }
+            </div>
+            <p class="product-caption">{{ p.nombre }}</p>
+          </nav>
+        }
+        @if (coloresDisponibles().length && (modelosGrupo().length < 2 || tieneVariosColores())) {
+          <fieldset class="variant-group color-group">
+            <legend>Color: {{ colorActualNombre() }}</legend>
+            <div class="color-options">
               @for (color of coloresDisponibles(); track color.id) {
-                <button class="talla-btn"
-                        [class.talla-btn--activa]="colorSeleccionadoId() === color.id"
-                        [class.talla-btn--agotada]="!color.disponible"
-                        [disabled]="!color.disponible"
-                        (click)="seleccionarColor(color.id)"
-                        [attr.aria-label]="color.nombre + ' (' + color.codigo + ')' + (!color.disponible ? ' - Agotado' : '')">
-                  {{ color.nombre }}
+                <button
+                  type="button"
+                  class="color-choice"
+                  [class.is-selected]="colorSeleccionadoId() === color.id"
+                  [attr.aria-pressed]="colorSeleccionadoId() === color.id"
+                  [attr.aria-label]="color.nombre + (color.disponible ? '' : ' · agotado')"
+                  [title]="color.nombre"
+                  [disabled]="agregando()"
+                  (click)="seleccionarColor(color.id)"
+                >
+                  @if (!tieneVariosColores()) {
+                    <img
+                      [src]="p.imagenes[0]?.url || 'placeholder-shoe.svg'"
+                      alt=""
+                      width="54"
+                      height="46"
+                      (error)="imagenAlternativa($event)"
+                    />
+                  } @else {
+                    <span
+                      class="color-swatch"
+                      [style.background-color]="colorVisual(color)"
+                      aria-hidden="true"
+                    ></span
+                    ><span class="color-name">{{ color.nombre }}</span>
+                  }
                 </button>
               }
             </div>
-            @if (coloresDisponibles().length === 0) {
-              <p style="font-size:var(--text-xs);color:var(--color-success);font-weight:600;">No hay colores para este genero.</p>
+          </fieldset>
+        }
+        <div class="size-group">
+          <div class="size-heading">
+            <h2 id="size-label">Selecciona tu talla</h2>
+            <details class="size-guide">
+              <summary>Guía de tallas ↗</summary>
+              <p>
+                Las tallas se muestran tal como figuran en el catálogo del modelo. Para confirmar
+                equivalencias y medidas,
+                <a href="mailto:hola@soho.pe">contacta con atención al cliente</a>.
+              </p>
+            </details>
+          </div>
+          <div class="size-options" role="group" aria-labelledby="size-label">
+            @for (talla of tallasDisponibles(); track talla.id) {
+              <button
+                type="button"
+                class="size-button"
+                [class.is-selected]="tallaSeleccionada()?.id === talla.id"
+                [attr.aria-pressed]="tallaSeleccionada()?.id === talla.id"
+                [attr.aria-label]="'Talla ' + talla.talla + (talla.disponible ? '' : ' agotada')"
+                [disabled]="!talla.disponible || agregando()"
+                (click)="seleccionarTalla(talla)"
+              >
+                <span>{{ talla.talla }}{{ tallaSeleccionada()?.id === talla.id ? ' ✓' : '' }}</span>
+                @if (!talla.disponible) {
+                  <small>Agotada</small>
+                }
+              </button>
             }
-          }
-
-          @if (colorSeleccionadoId()) {
-            <div style="display:flex;align-items:center;justify-content:space-between;">
-              <span style="font-size:var(--text-sm);font-weight:700;color:var(--color-text);text-transform:uppercase;letter-spacing:0.06em;">Talla</span>
-              @if (tallaSeleccionada()) {
-                <span style="font-size:var(--text-xs);color:var(--color-success);font-weight:600;">Disponible</span>
-              }
-            </div>
-            <div style="display:flex;flex-wrap:wrap;gap:var(--space-sm);">
-              @for (variante of tallasDisponibles(); track variante.id) {
-                <button class="talla-btn"
-                        [class.talla-btn--activa]="tallaSeleccionada()?.id === variante.id"
-                        [class.talla-btn--agotada]="!variante.disponible"
-                        [disabled]="!variante.disponible"
-                        (click)="seleccionarTalla(variante)"
-                        [attr.aria-label]="'Talla ' + variante.talla + (!variante.disponible ? ' - Agotada' : '')">
-                  {{ variante.talla }}
-                </button>
-              }
-            </div>
-            @if (tallasDisponibles().length === 0) {
-              <p style="font-size:var(--text-xs);color:var(--color-muted);font-weight:600;">No hay tallas para esta combinacion.</p>
-            }
-          }
+          </div>
+          <p class="selection-status" aria-live="polite">
+            {{
+              tallaSeleccionada()
+                ? 'Talla ' + tallaSeleccionada()!.talla + ' seleccionada · Disponible'
+                : agotado()
+                  ? 'Todas las variantes están agotadas.'
+                  : tallasDisponibles().length
+                    ? 'Elige una talla disponible para continuar.'
+                    : 'No hay tallas disponibles para esta selección.'
+            }}
+          </p>
+          <p class="product-caption">Confirma tu talla antes de añadir el producto.</p>
         </div>
-
-        <!-- Cantidad -->
-        @if (tallaSeleccionada() && hayStockSeleccionado()) {
-          <div style="display:flex;align-items:center;gap:var(--space-lg);">
-            <span style="font-size:var(--text-sm);font-weight:700;color:var(--color-text);text-transform:uppercase;letter-spacing:0.06em;">Cantidad</span>
-            <div style="display:flex;align-items:center;border:1.5px solid var(--color-border);border-radius:var(--radius-sm);overflow:hidden;">
-              <button style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--color-text);background-color:var(--color-surface);transition:background-color 150ms ease;cursor:pointer;"
-                      (click)="decrementar()" [disabled]="cantidad() === 1" aria-label="Disminuir cantidad">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              </button>
-              <span style="min-width:44px;text-align:center;font-size:var(--text-base);font-weight:700;color:var(--color-text);border-inline:1.5px solid var(--color-border);line-height:44px;">
-                {{ cantidad() }}
-              </span>
-              <button style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--color-text);background-color:var(--color-surface);transition:background-color 150ms ease;cursor:pointer;"
-                      (click)="incrementar()" [disabled]="cantidad() === 2147483647" aria-label="Aumentar cantidad">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2.5" stroke-linecap="round">
-                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-              </button>
-            </div>
+        <div class="quantity-and-favorite">
+          <div class="quantity-control" role="group" aria-label="Cantidad">
+            <button
+              type="button"
+              aria-label="Reducir cantidad"
+              [disabled]="cantidad() === 1 || agregando() || agotado()"
+              (click)="decrementar()"
+            >
+              <ng-icon name="lucideMinus" size="22" /></button
+            ><output aria-live="polite" aria-label="Unidades">{{ cantidad() }}</output
+            ><button
+              type="button"
+              aria-label="Aumentar cantidad"
+              [disabled]="cantidad() === 2147483647 || agregando() || agotado()"
+              (click)="incrementar()"
+            >
+              <ng-icon name="lucidePlus" size="22" />
+            </button>
           </div>
-        }
-
-        <!-- Error -->
-        @if (error()) {
-          <div style="padding:0.75rem var(--space-md);background-color:#fef2f2;border:1px solid #fecaca;border-radius:var(--radius-sm);font-size:var(--text-sm);color:var(--color-error);">
-            {{ error() }}
-          </div>
-        }
-
-        <!-- Exito -->
-        @if (mensajeExito()) {
-          <div class="animate-fade-up" style="display:flex;align-items:center;gap:var(--space-sm);padding:0.75rem var(--space-md);background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:var(--radius-sm);font-size:var(--text-sm);font-weight:600;color:var(--color-success);">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-            ¡Agregado al carrito!
-          </div>
-        }
-
-        <!-- CTAs -->
-        <div style="display:flex;gap:var(--space-md);flex-wrap:wrap;">
-          <button class="btn-primary"
-                  style="flex:1;min-width:180px;padding:0.875rem var(--space-lg);font-size:var(--text-base);gap:var(--space-sm);"
-                  (click)="agregarAlCarrito()"
-                  [disabled]="agregando()">
-            @if (agregando()) {
-              <span class="detalle__spinner"></span>
-              Agregando...
-            } @else {
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 0 1-8 0"/>
-              </svg>
-              Agregar al carrito
-            }
+          <button
+            type="button"
+            class="save-product"
+            [attr.aria-pressed]="favorito()"
+            (click)="toggleFavorito()"
+          >
+            <ng-icon name="lucideHeart" size="22" /><span>{{
+              favorito() ? 'Guardado' : 'Guardar'
+            }}</span>
           </button>
-          <a routerLink="/carrito" class="btn-secondary"
-             style="padding:0.875rem var(--space-lg);font-size:var(--text-base);white-space:nowrap;">
-            Ver carrito
-          </a>
         </div>
-
-        <!-- Info entrega -->
-        <div style="display:flex;flex-direction:column;gap:var(--space-sm);padding:var(--space-md);background-color:var(--color-surface);border-radius:var(--radius-sm);border:1px solid var(--color-border);">
-          <div style="display:flex;align-items:center;gap:var(--space-sm);font-size:var(--text-sm);color:var(--color-muted);">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D92B2B"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
-              <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
-              <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
-            </svg>
-            <span>Envio a todo el Peru — 24 a 72 horas</span>
+        @if (error()) {
+          <p class="purchase-feedback is-error" role="alert">{{ error() }}</p>
+        }
+        @if (mensajeExito()) {
+          <p class="purchase-feedback" role="status">
+            Producto añadido a tu carrito. <a routerLink="/carrito">Ver carrito</a>
+          </p>
+        }
+        <button
+          type="button"
+          class="add-to-cart"
+          [disabled]="agregando() || agotado()"
+          [attr.aria-busy]="agregando()"
+          (click)="agregarAlCarrito()"
+        >
+          {{ agregando() ? 'AÑADIENDO…' : agotado() ? 'SIN DISPONIBILIDAD' : 'AÑADIR AL CARRITO' }}
+        </button>
+        <div class="purchase-conditions">
+          <div>
+            <ng-icon name="lucideTruck" size="20" />
+            <div>
+              <h2>Entrega</h2>
+              <p>Consulta las zonas y el costo de envío al finalizar tu compra.</p>
+            </div>
           </div>
-          <div style="display:flex;align-items:center;gap:var(--space-sm);font-size:var(--text-sm);color:var(--color-muted);">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D92B2B"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            <span>Pago seguro con tarjeta via Mercado Pago</span>
+          <div>
+            <ng-icon name="lucideRotateCw" size="20" />
+            <div>
+              <h2>Cambios y devoluciones</h2>
+              <p>Consulta las condiciones con atención al cliente antes de comprar.</p>
+            </div>
           </div>
         </div>
-
-      </div>
+      </section>
     </div>
-  </div>
-}
+    <section class="product-description" aria-labelledby="description-title">
+      <h2 id="description-title">DISEÑADAS PARA TU RITMO.</h2>
+      <p class="description-copy">
+        {{ p.descripcion || 'Consulta las características de este modelo antes de elegir tu par.' }}
+      </p>
+      <h3>Características</h3>
+      <ul>
+        <li>
+          Modelo: {{ p.nombre }}{{ nombresGeneros() ? ' · Género: ' + nombresGeneros() : '' }}
+        </li>
+        <li>Marca: {{ p.marca.nombre }}</li>
+        @if (nombresColores()) {
+          <li>Colores: {{ nombresColores() }}</li>
+        }
+        <li>Referencia: {{ p.codigoModelo }}</li>
+      </ul>
+    </section>
+    <section
+      class="related-products"
+      aria-labelledby="related-title"
+      [attr.aria-busy]="cargandoRelacionados()"
+    >
+      <h2 id="related-title">TAMBIÉN VAN CONTIGO</h2>
+      <p>Otros modelos de nuestra selección.</p>
+      @if (cargandoRelacionados()) {
+        <p role="status">Cargando otros modelos…</p>
+      } @else if (errorRelacionados()) {
+        <div class="related-state">
+          <p>No pudimos cargar otros modelos.</p>
+          <button type="button" class="underlined-link" (click)="cargarRelacionados()">
+            Reintentar
+          </button>
+        </div>
+      } @else if (relacionados().length) {
+        <div class="related-grid">
+          @for (relacionado of relacionados(); track relacionado.id) {
+            <app-producto-card [producto]="relacionado" />
+          }
+        </div>
+      } @else {
+        <a routerLink="/catalogo" class="underlined-link">Explorar todos los modelos</a>
+      }
+    </section>
+  }
+</div>

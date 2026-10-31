@@ -5,6 +5,7 @@ import { Carrito, CarritoService } from '../../core/services/carrito.service';
 import { PedidosService } from '../../core/services/pedidos.service';
 import { PagosService } from '../../core/services/pagos.service';
 import { CheckoutComponent } from './checkout.component';
+import { AuthService } from '../../core/services/auth.service';
 
 function carrito(items: Carrito['items']): Carrito {
   return {
@@ -48,6 +49,8 @@ describe('CheckoutComponent cart loading', () => {
   let crearPedido: ReturnType<typeof vi.fn>;
   let crearPreferencia: ReturnType<typeof vi.fn>;
   let cotizarEnvio: ReturnType<typeof vi.fn>;
+  let cambiosSesion: Subject<void>;
+  let auth: { idSesion: number; sesionValida: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     carritoSignal = signal<Carrito | null>(null);
@@ -55,11 +58,25 @@ describe('CheckoutComponent cart loading', () => {
     limpiarLocal = vi.fn(() => carritoSignal.set(null));
     crearPedido = vi.fn().mockReturnValue(of({ id: 45 }));
     crearPreferencia = vi.fn().mockReturnValue(NEVER);
-    cotizarEnvio = vi.fn().mockImplementation((distrito: string) =>
-      of({ distrito, costoEnvio: distrito === 'La Esperanza' ? 0 : 15 }),
-    );
+    cambiosSesion = new Subject<void>();
+    auth = { idSesion: 1, sesionValida: vi.fn().mockReturnValue(true) };
+    cotizarEnvio = vi
+      .fn()
+      .mockImplementation((distrito: string) =>
+        of({ distrito, costoEnvio: distrito === 'La Esperanza' ? 0 : 15 }),
+      );
     TestBed.configureTestingModule({
       providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            get idSesion() {
+              return auth.idSesion;
+            },
+            sesionValida: auth.sesionValida,
+            cambiosSesion$: cambiosSesion,
+          },
+        },
         {
           provide: CarritoService,
           useValue: {
@@ -190,5 +207,76 @@ describe('CheckoutComponent cart loading', () => {
     expect(component.mostrarAccesoPedidos()).toBe(true);
     expect(component.error()).toBe('Mercado Pago no disponible');
     expect(crearPreferencia).toHaveBeenCalledWith(45);
+  });
+
+  function prepararConfirmacion() {
+    const disponible = carrito([itemCarrito()]);
+    obtener.mockReturnValue(of(disponible));
+    carritoSignal.set(disponible);
+    component.telefono = '999999999';
+    elegirDistritoGratis();
+    component.direccion = 'Calle 1';
+    component.ngOnInit();
+  }
+
+  it('cancela un pedido pendiente al cambiar de sesion sin vaciar el carrito nuevo', () => {
+    const pendiente = new Subject<{ id: number }>();
+    crearPedido.mockReturnValue(pendiente);
+    prepararConfirmacion();
+    component.confirmar();
+    auth.idSesion++;
+    cambiosSesion.next();
+    const nuevo = { ...carrito([itemCarrito()]), id: 2 };
+    carritoSignal.set(nuevo);
+    pendiente.next({ id: 45 });
+    expect(pendiente.observed).toBe(false);
+    expect(limpiarLocal).not.toHaveBeenCalled();
+    expect(crearPreferencia).not.toHaveBeenCalled();
+    expect(carritoSignal()).toBe(nuevo);
+    expect(component.enviando()).toBe(false);
+  });
+
+  it('comprueba la sesion antes de consumir una respuesta tardia aunque no llegue el aviso', () => {
+    const pendiente = new Subject<{ id: number }>();
+    crearPedido.mockReturnValue(pendiente);
+    prepararConfirmacion();
+    component.confirmar();
+    auth.idSesion++;
+    pendiente.next({ id: 45 });
+    pendiente.complete();
+    expect(limpiarLocal).not.toHaveBeenCalled();
+    expect(crearPreferencia).not.toHaveBeenCalled();
+    expect(component.enviando()).toBe(false);
+  });
+
+  it('cancela la preferencia de pago cuando cambia la sesion', () => {
+    const preferencia = new Subject<{ urlPago: string }>();
+    crearPreferencia.mockReturnValue(preferencia);
+    prepararConfirmacion();
+    component.confirmar();
+    expect(preferencia.observed).toBe(true);
+    auth.idSesion++;
+    cambiosSesion.next();
+    expect(preferencia.observed).toBe(false);
+    expect(component.enviando()).toBe(false);
+  });
+
+  it('cancela la confirmacion al destruir la pantalla', () => {
+    const pendiente = new Subject<{ id: number }>();
+    crearPedido.mockReturnValue(pendiente);
+    prepararConfirmacion();
+    component.confirmar();
+    TestBed.resetTestingModule();
+    pendiente.next({ id: 45 });
+    expect(pendiente.observed).toBe(false);
+    expect(limpiarLocal).not.toHaveBeenCalled();
+    expect(crearPreferencia).not.toHaveBeenCalled();
+  });
+
+  it('no crea pedidos si la sesion ya no es valida', () => {
+    prepararConfirmacion();
+    auth.sesionValida.mockReturnValue(false);
+    component.confirmar();
+    expect(crearPedido).not.toHaveBeenCalled();
   });
 });

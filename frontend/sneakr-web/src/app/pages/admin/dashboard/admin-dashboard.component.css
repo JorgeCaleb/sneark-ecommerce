@@ -52,7 +52,7 @@
   white-space: nowrap;
 }
 
-.dashboard__header-btn svg {
+.dashboard__header-btn ng-icon {
   flex: 0 0 auto;
 }
 
@@ -101,7 +101,7 @@
   color: var(--color-accent);
 }
 
-.metrica-card__icon svg {
+.metrica-card__icon ng-icon {
   width: 18px;
   height: 18px;
 }
@@ -187,7 +187,7 @@
     gap 150ms ease;
 }
 
-.panel-link svg {
+.panel-link ng-icon {
   width: 14px;
   height: 14px;
 }
@@ -314,7 +314,7 @@
   color: var(--color-muted);
 }
 
-.panel-state__icon svg {
+.panel-state__icon ng-icon {
   width: 21px;
   height: 21px;
 }
@@ -441,8 +441,8 @@
 }
 
 .estado-badge--warning {
-  background: #fef9c3;
-  color: #854d0e;
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 
 .estado-badge--info {
@@ -451,13 +451,13 @@
 }
 
 .estado-badge--success {
-  background: #f0fdf4;
-  color: #15803d;
+  background: var(--color-success-bg);
+  color: var(--color-success);
 }
 
 .estado-badge--error {
-  background: #fef2f2;
-  color: #b91c1c;
+  background: var(--color-error-bg);
+  color: var(--color-error);
 }
 
 .best-sellers {
@@ -503,7 +503,7 @@
   object-fit: cover;
 }
 
-.product-thumb svg {
+.product-thumb ng-icon {
   width: 22px;
   height: 22px;
 }
@@ -626,7 +626,7 @@
   height: 36px;
 }
 
-.product-thumb--small svg {
+.product-thumb--small ng-icon {
   width: 19px;
   height: 19px;
 }

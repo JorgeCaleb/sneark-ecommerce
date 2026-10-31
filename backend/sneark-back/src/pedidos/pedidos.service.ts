@@ -70,6 +70,8 @@ type PedidoParaTransicion = {
   usuarioId: number;
   inventarioReservado: boolean;
   pagadoEn: Date | null;
+  mpRequiereRevision: boolean;
+  mpActualizadoEn: Date | null;
   items: { tallaProductoId: number; cantidad: number }[];
 };
 
@@ -335,7 +337,10 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
 
   async buscarPagina(filtros: FiltrarPedidosDto) {
     const { estado, pagina, limite } = filtros;
-    const where: Prisma.PedidoWhereInput = estado ? { estado } : {};
+    const where: Prisma.PedidoWhereInput =
+      estado === EstadoPedido.PAGO_REQUIERE_REVISION
+        ? { OR: [{ estado }, { mpRequiereRevision: true }] }
+        : estado ? { estado } : {};
     const [datos, total] = await Promise.all([
       this.prisma.pedido.findMany({
         where,
@@ -380,10 +385,12 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
     ];
     const whereVentasActuales: Prisma.PedidoWhereInput = {
       estado: { in: estadosConfirmados },
+      mpRequiereRevision: false,
       pagadoEn: { gte: inicioActual, lt: finActual },
     };
     const whereVentasAnteriores: Prisma.PedidoWhereInput = {
       estado: { in: estadosConfirmados },
+      mpRequiereRevision: false,
       pagadoEn: { gte: inicioAnterior, lt: inicioActual },
     };
     const [
@@ -418,6 +425,7 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
             ) AS fecha, SUM(\`total\`) AS total
             FROM \`pedidos\`
             WHERE \`estado\` IN (${Prisma.join(estadosConfirmados)})
+              AND \`mpRequiereRevision\` = false
               AND \`pagadoEn\` >= ${inicioActual}
               AND \`pagadoEn\` < ${finActual}
             GROUP BY fecha
@@ -433,6 +441,7 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
             INNER JOIN \`tallas_producto\` AS tallas
               ON tallas.\`id\` = items.\`tallaProductoId\`
             WHERE pedidos.\`estado\` IN (${Prisma.join(estadosConfirmados)})
+              AND pedidos.\`mpRequiereRevision\` = false
               AND pedidos.\`pagadoEn\` >= ${inicioActual}
               AND pedidos.\`pagadoEn\` < ${finActual}
             GROUP BY tallas.\`productoId\`
@@ -495,6 +504,16 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
 
   async actualizarEstado(id: number, dto: ActualizarEstadoDto) {
     const pedido = await this.buscarPorId(id);
+    if (pedido.mpRequiereRevision && dto.estado !== EstadoPedido.CANCELADO) {
+      const resuelveRevision =
+        pedido.mpEstadoPago === 'approved' &&
+        new Prisma.Decimal(pedido.mpMontoReembolsado).isZero();
+      if (!resuelveRevision) {
+        throw new BadRequestException(
+          'El pedido tiene una incidencia de pago. Revisa el reembolso o la disputa en Mercado Pago antes de continuar.',
+        );
+      }
+    }
     if (
       dto.estado === EstadoPedido.PAGO_VERIFICADO &&
       pedido.estado === EstadoPedido.PENDIENTE
@@ -503,7 +522,13 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
         'El pago de Mercado Pago solo se confirma automáticamente tras validar su notificación.',
       );
     }
-    this.validarTransicion(pedido.estado, dto.estado);
+    const confirmaRevision =
+      pedido.mpRequiereRevision && dto.estado === pedido.estado &&
+      ([
+        EstadoPedido.PAGO_VERIFICADO, EstadoPedido.EN_PREPARACION,
+        EstadoPedido.ENVIADO, EstadoPedido.ENTREGADO,
+      ] as EstadoPedido[]).includes(pedido.estado);
+    if (!confirmaRevision) this.validarTransicion(pedido.estado, dto.estado);
 
     if (!(await this.aplicarTransicion(pedido, dto.estado))) {
       const estadoActual = await this.buscarPorId(id);
@@ -565,10 +590,14 @@ export class PedidosService implements OnModuleInit, OnModuleDestroy {
         where: {
           id: pedido.id,
           estado: pedido.estado,
+          mpRequiereRevision: pedido.mpRequiereRevision,
+          mpActualizadoEn: pedido.mpActualizadoEn,
           ...(usuarioId !== undefined ? { usuarioId } : {}),
         },
         data: {
           estado: estadoSolicitado,
+          ...(pedido.mpRequiereRevision && estadoSolicitado !== EstadoPedido.CANCELADO
+            ? { mpRequiereRevision: false } : {}),
           ...(estadoSolicitado === EstadoPedido.CANCELADO
             ? { inventarioReservado: false }
             : {}),

@@ -75,7 +75,13 @@
 
 .paginacion__num--activa {
   background-color: var(--color-accent);
-  color: #ffffff !important;
+  color: var(--color-white) !important;
   font-weight: 700;
   border-color: var(--color-accent);
 }
+
+.paginacion-editorial { display: flex; align-items: center; gap: 20px; color: var(--color-text); font: 400 12px/1.5 'Inter', sans-serif; }
+.paginacion-editorial button { display: grid; place-items: center; width: 24px; height: 44px; color: inherit; }
+.paginacion-editorial button:disabled { opacity: .35; cursor: default; }
+.paginacion-editorial button:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 3px; }
+.paginacion-editorial .pagina-actual { display: grid; place-items: center; width: 44px; height: 44px; background: var(--color-text); color: white; font-size: 14px; font-weight: 700; }

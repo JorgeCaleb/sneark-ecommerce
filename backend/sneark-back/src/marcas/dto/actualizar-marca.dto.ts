@@ -1,6 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
-  IsOptional,
+  ValidateIf,
   IsString,
   IsNotEmpty,
   Matches,
@@ -11,16 +11,14 @@ import {
 // modificarse a través de POST /:id/logo (subiendo un archivo a Cloudinary).
 // Esto evita que una URL arbitraria desincronice `logo` y `logoPublicId`.
 export class ActualizarMarcaDto {
-  @IsOptional()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
+  @ValidateIf((_, value: unknown) => value !== undefined)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty({ message: 'El nombre no puede estar vacío' })
   @MaxLength(100, { message: 'El nombre no puede superar los 100 caracteres' })
   nombre?: string;
 
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toUpperCase() : value,
   )

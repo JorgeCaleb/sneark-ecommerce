@@ -1,7 +1,16 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  inject,
+  signal,
+} from '@angular/core';
+import { NgIcon } from '@ng-icons/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, finalize, switchMap } from 'rxjs/operators';
-import { forkJoin, of, Subscription } from 'rxjs';
+import { EMPTY, forkJoin, of, Subscription } from 'rxjs';
 import {
   ProductosService,
   Producto,
@@ -13,6 +22,7 @@ import {
 import { MarcasService, Marca } from '../../../core/services/marcas.service';
 import { CategoriasService, Categoria } from '../../../core/services/categorias.service';
 import { ColoresService, Color } from '../../../core/services/colores.service';
+import { GruposModelosService, GrupoModelo } from '../../../core/services/grupos-modelos.service';
 import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
 import { PaginacionComponent } from '../../../shared/components/paginacion/paginacion.component';
 
@@ -32,15 +42,18 @@ interface ProductoForm {
   precio: number | null;
   marcaId: number;
   categoriaId: number;
+  grupoModeloId: number | null;
   tallas: TallaForm[];
   nuevoColorNombre: string;
   nuevoColorCodigo: string;
 }
 
+const MAX_IMAGENES_PRODUCTO = 10;
+
 @Component({
   selector: 'app-admin-productos',
   standalone: true,
-  imports: [FormsModule, MonedaPipe, PaginacionComponent],
+  imports: [FormsModule, MonedaPipe, PaginacionComponent, NgIcon],
   templateUrl: './admin-productos.component.html',
   styleUrl: './admin-productos.component.css',
 })
@@ -49,6 +62,11 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
   private marcasService = inject(MarcasService);
   private categoriasService = inject(CategoriasService);
   private coloresService = inject(ColoresService);
+  private gruposService = inject(GruposModelosService);
+  readonly grupos = signal<GrupoModelo[]>([]);
+  readonly cargandoGrupos = signal(false);
+  readonly gruposListos = signal(false);
+  readonly errorGrupos = signal('');
 
   readonly productos = signal<Producto[]>([]);
   readonly metaProd = signal<PaginacionMeta | null>(null);
@@ -84,9 +102,20 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
 
   form: ProductoForm = this.formVacio();
 
+  @ViewChild('productoModalBody')
+  private set productoModalBody(elemento: ElementRef<HTMLElement> | undefined) {
+    if (elemento) elemento.nativeElement.scrollTop = 0;
+  }
+
+  @ViewChild('imagenesModalBody')
+  private set imagenesModalBody(elemento: ElementRef<HTMLElement> | undefined) {
+    if (elemento) elemento.nativeElement.scrollTop = 0;
+  }
+
   ngOnInit() {
     this.cargar();
     this.cargarDependencias();
+    this.cargarGrupos();
   }
 
   ngOnDestroy() {
@@ -148,7 +177,38 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
       });
   }
 
+  cargarGrupos() {
+    this.cargandoGrupos.set(true);
+    this.errorGrupos.set('');
+    this.gruposService.buscarTodos().subscribe({
+      next: (grupos) => { this.grupos.set(grupos); this.gruposListos.set(true); this.cargandoGrupos.set(false); },
+      error: () => {
+        this.cargandoGrupos.set(false);
+        this.gruposListos.set(false);
+        this.errorGrupos.set('No se pudieron cargar los grupos. Reintenta para modificarlos.');
+      },
+    });
+  }
+
+  get grupoSeleccionadoDisponible() {
+    return this.grupos().some((grupo) => grupo.id === this.form.grupoModeloId);
+  }
+
   buscar() {
+    this.paginaActual = 1;
+    this.cargar();
+  }
+
+  filtrarPorEstado(estado: EstadoProductosAdmin) {
+    if (this.estado === estado) return;
+    this.estado = estado;
+    this.paginaActual = 1;
+    this.cargar();
+  }
+
+  limpiarBusqueda() {
+    this.busqueda = '';
+    this.estado = 'todos';
     this.paginaActual = 1;
     this.cargar();
   }
@@ -177,6 +237,7 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
       precio: Number(p.precio),
       marcaId: p.marca.id,
       categoriaId: p.categoria.id,
+      grupoModeloId: p.grupoModeloId ?? p.grupoModelo?.id ?? null,
       tallas: p.tallas.map((t) => ({
         id: t.id,
         genero: t.genero,
@@ -246,8 +307,18 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
   }
 
   guardar() {
-    if (!this.form.nombre || !this.form.codigoModelo || !this.form.precio || !this.form.marcaId || !this.form.categoriaId) {
-      this.errorForm.set('Completá todos los campos obligatorios.');
+    if (this.guardando()) return;
+    const camposFaltantes = [
+      !this.form.nombre.trim() ? 'nombre del producto' : '',
+      !this.form.codigoModelo.trim() ? 'código de modelo' : '',
+      !this.form.precio ? 'precio' : '',
+      !this.form.marcaId ? 'marca' : '',
+      !this.form.categoriaId ? 'categoría' : '',
+    ].filter(Boolean);
+    if (camposFaltantes.length) {
+      this.errorForm.set(
+        `Completá los campos obligatorios: ${camposFaltantes.join(', ')}.`,
+      );
       return;
     }
 
@@ -262,12 +333,13 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
     }
 
     const data: ProductoInput = {
-      nombre: this.form.nombre,
-      codigoModelo: this.form.codigoModelo,
+      nombre: this.form.nombre.trim(),
+      codigoModelo: this.form.codigoModelo.trim(),
       descripcion: this.form.descripcion,
       precio,
       marcaId: this.form.marcaId,
       categoriaId: this.form.categoriaId,
+      grupoModeloId: this.form.grupoModeloId,
       tallas: this.form.tallas.filter((t) => t.talla.trim()).map((t) => ({
         ...(t.id ? { id: t.id } : {}),
         genero: t.genero,
@@ -360,16 +432,20 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
     input.value = '';
-    this.limpiarPreviews();
+    if (!files.length) return;
+
     const tiposPermitidos = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
     const tamanoMaximo = 5 * 1024 * 1024;
+    const imagenesGuardadas = this.productoImagenes()?.imagenes.length ?? 0;
+    const archivosSeleccionados = this.archivosImg();
+    const maximoSeleccionable =
+      MAX_IMAGENES_PRODUCTO - imagenesGuardadas - archivosSeleccionados.length;
 
     this.errorImagenes.set('');
-    if (files.length > 5) {
-      this.errorImagenes.set('Puedes seleccionar hasta 5 imágenes por subida.');
-      input.value = '';
-      this.archivosImg.set([]);
-      this.previews.set([]);
+    if (files.length > maximoSeleccionable) {
+      this.errorImagenes.set(
+        `Este producto admite hasta ${MAX_IMAGENES_PRODUCTO} imágenes en total. Puedes agregar ${maximoSeleccionable} más.`,
+      );
       return;
     }
 
@@ -382,14 +458,14 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
           ? 'Formato no permitido. Usa JPG, PNG, WEBP o AVIF.'
           : 'Cada imagen debe pesar 5 MB o menos.',
       );
-      input.value = '';
-      this.archivosImg.set([]);
-      this.previews.set([]);
       return;
     }
 
-    this.archivosImg.set(files);
-    this.previews.set(files.map((f) => URL.createObjectURL(f)));
+    this.archivosImg.update((actuales) => [...actuales, ...files]);
+    this.previews.update((actuales) => [
+      ...actuales,
+      ...files.map((file) => URL.createObjectURL(file)),
+    ]);
   }
 
   quitarImagenSeleccionada(indice: number) {
@@ -439,9 +515,14 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
     const producto = this.productoImagenes();
     if (!producto) return;
 
+    this.errorImagenes.set('');
     this.productosService.eliminarImagen(producto.id, imagenId).pipe(
       switchMap(() => this.productosService.buscarPorIdAdmin(producto.id)),
       catchError((err) => {
+        if (err?.status === 401) {
+          this.errorImagenes.set('Tu sesión venció o ya no es válida. Inicia sesión de nuevo para eliminar fotografías.');
+          return EMPTY;
+        }
         this.errorImagenes.set(err?.error?.message ?? 'No se pudo eliminar la imagen.');
         return this.productosService.buscarPorIdAdmin(producto.id);
       }),
@@ -449,6 +530,11 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
       next: (actualizado) => {
         this.productoImagenes.set(actualizado);
         this.cargar();
+      },
+      error: (err) => {
+        this.errorImagenes.set(err?.status === 401
+          ? 'Tu sesión venció o ya no es válida. Inicia sesión de nuevo para eliminar fotografías.'
+          : 'No se pudieron actualizar las fotografías. Cierra y vuelve a abrir este panel.');
       },
     });
   }
@@ -467,6 +553,7 @@ export class AdminProductosComponent implements OnInit, OnDestroy {
       precio: null,
       marcaId: 0,
       categoriaId: 0,
+      grupoModeloId: null,
       tallas: [],
       nuevoColorNombre: '',
       nuevoColorCodigo: '',

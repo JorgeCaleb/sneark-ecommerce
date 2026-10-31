@@ -8,16 +8,19 @@ import type { ValorMonetario } from '../models/valor-monetario';
 export interface PreferenciaPagoResponse {
   preferenciaId: string;
   urlPago: string;
-  pedidoId: number;
 }
 
 export interface EstadoPagoResponse {
-  pedidoId: number;
+  id: number;
   estado: EstadoPedido;
   total: ValorMonetario;
   metodoPago: MetodoPago;
   mpPagoId: string | null;
   creadoEn: string;
+  pagadoEn: string | null;
+  mpEstadoPago: string | null;
+  mpMontoReembolsado: ValorMonetario;
+  mpRequiereRevision: boolean;
 }
 
 @Injectable({

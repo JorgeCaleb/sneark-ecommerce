@@ -21,6 +21,18 @@ describe('ProductosService paginated requests', () => {
 
   afterEach(() => http.verify());
 
+  it('envía los filtros del catálogo y ordena en el servidor antes de paginar', () => {
+    service.buscarPagina({ marcaIds: [1, 3], generos: ['M', 'X'], colorIds: [2, 5],
+      disponibilidad: ['agotado'], talla: '38.5', precioMax: 0, orden: 'precio-asc', pagina: 2, limite: 8,
+    }).subscribe();
+    const req = http.expectOne((request) => request.url === `${environment.apiUrl}/productos`);
+    expect(Object.fromEntries(req.request.params.keys().map((key) => [key, req.request.params.get(key)]))).toEqual({
+      marcaIds: '1,3', generos: 'M,X', colorIds: '2,5', disponibilidad: 'agotado', talla: '38.5',
+      precioMax: '0', orden: 'precio-asc', pagina: '2', limite: '8',
+    });
+    req.flush({ datos: [], meta: { total: 0, pagina: 2, limite: 8, totalPaginas: 0 } });
+  });
+
   it('keeps dashboard pagination requests free from shared catalog state changes', () => {
     service.productos.set([]);
     service.meta.set(null);

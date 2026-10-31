@@ -1,69 +1,52 @@
-﻿<header class="navbar" [class.navbar--scrolled]="scrolled()">
-  <div class="navbar__inner container">
-    <a routerLink="/" class="navbar__logo" (click)="cerrarMenu()">
-      <span style="font-family: 'Bebas Neue', sans-serif; font-size: 1.75rem; letter-spacing: 0.05em; color: var(--color-accent); line-height: 1;">SNEARK</span>
+<header class="soho-header">
+  <div class="soho-announcement">SOHO · Encuentra tu próximo par</div>
+  <div class="soho-utilities">
+    <a routerLink="/" class="soho-logo" aria-label="Inicio SOHO" (click)="cerrarMenu()">
+      <img src="images/soho/Logo%20SOHO.png" alt="" width="143" height="52">
     </a>
-    <nav class="navbar__links" aria-label="Navegacion principal">
-      <a routerLink="/" routerLinkActive="navbar__link--active"
-         [routerLinkActiveOptions]="{ exact: true }"
-         class="navbar__link">Inicio</a>
-      <a routerLink="/catalogo" routerLinkActive="navbar__link--active"
-         class="navbar__link">Catalogo</a>
-      @if (auth.esAdmin()) {
-        <a routerLink="/admin" routerLinkActive="navbar__link--active"
-           class="navbar__link navbar__link--admin">Admin</a>
+    <form class="soho-search" role="search" (ngSubmit)="ejecutarBusqueda()">
+      <input type="search" name="busqueda" [(ngModel)]="terminoBusqueda"
+        placeholder="Buscar modelo o marca" aria-label="Buscar zapatillas por modelo, marca o estilo"
+        autocomplete="off" enterkeyhint="search">
+      <button type="submit" aria-label="Buscar zapatillas"><ng-icon name="lucideSearch" size="20" /></button>
+    </form>
+    <div class="soho-access">
+      @if (auth.estaAutenticado()) {
+        <details #cuenta class="soho-account">
+          <summary aria-label="Mi cuenta"><ng-icon name="lucideUserRound" size="22" /></summary>
+          <div class="soho-account-panel">
+            <span class="soho-account-name">{{ auth.usuario()?.nombre }}</span>
+            <a routerLink="/mis-pedidos" (click)="cuenta.open = false">Mis pedidos</a>
+            @if (auth.esAdmin()) { <a routerLink="/admin" (click)="cuenta.open = false">Administración</a> }
+            <button type="button" (click)="cuenta.open = false; logout()">Cerrar sesión</button>
+          </div>
+        </details>
+      } @else {
+        <a routerLink="/auth/login" class="soho-icon" aria-label="Iniciar sesión" title="Mi cuenta"><ng-icon name="lucideUserRound" size="22" /></a>
       }
-    </nav>
-    <div class="navbar__actions">
-      <a routerLink="/carrito" class="navbar__icon-btn" aria-label="Ver carrito">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-          <line x1="3" y1="6" x2="21" y2="6"/>
-          <path d="M16 10a4 4 0 0 1-8 0"/>
-        </svg>
-        @if (carritoService.cantidadItems() > 0) {
-          <span class="navbar__badge">{{carritoService.cantidadItems()}}</span>
-        }
+      <a routerLink="/" [queryParams]="{ favoritos: 1 }" fragment="favoritos" (click)="abrirFavoritos($event)"
+        class="soho-icon" [attr.aria-label]="'Ver favoritos (' + favoritos.productos().length + ')'" title="Mis favoritos">
+        <ng-icon name="lucideHeart" size="22" />
+        @if (favoritos.productos().length) { <span class="soho-count">{{ favoritos.productos().length }}</span> }
       </a>
-      @if (auth.estaAutenticado()) {
-        <a routerLink="/mis-pedidos" routerLinkActive="navbar__link--active"
-           class="navbar__link">Mis pedidos</a>
-        <div class="navbar__user">
-          <span class="navbar__user-name">{{auth.usuario()?.nombre?.split(' ')[0]}}</span>
-          <button class="btn-secondary navbar__btn-logout" (click)="logout()">Salir</button>
-        </div>
-      } @else {
-        <a routerLink="/auth/login" class="navbar__link">Iniciar sesion</a>
-        <a routerLink="/auth/registro" class="btn-primary navbar__btn-registro">Registrarse</a>
-      }
+      <a routerLink="/carrito" class="soho-icon" [attr.aria-label]="'Ver carrito (' + carritoService.cantidadItems() + ')'" title="Mi carrito">
+        <ng-icon name="lucideShoppingBag" size="22" />
+        @if (carritoService.cantidadItems() > 0) { <span class="soho-count">{{ carritoService.cantidadItems() }}</span> }
+      </a>
+      <button #menuToggle type="button" class="soho-menu-toggle" (click)="toggleMenu()"
+        [attr.aria-expanded]="menuAbierto()" aria-controls="soho-navigation" [attr.aria-label]="menuAbierto() ? 'Cerrar menú' : 'Abrir menú'">
+        <ng-icon [name]="menuAbierto() ? 'lucideX' : 'lucideMenu'" size="22" />
+      </button>
     </div>
-    <button class="navbar__hamburger" (click)="toggleMenu()"
-            [attr.aria-expanded]="menuAbierto()" aria-label="Abrir menu">
-      <span class="navbar__hamburger-line" [class.navbar__hamburger-line--open]="menuAbierto()"></span>
-    </button>
-  </div>
-  <div class="navbar__mobile" [class.navbar__mobile--open]="menuAbierto()" aria-hidden="{{!menuAbierto()}}">
-    <nav class="navbar__mobile-links">
-      <a routerLink="/" class="navbar__mobile-link" (click)="cerrarMenu()">Inicio</a>
-      <a routerLink="/catalogo" class="navbar__mobile-link" (click)="cerrarMenu()">Catalogo</a>
-      @if (auth.esAdmin()) {
-        <a routerLink="/admin" class="navbar__mobile-link" (click)="cerrarMenu()">Admin</a>
-      }
-      <div class="navbar__mobile-divider"></div>
-      @if (auth.estaAutenticado()) {
-        <a routerLink="/mis-pedidos" class="navbar__mobile-link" (click)="cerrarMenu()">Mis pedidos</a>
-        <a routerLink="/carrito" class="navbar__mobile-link" (click)="cerrarMenu()">
-          Carrito
-          @if (carritoService.cantidadItems() > 0) {
-            <span class="badge">{{carritoService.cantidadItems()}}</span>
-          }
-        </a>
-        <button class="navbar__mobile-link navbar__mobile-logout" (click)="logout()">Cerrar sesion</button>
-      } @else {
-        <a routerLink="/auth/login" class="navbar__mobile-link" (click)="cerrarMenu()">Iniciar sesion</a>
-        <a routerLink="/auth/registro" class="navbar__mobile-link navbar__mobile-registro" (click)="cerrarMenu()">Registrarse</a>
-      }
+    <nav class="soho-navigation" id="soho-navigation" [class.is-open]="menuAbierto()" aria-label="Navegación principal">
+      <a routerLink="/catalogo" [queryParams]="{ genero: 'M' }" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }" ariaCurrentWhenActive="page" (click)="cerrarMenu()">Hombre</a>
+      <a routerLink="/catalogo" [queryParams]="{ genero: 'W' }" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }" ariaCurrentWhenActive="page" (click)="cerrarMenu()">Mujer</a>
+      <a routerLink="/catalogo" [queryParams]="{ genero: 'X' }" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }" ariaCurrentWhenActive="page" (click)="cerrarMenu()">Unisex</a>
+      <a routerLink="/catalogo" [queryParams]="{ busqueda: 'Niños' }" (click)="cerrarMenu()">Niños</a>
+      <a routerLink="/" fragment="marcas" (click)="irASeccion($event, 'marcas')">Marcas</a>
+      <a routerLink="/" fragment="recien-llegados" (click)="irASeccion($event, 'recien-llegados')">Novedades</a>
+      <a routerLink="/" fragment="ofertas" (click)="irASeccion($event, 'ofertas')">Ofertas</a>
+      <a routerLink="/catalogo" class="soho-navigation-all" (click)="cerrarMenu()">Ver todas las zapatillas <ng-icon name="lucideArrowUpRight" size="18" /></a>
     </nav>
   </div>
 </header>

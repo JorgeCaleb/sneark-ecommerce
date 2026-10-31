@@ -34,6 +34,11 @@ export class ProductosController {
     return this.productosService.buscarTodos(filtros);
   }
 
+  @Get('facetas')
+  facetas() {
+    return this.productosService.facetas();
+  }
+
   @Admin()
   @Get('admin')
   buscarTodosAdmin(@Query() filtros: FiltrarProductosAdminDto) {
@@ -94,11 +99,11 @@ export class ProductosController {
     return this.productosService.desactivar(id);
   }
 
-  // POST /api/productos/:id/imagenes — subir imágenes (máx 5)
+  // POST /api/productos/:id/imagenes — subir imágenes (máx 10 por producto)
   @Admin()
   @Post(':id/imagenes')
   @UseInterceptors(
-    FilesInterceptor('imagenes', 5, {
+    FilesInterceptor('imagenes', 10, {
       storage: memoryStorage(), // guardar en memoria para enviar a Cloudinary
       fileFilter: (_req, file, cb) => {
         const permitidos = [

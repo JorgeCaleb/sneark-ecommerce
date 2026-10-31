@@ -1,214 +1,200 @@
-<div style="padding-block:var(--space-xl) var(--space-2xl);min-height:100dvh;">
-  <div class="container">
+<div class="cart-shell">
+  <nav class="cart-breadcrumb" aria-label="Ruta del carrito">
+    <a routerLink="/">Inicio</a><span aria-hidden="true"> / </span
+    ><a routerLink="/catalogo">Zapatillas</a><span aria-hidden="true"> / </span><span>Carrito</span>
+  </nav>
+  <h1>TU CARRITO.</h1>
+  <p class="cart-intro">Buen estilo, un par a la vez.</p>
+  <p class="visually-hidden" role="status">{{ mensajeAccion() }}</p>
 
-    <h1 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,4vw,3rem);letter-spacing:0.04em;color:var(--color-text);margin-bottom:var(--space-xl);">
-      MI CARRITO
-    </h1>
-
-    <!-- Skeleton -->
-    @if (cargando()) {
-      <div class="carrito-layout">
-        <div class="carrito-items">
-          @for (i of [1,2,3]; track i) {
-            <div class="item-skeleton" style="margin-bottom:var(--space-md);"></div>
-          }
-        </div>
-        <div class="resumen-skeleton"></div>
+  @if (cargando()) {
+    <div class="cart-loading" role="status">
+      <p>Cargando tu carrito…</p>
+      <div class="loading-layout" aria-hidden="true">
+        <div></div>
+        <div></div>
+      </div>
+    </div>
+  } @else if (errorCarga()) {
+    <section class="cart-state" aria-labelledby="cart-state-title">
+      <h2 id="cart-state-title" tabindex="-1">No pudimos cargar tu carrito</h2>
+      <p role="alert">{{ errorCarga() }}</p>
+      <button type="button" class="cart-primary" (click)="cargar()">REINTENTAR</button>
+    </section>
+  } @else if (!carrito()?.items?.length) {
+    <section class="cart-state" aria-labelledby="cart-state-title">
+      <ng-icon name="lucideShoppingBag" size="48" />
+      <h2 id="cart-state-title" tabindex="-1">TU CARRITO TIENE<br />HISTORIAS POR ESTRENAR.</h2>
+      <p>Aún no agregas productos. Encuentra un par que vaya contigo.</p>
+      <a routerLink="/catalogo" class="cart-primary">EXPLORAR ZAPATILLAS</a>
+    </section>
+  } @else if (carrito(); as compra) {
+    @if (errorAccion()) {
+      <div class="cart-alert" role="alert">
+        <p>{{ errorAccion() }}</p>
+        <button type="button" aria-label="Cerrar mensaje de error" (click)="descartarErrorAccion()">
+          Cerrar
+        </button>
       </div>
     }
-
-    <!-- Error de carga -->
-    @else if (errorCarga()) {
-      <div class="animate-fade-up" style="display:flex;flex-direction:column;align-items:center;padding-block:var(--space-2xl);text-align:center;gap:var(--space-md);" role="alert">
-        <div style="color:var(--color-error);width:80px;height:80px;background-color:#fef2f2;border-radius:50%;display:flex;align-items:center;justify-content:center;">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
+    <div class="cart-layout">
+      <section class="cart-products" aria-labelledby="cart-products-heading">
+        <div class="cart-status">
+          <h2 id="cart-products-heading" tabindex="-1">
+            {{ compra.cantidadItems }} {{ compra.cantidadItems === 1 ? 'PRODUCTO' : 'PRODUCTOS' }}
+          </h2>
+          <p>El stock se confirma al comprar.</p>
         </div>
-        <h2 style="font-size:var(--text-2xl);font-weight:700;color:var(--color-text);">No pudimos cargar tu carrito</h2>
-        <p style="font-size:var(--text-base);color:var(--color-muted);max-width:44ch;">{{ errorCarga() }}</p>
-        <button type="button" class="btn-primary" (click)="cargar()">Reintentar</button>
-      </div>
-    }
-
-    <!-- Vacio -->
-    @else if (!carrito() || carrito()?.items?.length === 0) {
-      <div class="animate-fade-up" style="display:flex;flex-direction:column;align-items:center;padding-block:var(--space-2xl);text-align:center;gap:var(--space-md);">
-        <div style="color:var(--color-muted-light);width:96px;height:96px;background-color:var(--color-surface);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:var(--space-sm);">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-            <line x1="3" y1="6" x2="21" y2="6"/>
-            <path d="M16 10a4 4 0 0 1-8 0"/>
-          </svg>
-        </div>
-        <h2 style="font-size:var(--text-2xl);font-weight:700;color:var(--color-text);">Tu carrito esta vacio</h2>
-        <p style="font-size:var(--text-base);color:var(--color-muted);max-width:36ch;">
-          Explora el catalogo y encuentra tus zapatillas favoritas.
-        </p>
-        <a routerLink="/catalogo" class="btn-primary">Ir al catalogo</a>
-      </div>
-    }
-
-    <!-- Con items -->
-    @else if (carrito()?.items?.length! > 0) {
-      @if (errorAccion()) {
-        <div class="animate-fade-in" style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-md);padding:0.875rem 1.25rem;background-color:#fef2f2;border:1px solid var(--color-error);border-radius:var(--radius-sm);margin-bottom:var(--space-lg);color:var(--color-error);" role="alert">
-          <div style="display:flex;align-items:center;gap:0.65rem;font-size:var(--text-sm);font-weight:500;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="8" x2="12" y2="12"/>
-              <line x1="12" y1="16" x2="12.01" y2="16"/>
-            </svg>
-            <span>{{ errorAccion() }}</span>
-          </div>
-          <button type="button" (click)="descartarErrorAccion()"
-                  style="background:transparent;border:none;color:inherit;font-size:1.25rem;line-height:1;cursor:pointer;padding:0.2rem 0.4rem;opacity:0.8;"
-                  aria-label="Cerrar alerta">×</button>
-        </div>
-      }
-
-      <div class="animate-fade-in" style="display:grid;grid-template-columns:1fr 360px;gap:var(--space-xl);align-items:start;">
-
-        <!-- Lista de items -->
-        <div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-lg);padding-bottom:var(--space-md);border-bottom:1px solid var(--color-border);">
-            <span style="font-size:var(--text-sm);font-weight:600;color:var(--color-muted);">
-              {{ carrito()!.cantidadItems }} producto{{ carrito()!.cantidadItems !== 1 ? 's' : '' }}
-            </span>
-            <button style="font-size:var(--text-sm);color:var(--color-error);font-weight:500;transition:opacity 150ms ease;"
-                    [disabled]="vaciando()" (click)="vaciar()">
-              {{ vaciando() ? 'Vaciando...' : 'Vaciar carrito' }}
-            </button>
-          </div>
-
-          @for (item of carrito()!.items; track item.id) {
-            <div style="display:grid;grid-template-columns:100px 1fr;gap:var(--space-md);padding-block:var(--space-lg);border-bottom:1px solid var(--color-border);transition:opacity 200ms ease;"
-                 [style.opacity]="actualizando().has(item.id) ? '0.5' : '1'"
-                 [style.pointer-events]="actualizando().has(item.id) ? 'none' : 'auto'"
-                 [class.carrito-item--no-disponible]="!item.tallaProducto.producto.activo">
-
-              <a [routerLink]="['/producto', item.tallaProducto.producto.id]"
-                 style="width:100px;height:100px;border-radius:var(--radius-sm);overflow:hidden;background-color:var(--color-surface);border:1px solid var(--color-border);flex-shrink:0;display:block;">
-                <img [src]="imagenItem(item)"
-                     [alt]="item.tallaProducto.producto.nombre"
-                     style="width:100%;height:100%;object-fit:contain;padding:8px;transition:transform 300ms var(--ease-out);"
-                     onerror="this.onerror=null; this.src='/placeholder-shoe.svg'" />
-              </a>
-
-              <div style="display:flex;flex-direction:column;justify-content:space-between;gap:var(--space-sm);">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-sm);">
-                  <div>
-                    <p style="font-size:var(--text-xs);font-weight:600;color:var(--color-accent);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;">
-                      {{ item.tallaProducto.producto.marca.nombre }}
+        <ul class="cart-items">
+          @for (item of compra.items; track item.id) {
+            <li class="cart-line" [attr.aria-busy]="actualizando().has(item.id) || vaciando()">
+              <article [attr.aria-labelledby]="'cart-product-' + item.id">
+                <a
+                  class="cart-photo"
+                  [routerLink]="['/producto', item.tallaProducto.producto.id]"
+                  [attr.aria-label]="'Ver ' + item.tallaProducto.producto.nombre"
+                  ><img
+                    [src]="imagenItem(item)"
+                    [alt]="item.tallaProducto.producto.nombre"
+                    width="220"
+                    height="190"
+                    (error)="imagenAlternativa($event)"
+                /></a>
+                <div class="line-details">
+                  <p class="line-brand">{{ item.tallaProducto.producto.marca.nombre }}</p>
+                  <h3 [id]="'cart-product-' + item.id">
+                    <a [routerLink]="['/producto', item.tallaProducto.producto.id]">{{
+                      item.tallaProducto.producto.nombre
+                    }}</a>
+                  </h3>
+                  <p class="line-variant">
+                    {{ item.tallaProducto.color.nombre }} · Talla {{ item.tallaProducto.talla }}
+                  </p>
+                  <p class="line-price">{{ item.tallaProducto.producto.precio | moneda: true }}</p>
+                  <p class="line-caption">Precio unitario</p>
+                  @if (!disponible(item)) {
+                    <p class="line-unavailable">
+                      {{
+                        item.tallaProducto.producto.activo
+                          ? 'Sin disponibilidad.'
+                          : 'Producto no disponible.'
+                      }}
+                      Elimina este producto para continuar.
                     </p>
-                    <a [routerLink]="['/producto', item.tallaProducto.producto.id]"
-                       style="font-size:var(--text-sm);font-weight:600;color:var(--color-text);line-height:1.3;transition:color 150ms ease;"
-                       onmouseenter="this.style.color='var(--color-accent)'" onmouseleave="this.style.color='var(--color-text)'">
-                      {{ item.tallaProducto.producto.nombre }}
-                    </a>
-                    <p style="font-size:var(--text-xs);color:var(--color-muted);margin-top:4px;">
-                      {{ item.tallaProducto.genero }} · {{ item.tallaProducto.color.nombre }}
-                      · Talla {{ item.tallaProducto.talla }}
-                    </p>
-                    <small>SKU: {{ item.tallaProducto.sku }}</small>
-                    @if (!item.tallaProducto.producto.activo) {
-                      <p style="font-size:var(--text-xs);font-weight:600;color:var(--color-error);">No disponible</p>
-                    }
-                  </div>
-                  <button style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:var(--color-muted-light);border-radius:var(--radius-sm);flex-shrink:0;transition:color 150ms ease,background-color 150ms ease,transform 160ms var(--ease-out);"
-                          (click)="eliminar(item)" aria-label="Eliminar item"
-                          onmouseenter="this.style.color='var(--color-error)';this.style.backgroundColor='#fef2f2'"
-                          onmouseleave="this.style.color='var(--color-muted-light)';this.style.backgroundColor='transparent'">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                    </svg>
-                  </button>
+                  }
                 </div>
-
-                <div style="display:flex;align-items:center;justify-content:space-between;">
-                  <div style="display:flex;align-items:center;border:1.5px solid var(--color-border);border-radius:var(--radius-sm);overflow:hidden;">
-                    <button style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;background-color:var(--color-surface);color:var(--color-text);transition:background-color 150ms ease;cursor:pointer;"
-                            (click)="decrementar(item)"
-                            [disabled]="!item.tallaProducto.producto.activo || item.cantidad === 1 || actualizando().has(item.id)">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                           stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    </button>
-                    <span style="min-width:36px;text-align:center;font-size:var(--text-sm);font-weight:700;border-inline:1.5px solid var(--color-border);line-height:36px;color:var(--color-text);">
-                      {{ item.cantidad }}
-                    </span>
-                    <button style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;background-color:var(--color-surface);color:var(--color-text);transition:background-color 150ms ease;cursor:pointer;"
-                            (click)="incrementar(item)"
-                            [disabled]="!item.tallaProducto.producto.activo || !item.tallaProducto.disponible || actualizando().has(item.id)">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                           stroke-width="2.5" stroke-linecap="round">
-                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                      </svg>
+                <div class="line-quantity">
+                  <div
+                    class="quantity-control"
+                    role="group"
+                    [attr.aria-label]="'Cantidad de ' + item.tallaProducto.producto.nombre"
+                  >
+                    <button
+                      type="button"
+                      [attr.aria-label]="
+                        'Reducir cantidad de ' + item.tallaProducto.producto.nombre
+                      "
+                      [disabled]="
+                        item.cantidad <= 1 ||
+                        !disponible(item) ||
+                        actualizando().has(item.id) ||
+                        vaciando()
+                      "
+                      (click)="decrementar(item)"
+                    >
+                      <ng-icon name="lucideMinus" size="22" /></button
+                    ><output
+                      [attr.aria-label]="'Unidades de ' + item.tallaProducto.producto.nombre"
+                      >{{ item.cantidad }}</output
+                    ><button
+                      type="button"
+                      [attr.aria-label]="
+                        'Aumentar cantidad de ' + item.tallaProducto.producto.nombre
+                      "
+                      [disabled]="
+                        item.cantidad >= 2147483647 ||
+                        !disponible(item) ||
+                        actualizando().has(item.id) ||
+                        vaciando()
+                      "
+                      (click)="incrementar(item)"
+                    >
+                      <ng-icon name="lucidePlus" size="22" />
                     </button>
                   </div>
-                  <p style="font-size:var(--text-base);font-weight:800;color:var(--color-accent);letter-spacing:-0.02em;">
-                    {{ item.subtotal | moneda }}
+                  <p
+                    class="line-subtotal"
+                    [class.has-multiple]="item.cantidad > 1"
+                    [attr.aria-label]="'Subtotal de ' + item.tallaProducto.producto.nombre"
+                  >
+                    {{ item.subtotal | moneda: true }}
                   </p>
                 </div>
-              </div>
-
-            </div>
+                <button
+                  type="button"
+                  class="remove-item"
+                  [attr.aria-label]="
+                    'Eliminar ' + item.tallaProducto.producto.nombre + ' del carrito'
+                  "
+                  [disabled]="actualizando().has(item.id) || vaciando()"
+                  (click)="eliminar(item)"
+                >
+                  <ng-icon name="lucideTrash2" size="17" /><span>{{
+                    actualizando().has(item.id) ? 'Actualizando…' : 'Eliminar'
+                  }}</span>
+                </button>
+              </article>
+            </li>
           }
+        </ul>
+        <div class="cart-actions">
+          <a routerLink="/catalogo" class="continue-shopping"
+            ><ng-icon name="lucideArrowLeft" size="18" /><span
+              >SEGUIR COMPRANDO</span
+            ></a
+          ><button type="button" class="clear-cart" [disabled]="ocupado()" (click)="vaciar()">
+            {{ vaciando() ? 'Vaciando…' : 'Vaciar carrito' }}
+          </button>
         </div>
+      </section>
 
-        <!-- Resumen -->
-        <aside style="background-color:var(--color-surface-2);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:var(--space-lg);position:sticky;top:calc(64px + var(--space-lg));display:flex;flex-direction:column;gap:var(--space-lg);">
-          <h2 style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:0.04em;color:var(--color-text);">RESUMEN</h2>
-
-          <div style="display:flex;flex-direction:column;gap:var(--space-sm);">
-            @for (item of carrito()!.items; track item.id) {
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-sm);font-size:var(--text-sm);color:var(--color-muted);">
-                <span style="flex:1;">
-                  {{ item.tallaProducto.producto.nombre }}
-                  <em style="font-style:normal;color:var(--color-muted-light);margin-left:4px;">×{{ item.cantidad }}</em>
-                </span>
-                <span>{{ item.subtotal | moneda }}</span>
-              </div>
-            }
+      <aside class="cart-summary" aria-labelledby="summary-title">
+        <div class="summary-box">
+          <h2 id="summary-title">RESUMEN</h2>
+          <div class="summary-row">
+            <span
+              >Subtotal ({{ compra.cantidadItems }}
+              {{ compra.cantidadItems === 1 ? 'producto' : 'productos' }})</span
+            ><strong>{{ total() | moneda: true }}</strong>
           </div>
-
-          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:var(--space-md);border-top:1px solid var(--color-border);">
-            <span style="font-size:var(--text-sm);font-weight:600;color:var(--color-muted);">Total</span>
-            <span style="font-size:var(--text-xl);font-weight:800;color:var(--color-text);letter-spacing:-0.02em;">
-              {{ total() | moneda }}
-            </span>
+          <div class="summary-row shipping-row">
+            <span>Envío</span><span>Por confirmar</span>
           </div>
-
-          <div>
-            <p style="font-size:var(--text-xs);color:var(--color-muted);margin-bottom:var(--space-sm);">Metodo de pago seguro</p>
-            <div style="display:flex;gap:var(--space-sm);flex-wrap:wrap;">
-              <span style="padding:0.25rem 0.75rem;background-color:var(--color-surface);border:1.5px solid var(--color-border);border-radius:var(--radius-sm);font-size:var(--text-xs);font-weight:600;color:var(--color-text);">Tarjetas</span>
-              <span style="padding:0.25rem 0.75rem;background-color:rgba(0,158,227,0.08);border:1.5px solid #009ee3;border-radius:var(--radius-sm);font-size:var(--text-xs);font-weight:600;color:#009ee3;">Mercado Pago</span>
-            </div>
+          <hr />
+          <div class="summary-total" aria-live="polite">
+            <span>Total parcial</span><strong>{{ total() | moneda: true }}</strong>
           </div>
-
-          <a routerLink="/checkout" class="btn-primary" style="width:100%;padding:0.875rem;font-size:var(--text-base);justify-content:center;">
-            Proceder al pago
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-          </a>
-
-          <a routerLink="/catalogo" style="text-align:center;font-size:var(--text-sm);color:var(--color-muted);transition:color 150ms ease;"
-             onmouseenter="this.style.color='var(--color-accent)'" onmouseleave="this.style.color='var(--color-muted)'">
-            ← Seguir comprando
-          </a>
-        </aside>
-
-      </div>
-    }
-
-  </div>
+          <p class="summary-note">
+            No incluye envío. El costo se calcula al elegir tu distrito de entrega.
+          </p>
+        </div>
+        @if (productosNoDisponibles()) {
+          <p class="checkout-notice" role="status">
+            Elimina los productos no disponibles para continuar con la compra.
+          </p>
+        }
+        <button
+          type="button"
+          class="cart-primary checkout-button"
+          [disabled]="!puedeContinuar()"
+          (click)="continuarCompra()"
+        >
+          {{ ocupado() ? 'ACTUALIZANDO CARRITO…' : 'CONTINUAR CON LA COMPRA' }}
+        </button>
+        <p class="summary-note">
+          En el siguiente paso revisarás tus datos, el envío y el pago.
+        </p>
+      </aside>
+    </div>
+  }
 </div>

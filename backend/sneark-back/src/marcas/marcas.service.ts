@@ -43,6 +43,9 @@ export class MarcasService {
   async buscarTodas() {
     return this.prisma.marca.findMany({
       orderBy: { nombre: 'asc' },
+      include: {
+        _count: { select: { productos: true } },
+      },
     });
   }
 

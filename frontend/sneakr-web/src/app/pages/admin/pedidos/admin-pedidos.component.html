@@ -6,19 +6,7 @@
       <p class="admin-page__sub">{{ totalPedidos() }} pedidos en total</p>
     </div>
     <button class="btn-secondary admin-refresh" (click)="cargar()">
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.5"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <polyline points="23 4 23 10 17 10" />
-        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-      </svg>
+      <ng-icon name="lucideRotateCw" size="14" aria-hidden="true" />
       Actualizar
     </button>
   </div>
@@ -103,6 +91,9 @@
                 </td>
                 <td class="tabla__td">
                   <span class="pago-online">Mercado Pago</span>
+                  @if (etiquetaIncidenciaPago(pedido); as incidencia) {
+                    <span class="estado-badge estado-badge--error">{{ incidencia }}</span>
+                  }
                 </td>
                 <td class="tabla__td tabla__td--right tabla__td--bold">
                   {{ pedido.total | moneda }}
@@ -144,19 +135,7 @@
         <p class="modal__sub">{{ formatearFecha(pedidoDetalle()!.creadoEn) }}</p>
       </div>
       <button class="modal__cerrar" (click)="cerrarDetalle()">
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
+        <ng-icon name="lucideX" size="18" aria-hidden="true" />
       </button>
     </div>
 
@@ -224,6 +203,15 @@
       </div>
 
       <!-- Cambiar estado -->
+      @if (etiquetaIncidenciaPago(pedidoDetalle()!); as incidencia) {
+        <div class="detalle-seccion" role="status">
+          <h3 class="detalle-seccion__title">{{ incidencia }}</h3>
+          <p>Revisa la operación en Mercado Pago antes de continuar con este pedido.</p>
+          @if (pedidoDetalle()!.mpMontoReembolsado; as reembolso) {
+            <p>Monto reembolsado: {{ reembolso | moneda }}</p>
+          }
+        </div>
+      }
       <div class="detalle-seccion">
         <h3 class="detalle-seccion__title">Cambiar estado</h3>
         <div class="estado-actual">
@@ -242,12 +230,13 @@
         <button
           class="btn-primary estado-btn"
           (click)="cambiarEstado()"
-          [disabled]="cambiandoEstado() || nuevoEstado() === pedidoDetalle()!.estado"
+          [disabled]="cambiandoEstado() || (nuevoEstado() === pedidoDetalle()!.estado && !puedeResolverRevision(pedidoDetalle()!))"
         >
           @if (cambiandoEstado()) {
             <span class="spinner"></span> Guardando...
           } @else {
-            Confirmar cambio
+            {{ nuevoEstado() === pedidoDetalle()!.estado && puedeResolverRevision(pedidoDetalle()!)
+              ? 'Confirmar revisión de pago' : 'Confirmar cambio' }}
           }
         </button>
         @if (errorEstado()) {

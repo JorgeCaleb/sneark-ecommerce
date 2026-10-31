@@ -2,7 +2,7 @@ import { computed, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
-import { CarritoService, ItemCarrito } from '../../core/services/carrito.service';
+import { Carrito, CarritoService, ItemCarrito } from '../../core/services/carrito.service';
 import { CarritoComponent } from './carrito.component';
 
 function itemCarrito(id: number, disponible: boolean): ItemCarrito {
@@ -27,6 +27,15 @@ function itemCarrito(id: number, disponible: boolean): ItemCarrito {
         imagenes: [],
       },
     },
+  };
+}
+
+function carritoCon(item: ItemCarrito): Carrito {
+  return {
+    id: 1,
+    items: [item],
+    total: item.subtotal,
+    cantidadItems: item.cantidad,
   };
 }
 
@@ -64,6 +73,8 @@ describe('CarritoComponent', () => {
       () => new CarritoComponent(),
     );
     const item = itemCarrito(9, false);
+    carritoService.carrito.set(carritoCon(item));
+    component.cargando.set(false);
 
     component.incrementar(item);
     component.decrementar(item);
@@ -116,6 +127,7 @@ describe('CarritoComponent', () => {
     const component = fixture.componentInstance;
 
     const item = itemCarrito(10, true);
+    carritoService.carrito.set(carritoCon(item));
 
     component.incrementar(item);
 
@@ -140,6 +152,7 @@ describe('CarritoComponent', () => {
     const fixture = TestBed.createComponent(CarritoComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
+    carritoService.carrito.set(carritoCon(itemCarrito(11, true)));
 
     component.vaciar();
 

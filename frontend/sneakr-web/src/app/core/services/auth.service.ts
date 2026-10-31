@@ -1,7 +1,8 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { DestroyRef, Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs/operators';
+import { Subject } from 'rxjs';
 import { ApiUrlService } from './api-url.service';
 
 export interface Usuario {
@@ -20,6 +21,15 @@ export interface AuthResponse {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly API = inject(ApiUrlService).endpoint('auth');
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly cambiosSesion = new Subject<void>();
+  // Distingue sesiones nuevas aunque el usuario o el JWT coincidan con los anteriores.
+  private numeroSesion = 0;
+  readonly cambiosSesion$ = this.cambiosSesion.asObservable();
+
+  get idSesion(): number {
+    return this.numeroSesion;
+  }
 
   // Signals reactivos — el estado de auth es observable en toda la app
   readonly almacenamientoDisponible = signal(true);
@@ -36,15 +46,17 @@ export class AuthService {
     const token = this._token();
     return !!token && !!this._usuario() && this.tokenNoExpirado(token);
   });
-  readonly esAdmin = computed(
-    () => this.estaAutenticado() && this._usuario()?.rol === 'ADMIN',
-  );
+  readonly esAdmin = computed(() => this.estaAutenticado() && this._usuario()?.rol === 'ADMIN');
 
   constructor(
     private http: HttpClient,
     private router: Router,
   ) {
     this.programarExpiracion(this._token());
+    this.destroyRef.onDestroy(() => {
+      if (this.temporizadorExpiracion) clearTimeout(this.temporizadorExpiracion);
+      this.cambiosSesion.complete();
+    });
   }
 
   sesionValida(): boolean {
@@ -78,6 +90,7 @@ export class AuthService {
   }
 
   limpiarSesion() {
+    const teniaSesion = this._token() !== null || this._usuario() !== null;
     if (this.temporizadorExpiracion) {
       clearTimeout(this.temporizadorExpiracion);
       this.temporizadorExpiracion = undefined;
@@ -85,6 +98,7 @@ export class AuthService {
     this.eliminarSesionStorage();
     this._token.set(null);
     this._usuario.set(null);
+    if (teniaSesion) this.notificarCambioSesion();
   }
 
   private guardarSesion(res: AuthResponse) {
@@ -97,6 +111,12 @@ export class AuthService {
     this._token.set(res.token);
     this._usuario.set(res.usuario);
     this.programarExpiracion(res.token);
+    this.notificarCambioSesion();
+  }
+
+  private notificarCambioSesion() {
+    this.numeroSesion++;
+    this.cambiosSesion.next();
   }
 
   private leerTokenStorage(): string | null {
@@ -157,14 +177,17 @@ export class AuthService {
     const expiracion = this.expiracionToken(token);
     if (expiracion === null) return;
     const demora = Math.max(0, expiracion - Date.now());
-    this.temporizadorExpiracion = setTimeout(() => {
-      this.relojExpiracion.update((reloj) => reloj + 1);
-      if (!this.tokenNoExpirado(token)) {
-        this.limpiarSesion();
-      } else {
-        this.programarExpiracion(token);
-      }
-    }, Math.min(demora, 2_147_483_647));
+    this.temporizadorExpiracion = setTimeout(
+      () => {
+        this.relojExpiracion.update((reloj) => reloj + 1);
+        if (!this.tokenNoExpirado(token)) {
+          this.limpiarSesion();
+        } else {
+          this.programarExpiracion(token);
+        }
+      },
+      Math.min(demora, 2_147_483_647),
+    );
   }
 
   private eliminarSesionStorage() {

@@ -1,0 +1,163 @@
+<article
+  class="product-card"
+  [class.is-expanded]="expandida()"
+  [class.has-models]="tienePanel()"
+  (pointerenter)="entrarPuntero($event)"
+  (pointerleave)="salirPuntero()"
+  (focusin)="entrarFoco()"
+  (focusout)="salirFoco($event)"
+  (keydown.escape)="cerrarVista()"
+>
+  <div class="product-media">
+    <div class="product-visual">
+      <a [routerLink]="['/producto', producto().id]" [attr.aria-label]="'Ver ' + producto().nombre">
+        <img
+          class="product-photo"
+          [src]="modeloPrevisualizado()?.imagenes[0]?.url || imagenes()[0]?.url || 'placeholder-shoe.svg'"
+          [alt]="modeloPrevisualizado()?.nombre || producto().nombre"
+          width="246"
+          height="197"
+          loading="lazy"
+          (error)="imagenAlternativa($event)"
+          [class.is-hidden]="mostrarVista() && !modeloPrevisualizado()"
+          [class.is-model-preview]="modeloPrevisualizado()"
+        />
+        @if (fotoVista(); as vista) {
+          <img
+            class="product-preview-photo"
+            [class.is-visible]="mostrarVista() && !modeloPrevisualizado()"
+            [src]="vista.url"
+            [alt]="producto().nombre + ' · otra vista'"
+            width="310"
+            height="310"
+            loading="lazy"
+            (load)="vistaCargada($event)"
+            (error)="vistaFallida($event)"
+          />
+        }
+      </a>
+      <button
+        type="button"
+        class="favorite-button"
+        [class.is-favorite]="favoritos.contiene(producto().id)"
+        [attr.aria-label]="
+          (favoritos.contiene(producto().id) ? 'Quitar de favoritos: ' : 'Guardar en favoritos: ') +
+          producto().nombre
+        "
+        [attr.aria-pressed]="favoritos.contiene(producto().id)"
+        (click)="favoritos.alternar(producto())"
+      >
+        <ng-icon name="lucideHeart" size="26" />
+      </button>
+      @if (imagenes().length > 1 || grupoId()) {
+        <button
+          type="button"
+          class="preview-toggle"
+          (click)="alternarVistaTactil($event)"
+          [attr.aria-expanded]="expandida()"
+          [attr.aria-controls]="tienePanel() ? idVista : null"
+          [attr.aria-label]="
+            expandida() ? 'Cerrar vista previa' : 'Ver otra foto y otros modelos de zapatillas'
+          "
+        >
+          <ng-icon
+            [name]="vistaTactil() ? 'lucideX' : 'lucideImage'"
+            size="18"
+            aria-hidden="true"
+          />
+          <span>{{ vistaTactil() ? 'Cerrar' : grupoId() ? 'Ver más' : 'Ver foto' }}</span>
+        </button>
+      }
+    </div>
+    @if (tienePanel()) {
+      <div
+        class="product-preview"
+        [id]="idVista"
+        [inert]="!expandida()"
+        [attr.aria-hidden]="!expandida()"
+      >
+        @if (cargandoModelos()) {
+          <p class="preview-status" role="status">Cargando modelos…</p>
+        } @else if (errorModelos()) {
+          <div class="preview-status" role="status">
+            <span>No se pudieron cargar.</span>
+            <button type="button" (click)="reintentarModelos()">Reintentar</button>
+          </div>
+        } @else {
+        <div #previewNavigation class="preview-navigation">
+          @if (hayDesplazamiento()) {
+            <button
+              type="button"
+              class="preview-arrow"
+              aria-label="Ver modelos anteriores"
+              (click)="desplazarModelos(tiraModelos, -1)"
+            >
+              <ng-icon name="lucideChevronLeft" size="16" aria-hidden="true" />
+            </button>
+          }
+          <div
+            #tiraModelos
+            class="preview-images"
+            role="group"
+            aria-label="Modelos de zapatillas relacionados, modelo actual primero"
+          >
+            @for (modelo of modelosPanel(); track modelo.id) {
+              <a
+                class="preview-thumbnail"
+                [routerLink]="['/producto', modelo.id]"
+                [attr.aria-label]="'Ver modelo ' + modelo.nombre"
+                [attr.aria-current]="modelo.id === producto().id ? 'page' : null"
+                [class.is-hovered]="modeloPrevisualizado()?.id === modelo.id"
+                [title]="modelo.nombre"
+                (pointerenter)="previsualizarModelo(modelo, $event)"
+                (pointerleave)="restaurarModelo()"
+                (focus)="previsualizarModelo(modelo)"
+                (blur)="restaurarModelo()"
+              >
+                <img
+                  [src]="modelo.imagenes[0]?.url || 'placeholder-shoe.svg'"
+                  alt=""
+                  width="48"
+                  height="48"
+                  loading="lazy"
+                  (error)="imagenAlternativa($event)"
+                />
+              </a>
+            }
+          </div>
+          @if (hayDesplazamiento()) {
+            <button
+              type="button"
+              class="preview-arrow"
+              aria-label="Ver más modelos"
+              (click)="desplazarModelos(tiraModelos, 1)"
+            >
+              <ng-icon name="lucideChevronRight" size="16" aria-hidden="true" />
+            </button>
+          }
+        </div>
+        }
+      </div>
+    }
+  </div>
+  <div class="product-info">
+    <p class="product-brand">{{ producto().marca.nombre }}</p>
+    <h2>
+      <a [routerLink]="['/producto', producto().id]">{{ producto().nombre }}</a>
+    </h2>
+    <p class="product-price">{{ producto().precio | moneda: true }}</p>
+    <div class="product-colors">
+      @for (color of colores().slice(0, 2); track color.id) {
+        <span
+          class="color-dot"
+          [style.background-color]="colorVisual(color)"
+          aria-hidden="true"
+        ></span>
+      }
+      <span>{{ nombresColores() || 'Consulta colores disponibles' }}</span>
+    </div>
+    @if (agotado()) {
+      <p class="stock-label">AGOTADO</p>
+    }
+  </div>
+</article>

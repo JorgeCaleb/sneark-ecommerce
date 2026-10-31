@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { finalize, tap } from 'rxjs/operators';
 import { ApiUrlService } from './api-url.service';
+import { GruposModelosService } from './grupos-modelos.service';
 import type { ValorMonetario } from '../models/valor-monetario';
 
 export type { ValorMonetario } from '../models/valor-monetario';
@@ -37,6 +38,8 @@ export interface Producto {
   actualizadoEn: string;
   marca: { id: number; nombre: string; codigo: string; logo: string | null };
   categoria: { id: number; nombre: string };
+  grupoModeloId?: number | null;
+  grupoModelo?: { id: number; nombre: string } | null;
   imagenes: ImagenProducto[];
   tallas: TallaProducto[];
 }
@@ -63,9 +66,16 @@ export interface ProductosPublicosPaginados {
 }
 
 export interface FiltrosProducto {
+  marcaIds?: number[];
+  colorIds?: number[];
+  generos?: ('M' | 'W' | 'X')[];
+  disponibilidad?: ('disponible' | 'agotado')[];
+  talla?: string;
+  orden?: 'relevancia' | 'precio-asc' | 'precio-desc' | 'nombre-asc';
   busqueda?: string;
   marcaId?: number;
   categoriaId?: number;
+  grupoModeloId?: number;
   precioMin?: number;
   precioMax?: number;
   genero?: 'M' | 'W' | 'X';
@@ -87,6 +97,7 @@ export interface ProductoInput {
   precio: number;
   marcaId: number;
   categoriaId: number;
+  grupoModeloId?: number | null;
   tallas?: {
     id?: number;
     genero: 'M' | 'W' | 'X';
@@ -141,6 +152,7 @@ export interface VariantesInventarioPaginadas {
 @Injectable({ providedIn: 'root' })
 export class ProductosService {
   private readonly API = inject(ApiUrlService).endpoint('productos');
+  private readonly grupos = inject(GruposModelosService);
 
   // Signal con la lista de productos del catálogo
   readonly productos = signal<ProductoPublico[]>([]);
@@ -178,6 +190,10 @@ export class ProductosService {
     return this.http.get<ProductosPublicosPaginados>(this.API, { params });
   }
 
+  facetas() {
+    return this.http.get<{ tallas: string[]; precioMax: number }>(`${this.API}/facetas`);
+  }
+
   buscarAdminPagina(filtros: FiltrosProductosAdmin) {
     const { estado, ...filtrosProducto } = filtros;
     const params = this.crearParametros(filtrosProducto).set('estado', estado);
@@ -186,9 +202,16 @@ export class ProductosService {
 
   private crearParametros(filtros: FiltrosProducto) {
     let params = new HttpParams();
+    if (filtros.marcaIds?.length) params = params.set('marcaIds', filtros.marcaIds.join(','));
+    if (filtros.colorIds?.length) params = params.set('colorIds', filtros.colorIds.join(','));
+    if (filtros.generos?.length) params = params.set('generos', filtros.generos.join(','));
+    if (filtros.disponibilidad?.length) params = params.set('disponibilidad', filtros.disponibilidad.join(','));
+    if (filtros.talla) params = params.set('talla', filtros.talla);
+    if (filtros.orden) params = params.set('orden', filtros.orden);
     if (filtros.busqueda) params = params.set('busqueda', filtros.busqueda);
     if (filtros.marcaId) params = params.set('marcaId', filtros.marcaId);
     if (filtros.categoriaId) params = params.set('categoriaId', filtros.categoriaId);
+    if (filtros.grupoModeloId) params = params.set('grupoModeloId', filtros.grupoModeloId);
     if (filtros.precioMin !== undefined) params = params.set('precioMin', filtros.precioMin);
     if (filtros.precioMax !== undefined) params = params.set('precioMax', filtros.precioMax);
     if (filtros.genero) params = params.set('genero', filtros.genero);
@@ -240,19 +263,19 @@ export class ProductosService {
 
   // Solo ADMIN
   crear(data: ProductoInput) {
-    return this.http.post<Producto>(this.API, data);
+    return this.http.post<Producto>(this.API, data).pipe(tap(() => this.grupos.invalidar()));
   }
 
   actualizar(id: number, data: Partial<ProductoInput> & { activo?: boolean }) {
-    return this.http.patch<Producto>(`${this.API}/${id}`, data);
+    return this.http.patch<Producto>(`${this.API}/${id}`, data).pipe(tap(() => this.grupos.invalidar()));
   }
 
   subirImagenes(id: number, archivos: FormData) {
-    return this.http.post<Producto>(`${this.API}/${id}/imagenes`, archivos);
+    return this.http.post<Producto>(`${this.API}/${id}/imagenes`, archivos).pipe(tap(() => this.grupos.invalidar()));
   }
 
   eliminarImagen(productoId: number, imagenId: number) {
-    return this.http.delete(`${this.API}/${productoId}/imagenes/${imagenId}`);
+    return this.http.delete(`${this.API}/${productoId}/imagenes/${imagenId}`).pipe(tap(() => this.grupos.invalidar()));
   }
 
   actualizarStockTalla(

@@ -13,6 +13,7 @@ import { CarritoModule } from './carrito/carrito.module.js';
 import { PedidosModule } from './pedidos/pedidos.module.js';
 import { ColoresModule } from './colores/colores.module.js';
 import { PagosModule } from './pagos/pagos.module.js';
+import { GruposModelosModule } from './grupos-modelos/grupos-modelos.module.js';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { PagosModule } from './pagos/pagos.module.js';
     MarcasModule,
     CategoriasModule,
     ProductosModule,
+    GruposModelosModule,
     CarritoModule,
     PedidosModule,
     ColoresModule,

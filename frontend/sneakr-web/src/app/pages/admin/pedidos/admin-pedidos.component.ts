@@ -1,18 +1,21 @@
 import { Component, OnDestroy, OnInit, inject, signal, computed } from '@angular/core';
+import { NgIcon } from '@ng-icons/core';
 import { FormsModule } from '@angular/forms';
 import { PedidosService, Pedido, EstadoPedido } from '../../../core/services/pedidos.service';
 import { Subscription } from 'rxjs';
 import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
 import { PaginacionComponent } from '../../../shared/components/paginacion/paginacion.component';
+import { etiquetaIncidenciaPago } from '../../../core/utils/estado-pago.util';
 
 @Component({
   selector: 'app-admin-pedidos',
   standalone: true,
-  imports: [FormsModule, MonedaPipe, PaginacionComponent],
+  imports: [FormsModule, MonedaPipe, PaginacionComponent, NgIcon],
   templateUrl: './admin-pedidos.component.html',
   styleUrl: './admin-pedidos.component.css',
 })
 export class AdminPedidosComponent implements OnInit, OnDestroy {
+  readonly etiquetaIncidenciaPago = etiquetaIncidenciaPago;
   private pedidosService = inject(PedidosService);
 
   readonly todosLosPedidos = signal<Pedido[]>([]);
@@ -53,9 +56,24 @@ export class AdminPedidosComponent implements OnInit, OnDestroy {
   readonly pedidosFiltrados = computed(() => this.todosLosPedidos());
 
   estadosParaPedido(pedido: Pedido): EstadoPedido[] {
+    if (etiquetaIncidenciaPago(pedido)) {
+      const permitidos: EstadoPedido[] = [pedido.estado];
+      if (['PENDIENTE', 'PAGO_VERIFICADO', 'PAGO_REQUIERE_REVISION'].includes(pedido.estado)) {
+        permitidos.push('CANCELADO');
+      }
+      if (pedido.estado === 'PAGO_REQUIERE_REVISION' && pedido.mpEstadoPago === 'approved' &&
+          Number(pedido.mpMontoReembolsado ?? 0) === 0) permitidos.push('PAGO_VERIFICADO');
+      return permitidos;
+    }
     return this.estados.filter(
       (estado) => !(pedido.estado === 'PENDIENTE' && estado === 'PAGO_VERIFICADO'),
     );
+  }
+
+  puedeResolverRevision(pedido: Pedido): boolean {
+    return !!pedido.mpRequiereRevision && pedido.mpEstadoPago === 'approved' &&
+      ['PAGO_VERIFICADO', 'EN_PREPARACION', 'ENVIADO', 'ENTREGADO'].includes(pedido.estado) &&
+      Number(pedido.mpMontoReembolsado ?? 0) === 0;
   }
 
   ngOnInit() {
@@ -99,6 +117,7 @@ export class AdminPedidosComponent implements OnInit, OnDestroy {
   }
 
   abrirDetalle(pedido: Pedido) {
+    this.errorEstado.set('');
     this.pedidoDetalle.set(pedido);
     this.nuevoEstado.set(pedido.estado);
   }
@@ -111,7 +130,7 @@ export class AdminPedidosComponent implements OnInit, OnDestroy {
   cambiarEstado() {
     const pedido = this.pedidoDetalle();
     const estado = this.nuevoEstado() as EstadoPedido;
-    if (!pedido || !estado || estado === pedido.estado) return;
+    if (!pedido || !estado || (estado === pedido.estado && !this.puedeResolverRevision(pedido))) return;
 
     this.cambiandoEstado.set(true);
     this.errorEstado.set('');

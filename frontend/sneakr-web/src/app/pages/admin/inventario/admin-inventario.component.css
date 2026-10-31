@@ -147,20 +147,20 @@
   display: inline-flex;
   padding: 0.3rem 0.55rem;
   border-radius: var(--radius-full);
-  background: var(--color-success-light, #dcfce7);
-  color: var(--color-success, #15803d);
+  background: var(--color-success-light, var(--color-success-bg));
+  color: var(--color-success, var(--color-success));
   font-size: var(--text-xs);
   font-weight: 700;
   white-space: nowrap;
 }
 
 .stock-badge--low {
-  background: var(--color-warning-light, #fef3c7);
-  color: var(--color-warning, #a16207);
+  background: var(--color-warning-light, var(--color-warning-bg));
+  color: var(--color-warning, var(--color-warning));
 }
 
 .stock-badge--empty {
-  background: var(--color-error-light, #fee2e2);
+  background: var(--color-error-light, var(--color-error-bg));
   color: var(--color-error);
 }
 
@@ -181,7 +181,7 @@
 .stock-feedback {
   display: block;
   margin-top: 0.3rem;
-  color: var(--color-success, #15803d);
+  color: var(--color-success, var(--color-success));
   font-size: var(--text-xs);
 }
 

@@ -1,12 +1,23 @@
 import {
   BadRequestException,
   ConflictException,
-  NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CloudinaryService } from '../cloudinary/cloudinary.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProductosService } from './productos.service.js';
+
+function productoConImagenes(
+  imagenes: Awaited<ReturnType<ProductosService['buscarPorId']>>['imagenes'] = [],
+): Awaited<ReturnType<ProductosService['buscarPorId']>> {
+  return {
+    id: 3, nombre: 'Nike Air Max 90 Rojo', codigoModelo: 'AF1',
+    descripcion: null, precio: new Prisma.Decimal(100), marcaId: 2, categoriaId: 1,
+    grupoModeloId: null, activo: true, creadoEn: new Date(0), actualizadoEn: new Date(0),
+    marca: { id: 2, nombre: 'Nike', codigo: 'NK', logo: null },
+    categoria: { id: 1, nombre: 'Zapatillas' }, grupoModelo: null, tallas: [], imagenes,
+  };
+}
 
 describe('ProductosService actualizar tallas', () => {
   let service: ProductosService;
@@ -73,6 +84,14 @@ describe('ProductosService actualizar tallas', () => {
     );
   });
 
+  it.each([7, null])('asigna o quita un grupo (%s) sin modificar contenido ni inventario', async (grupoModeloId) => {
+    await service.actualizar(3, { grupoModeloId });
+    expect(tx.producto.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 3 }, data: { grupoModeloId } }));
+    expect(tx.tallaProducto.update).not.toHaveBeenCalled();
+    expect(tx.tallaProducto.create).not.toHaveBeenCalled();
+    expect(tx.tallaProducto.deleteMany).not.toHaveBeenCalled();
+  });
+
   it('actualiza y agrega tallas en la misma transacción', async () => {
     tx.tallaProducto.findMany.mockResolvedValue([
       {
@@ -133,6 +152,115 @@ describe('ProductosService actualizar tallas', () => {
     expect(tx.tallaProducto.deleteMany).toHaveBeenCalledWith({
       where: { id: { in: [10] } },
     });
+  });
+
+  it('crea las tallas 3.5 y 35 con códigos distintos', async () => {
+    await service.crear({
+      nombre: 'Air Force 1', codigoModelo: 'AF1', precio: 100,
+      marcaId: 2, categoriaId: 1,
+      tallas: [
+        { genero: 'M', colorId: 5, talla: '3.5', stock: 4 },
+        { genero: 'M', colorId: 5, talla: '35', stock: 2 },
+      ],
+    });
+    expect(tx.tallaProducto.create.mock.calls.map(([argumento]) => argumento.data))
+      .toEqual([
+        expect.objectContaining({ talla: '3.5', tallaNumero: 3.5, sku: 'NK-AF1-M-BK-3P5' }),
+        expect.objectContaining({ talla: '35', tallaNumero: 35, sku: 'NK-AF1-M-BK-35' }),
+      ]);
+  });
+
+  it('permite crear fichas con el mismo código de modelo y distinto color', async () => {
+    tx.producto.create
+      .mockResolvedValueOnce({ id: 3, codigoModelo: 'SUP' })
+      .mockResolvedValueOnce({ id: 4, codigoModelo: 'SUP' });
+    tx.color.findUnique
+      .mockResolvedValueOnce({ codigo: 'BK' })
+      .mockResolvedValueOnce({ codigo: 'WH' });
+
+    const ficha = {
+      nombre: 'Adidas Superstar',
+      codigoModelo: 'SUP',
+      precio: 100,
+      marcaId: 2,
+      categoriaId: 1,
+      tallas: [{ genero: 'M' as const, colorId: 5, talla: '42', stock: 4 }],
+    };
+
+    await service.crear(ficha);
+    await service.crear({ ...ficha, tallas: [{ ...ficha.tallas[0], colorId: 6 }] });
+
+    expect(tx.producto.create).toHaveBeenCalledTimes(2);
+    expect(tx.tallaProducto.create.mock.calls.map(([argumento]) => argumento.data.sku))
+      .toEqual(['NK-SUP-M-BK-42', 'NK-SUP-M-WH-42']);
+  });
+
+  it.each(['crear', 'actualizar'] as const)(
+    '%s rechaza tallas equivalentes antes de escribir', async (operacion) => {
+      const tallas = [
+        { genero: 'M' as const, colorId: 5, talla: '06', stock: 4 },
+        { genero: 'M' as const, colorId: 5, talla: '6.0', stock: 2 },
+      ];
+      const resultado = operacion === 'crear'
+        ? service.crear({ nombre: 'Air Force 1', codigoModelo: 'AF1', precio: 100, marcaId: 2, categoriaId: 1, tallas })
+        : service.actualizar(3, { tallas });
+      await expect(resultado).rejects.toThrow('No se pueden repetir variantes');
+      expect(tx.producto.findUnique).not.toHaveBeenCalled();
+      expect(tx.producto.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([undefined, 10])(
+    'normaliza una talla histórica sin cambiar su identidad (id enviado: %s)', async (id) => {
+      tx.tallaProducto.findMany.mockResolvedValue([{
+        id: 10, genero: 'M', colorId: 5, talla: '06', stock: 9,
+        sku: 'NK-AF1-M-BK-06', _count: { itemsCarrito: 1, itemsPedido: 2 },
+      }]);
+      await service.actualizar(3, {
+        tallas: [{ id, genero: 'M', colorId: 5, talla: '6.0', stock: 99 }],
+      });
+      expect(tx.tallaProducto.update).toHaveBeenCalledExactlyOnceWith({
+        where: { id: 10 },
+        data: { genero: 'M', colorId: 5, talla: '6', tallaNumero: 6, sku: 'NK-AF1-M-BK-6' },
+      });
+      expect(tx.tallaProducto.create).not.toHaveBeenCalled();
+      expect(tx.tallaProducto.deleteMany).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { itemsCarrito: 1, itemsPedido: 0 },
+    { itemsCarrito: 0, itemsPedido: 1 },
+  ])('bloquea cambios reales de talla si hay referencias (%j)', async (_count) => {
+    tx.tallaProducto.findMany.mockResolvedValue([{
+      id: 10, genero: 'M', colorId: 5, talla: '6', sku: 'NK-AF1-M-BK-6', _count,
+    }]);
+    await expect(service.actualizar(3, {
+      tallas: [{ id: 10, genero: 'M', colorId: 5, talla: '6.5', stock: 4 }],
+    })).rejects.toThrow(ConflictException);
+    expect(tx.tallaProducto.update).not.toHaveBeenCalled();
+  });
+
+  it('detiene la edición si la base ya tiene tallas equivalentes duplicadas', async () => {
+    tx.tallaProducto.findMany.mockResolvedValue(['06', '6'].map((talla, indice) => ({
+      id: indice + 10, genero: 'M', colorId: 5, talla, sku: `NK-AF1-M-BK-${talla}`,
+      _count: { itemsCarrito: 0, itemsPedido: 1 },
+    })));
+    await expect(service.actualizar(3, {
+      tallas: [{ id: 10, genero: 'M', colorId: 5, talla: '6', stock: 4 }],
+    })).rejects.toThrow('Hay variantes con tallas equivalentes');
+    expect(tx.tallaProducto.update).not.toHaveBeenCalled();
+    expect(tx.tallaProducto.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('rechaza reutilizar el mismo identificador para tallas diferentes', async () => {
+    await expect(service.actualizar(3, {
+      tallas: [
+        { id: 10, genero: 'M', colorId: 5, talla: '6', stock: 4 },
+        { id: 10, genero: 'M', colorId: 5, talla: '6.5', stock: 4 },
+      ],
+    })).rejects.toThrow('No se puede repetir el identificador');
+    expect(tx.producto.findUnique).not.toHaveBeenCalled();
   });
 
   describe('ProductosService admin product listing', () => {
@@ -211,10 +339,7 @@ describe('ProductosService actualizar tallas', () => {
 
   it('sube las fotos juntas en una carpeta basada en el nombre del producto', async () => {
     const archivo = { buffer: Buffer.from('image') } as Express.Multer.File;
-    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
-      id: 3,
-      nombre: 'Nike Air Max 90 Rojo',
-    } as Awaited<ReturnType<typeof service.buscarPorId>>);
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue(productoConImagenes());
     cloudinary.subirImagen.mockResolvedValue({
       url: 'https://res.cloudinary.com/demo/image/upload/v2/SOHO/productos/nike-air-max-90-rojo/photo.jpg',
       publicId: 'SOHO/productos/nike-air-max-90-rojo/photo',
@@ -237,11 +362,27 @@ describe('ProductosService actualizar tallas', () => {
     });
   });
 
+  it('rechaza subir más de diez imágenes por producto', async () => {
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue(productoConImagenes(
+      Array.from({ length: 9 }, (_, id) => ({ id, url: `https://example.test/${id}.jpg`, publicId: `foto-${id}` })),
+    ));
+
+    await expect(
+      service.subirImagenes(3, [
+        { buffer: Buffer.from('first') },
+        { buffer: Buffer.from('second') },
+      ] as Express.Multer.File[]),
+    ).rejects.toThrow(
+      new BadRequestException(
+        'Este producto admite hasta 10 imágenes. Puedes agregar 1 más.',
+      ),
+    );
+
+    expect(cloudinary.subirImagen).not.toHaveBeenCalled();
+  });
+
   it('limpia las subidas completadas cuando falla una carga parcial', async () => {
-    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
-      id: 3,
-      nombre: 'Nike Air Max 90 Rojo',
-    } as Awaited<ReturnType<typeof service.buscarPorId>>);
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue(productoConImagenes());
     cloudinary.subirImagen
       .mockResolvedValueOnce({
         url: 'https://example.test/image.jpg',
@@ -263,10 +404,7 @@ describe('ProductosService actualizar tallas', () => {
   });
 
   it('limpia los archivos subidos si falla su persistencia en la base de datos', async () => {
-    vi.spyOn(service, 'buscarPorId').mockResolvedValue({
-      id: 3,
-      nombre: 'Nike Air Max 90 Rojo',
-    } as Awaited<ReturnType<typeof service.buscarPorId>>);
+    vi.spyOn(service, 'buscarPorId').mockResolvedValue(productoConImagenes());
     cloudinary.subirImagen.mockResolvedValue({
       url: 'https://example.test/image.jpg',
       publicId: 'SOHO/productos/nike/image',
@@ -405,7 +543,7 @@ describe('ProductosService actualizar stock de talla', () => {
             talla: '42.5',
             tallaNumero: 42.5,
             stock: 4,
-            sku: 'NK-AF1-M-BK-425',
+            sku: 'NK-AF1-M-BK-42P5',
             productoId: 7,
           },
         });
@@ -435,7 +573,10 @@ describe('ProductosService actualizar stock de talla', () => {
         },
       );
 
-      it('normaliza tallas enteras terminadas en .0 para el SKU generado', async () => {
+      it.each([
+        ['42.0', '42'], ['06', '6'], ['06.0', '6'], ['6', '6'],
+        ['06.5', '6P5'], ['3.5', '3P5'], ['35', '35'],
+      ])('previsualiza la talla %s con el sufijo %s', async (talla, sufijo) => {
         const service = new ProductosService(
           {
             marca: { findUnique: vi.fn().mockResolvedValue({ codigo: 'NK' }) },
@@ -450,9 +591,9 @@ describe('ProductosService actualizar stock de talla', () => {
             codigoModelo: 'AF1',
             genero: 'M',
             colorId: 5,
-            talla: '42.0',
+            talla,
           }),
-        ).resolves.toEqual({ sku: 'NK-AF1-M-BK-42' });
+        ).resolves.toEqual({ sku: `NK-AF1-M-BK-${sufijo}` });
       });
 
       it('aplica filtros de producto activo a todas las consultas de métricas de inventario', async () => {

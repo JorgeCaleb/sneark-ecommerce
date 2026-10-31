@@ -1,0 +1,111 @@
+<section class="groups-page" aria-labelledby="groups-title">
+  <header class="page-header">
+    <div>
+      <h1 id="groups-title">Grupos de modelos</h1>
+      <p>Organiza las zapatillas que aparecen juntas en las miniaturas.</p>
+    </div>
+    <button class="button button-primary" type="button" (click)="abrirFormulario(null, $event)" [disabled]="guardando()">
+      <ng-icon name="lucidePlus" size="18" aria-hidden="true" /> Nuevo grupo
+    </button>
+  </header>
+
+  @if (formularioAbierto()) {
+    <form class="group-form" (ngSubmit)="guardar()" (keydown.escape)="cerrarFormulario()" aria-labelledby="group-form-title">
+      <h2 id="group-form-title">{{ grupoEditar() ? 'Editar grupo' : 'Nuevo grupo' }}</h2>
+      <p class="hint">Crea primero el grupo. Después, selecciónalo al crear o editar cada producto.</p>
+      <label for="grupo-nombre">Nombre del grupo</label>
+      <div class="form-controls">
+        <input #nombreGrupo id="grupo-nombre" type="text" name="nombre" [(ngModel)]="nombre"
+               placeholder="Ej. Adidas Superstar II" maxlength="100" required [disabled]="guardando()"
+               [attr.aria-invalid]="errorForm() ? true : null" [attr.aria-describedby]="errorForm() ? 'grupo-error' : null" />
+        <button class="button button-primary" type="submit" [disabled]="guardando() || !nombre.trim()">
+          {{ guardando() ? 'Guardando…' : grupoEditar() ? 'Guardar cambios' : 'Crear grupo' }}
+        </button>
+        <button class="button button-secondary" type="button" (click)="cerrarFormulario()" [disabled]="guardando()">Cancelar</button>
+      </div>
+      @if (errorForm()) { <p class="error" id="grupo-error" role="alert">{{ errorForm() }}</p> }
+    </form>
+  }
+
+  @if (mensaje()) {
+    <p class="save-message" role="status">{{ mensaje() }} <a routerLink="/admin/productos">Ir a Productos</a></p>
+  }
+
+  @if (cargando()) {
+    <p class="state" role="status">Cargando grupos…</p>
+  } @else if (errorCarga()) {
+    <div class="state" role="alert">
+      <p>No se pudieron cargar los grupos.</p>
+      <button type="button" class="button button-secondary" (click)="cargar()">Reintentar</button>
+    </div>
+  } @else if (!grupos().length) {
+    <div class="state empty-state">
+      <h2>Aún no hay grupos de modelos</h2>
+      <p>Crea un grupo como «Adidas Superstar» para reunir sus distintos colores o ediciones.</p>
+      <button type="button" class="button button-primary" (click)="abrirFormulario(null, $event)">Crear primer grupo</button>
+    </div>
+  } @else {
+    <div class="groups-list">
+      <p class="list-total">{{ grupos().length }} {{ grupos().length === 1 ? 'grupo registrado' : 'grupos registrados' }}</p>
+      @for (grupo of grupos(); track grupo.id) {
+        <article class="group-row" [class.is-selected]="grupoSeleccionado()?.id === grupo.id">
+          <div class="group-identity">
+            <h2>{{ grupo.nombre }}</h2>
+            <p>{{ grupo._count?.productos ?? '—' }} {{ grupo._count?.productos === 1 ? 'producto' : 'productos' }}</p>
+          </div>
+          <div class="row-actions">
+            <button type="button" class="button button-secondary" (click)="verProductos(grupo, 1, $event)"
+                    [attr.aria-label]="'Ver productos de ' + grupo.nombre" [attr.aria-expanded]="grupoSeleccionado()?.id === grupo.id" [attr.aria-controls]="grupoSeleccionado() ? 'group-products' : null">
+              Ver productos
+            </button>
+            <button type="button" class="button edit-button" (click)="abrirFormulario(grupo, $event)"
+                    [disabled]="guardando()" [attr.aria-label]="'Editar ' + grupo.nombre" title="Editar grupo">
+              <ng-icon name="lucidePencil" size="18" aria-hidden="true" />
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  }
+
+  @if (grupoSeleccionado(); as grupo) {
+    <section class="group-products" id="group-products" aria-labelledby="group-products-title" [attr.aria-busy]="cargandoProductos()">
+      <header class="products-header">
+        <div>
+          <h2 #tituloMiembros tabindex="-1" id="group-products-title">Productos de {{ grupo.nombre }}</h2>
+          <p class="hint">Incluye productos activos e inactivos. Asigna los productos desde <a routerLink="/admin/productos">Productos</a>.</p>
+        </div>
+        <button class="button edit-button" type="button" (click)="cerrarProductos()" aria-label="Cerrar productos del grupo">
+          <ng-icon name="lucideX" size="18" aria-hidden="true" />
+        </button>
+      </header>
+      @if (cargandoProductos()) {
+        <p class="state" role="status">Cargando productos del grupo…</p>
+      } @else if (errorProductos()) {
+        <div class="state" role="alert">
+          <p>No se pudieron cargar los productos del grupo.</p>
+          <button type="button" class="button button-secondary" (click)="verProductos(grupo, paginaProductos)">Reintentar</button>
+        </div>
+      } @else if (!productos().length) {
+        <div class="state">
+          <p>Este grupo todavía no tiene productos.</p>
+          <a class="button button-secondary" routerLink="/admin/productos">Ir a Productos</a>
+        </div>
+      } @else {
+        <p class="list-total" role="status">{{ metaProductos()?.total }} {{ metaProductos()?.total === 1 ? 'producto en el grupo' : 'productos en el grupo' }}</p>
+        <ul class="members-list">
+          @for (producto of productos(); track producto.id) {
+            <li class="member-row">
+              <img [src]="producto.imagenes[0]?.url || '/placeholder-shoe.svg'" alt="" width="56" height="56" loading="lazy" (error)="imagenAlternativa($event)" />
+              <div class="member-identity"><h3>{{ producto.nombre }}</h3><p>{{ producto.marca.nombre }} · {{ producto.codigoModelo }}</p></div>
+              <span class="member-status">{{ producto.activo ? 'Activo' : 'Inactivo' }}</span>
+            </li>
+          }
+        </ul>
+        @if ((metaProductos()?.totalPaginas ?? 0) > 1) {
+          <app-paginacion [pagina]="paginaProductos" [totalPaginas]="metaProductos()!.totalPaginas" ariaLabel="Paginación de productos del grupo" (cambioPagina)="cambiarPagina($event)" />
+        }
+      }
+    </section>
+  }
+</section>

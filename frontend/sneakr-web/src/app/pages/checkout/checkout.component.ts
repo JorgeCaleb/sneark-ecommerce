@@ -1,15 +1,19 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NgIcon } from '@ng-icons/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CarritoService } from '../../core/services/carrito.service';
 import { PedidosService } from '../../core/services/pedidos.service';
 import { PagosService } from '../../core/services/pagos.service';
 import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
+import { AuthService } from '../../core/services/auth.service';
+import { EMPTY, finalize, switchMap, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-checkout',
   standalone: true,
-  imports: [RouterLink, FormsModule, MonedaPipe],
+  imports: [RouterLink, FormsModule, MonedaPipe, NgIcon],
   templateUrl: './checkout.component.html',
   styleUrl: './checkout.component.css',
 })
@@ -17,6 +21,8 @@ export class CheckoutComponent implements OnInit {
   private carritoService = inject(CarritoService);
   private pedidosService = inject(PedidosService);
   private pagosService = inject(PagosService);
+  private readonly auth = inject(AuthService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly carrito = this.carritoService.carrito;
   readonly total = this.carritoService.total;
@@ -55,9 +61,7 @@ export class CheckoutComponent implements OnInit {
     this.pedidosService.opcionesEnvio().subscribe({
       next: (opciones) => this.opcionesEnvio.set(opciones),
       error: () =>
-        this.errorEnvio.set(
-          'No se pudieron cargar los distritos de envío. Inténtalo nuevamente.',
-        ),
+        this.errorEnvio.set('No se pudieron cargar los distritos de envío. Inténtalo nuevamente.'),
     });
   }
 
@@ -85,8 +89,7 @@ export class CheckoutComponent implements OnInit {
       error: (err) => {
         if (solicitud !== this.solicitudEnvio) return;
         this.errorEnvio.set(
-          err?.error?.message ??
-            'No se pudo calcular el costo de envío. Inténtalo nuevamente.',
+          err?.error?.message ?? 'No se pudo calcular el costo de envío. Inténtalo nuevamente.',
         );
         this.cargandoEnvio.set(false);
       },
@@ -117,7 +120,7 @@ export class CheckoutComponent implements OnInit {
   }
 
   confirmar() {
-    if (this.confirmacionDeshabilitada()) return;
+    if (this.confirmacionDeshabilitada() || !this.auth.sesionValida()) return;
 
     if (!this.telefono || !this.distrito || !this.direccion) {
       this.error.set('Por favor completá todos los campos.');
@@ -128,6 +131,7 @@ export class CheckoutComponent implements OnInit {
     this.error.set('');
     this.pedidoPendientePagoId.set(null);
     this.mostrarAccesoPedidos.set(false);
+    const sesion = this.auth.idSesion;
 
     this.pedidosService
       .crear({
@@ -135,27 +139,31 @@ export class CheckoutComponent implements OnInit {
         distrito: this.distrito,
         direccion: this.direccion,
       })
-      .subscribe({
-        next: (pedido) => {
+      .pipe(
+        switchMap((pedido) => {
+          if (sesion !== this.auth.idSesion || !this.auth.sesionValida()) return EMPTY;
           this.carritoService.limpiarLocal();
           this.pedidoPendientePagoId.set(pedido.id);
-          this.pagosService.crearPreferencia(pedido.id).subscribe({
-            next: (res) => {
-              window.location.href = res.urlPago;
-            },
-            error: (err) => {
-              this.enviando.set(false);
-              this.mostrarAccesoPedidos.set(true);
-              this.error.set(
-                err?.error?.message ?? 'No se pudo generar el enlace de pago con Mercado Pago.',
-              );
-            },
-          });
+          return this.pagosService.crearPreferencia(pedido.id);
+        }),
+        takeUntil(this.auth.cambiosSesion$),
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.enviando.set(false)),
+      )
+      .subscribe({
+        next: (res) => {
+          if (sesion === this.auth.idSesion && this.auth.sesionValida()) {
+            window.location.href = res.urlPago;
+          }
         },
         error: (err) => {
-          this.enviando.set(false);
           this.mostrarAccesoPedidos.set(true);
-          this.error.set(err?.error?.message ?? 'Error al confirmar el pedido.');
+          this.error.set(
+            err?.error?.message ??
+              (this.pedidoPendientePagoId() !== null
+                ? 'No se pudo generar el enlace de pago con Mercado Pago.'
+                : 'Error al confirmar el pedido.'),
+          );
         },
       });
   }

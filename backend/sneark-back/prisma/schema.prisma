@@ -61,6 +61,14 @@ model Categoria {
 // ─────────────────────────────────────────────
 // PRODUCTOS
 // ─────────────────────────────────────────────
+model GrupoModelo {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique @db.VarChar(100)
+  productos Producto[]
+
+  @@map("grupos_modelos")
+}
+
 model Producto {
   id           Int     @id @default(autoincrement())
   nombre       String  @db.VarChar(150)
@@ -74,6 +82,9 @@ model Producto {
   categoriaId Int
   categoria   Categoria @relation(fields: [categoriaId], references: [id])
 
+  grupoModeloId Int?
+  grupoModelo   GrupoModelo? @relation(fields: [grupoModeloId], references: [id], onDelete: SetNull)
+
   // Los productos se desactivan, no se borran (protege el historial de pedidos)
   activo        Boolean  @default(true)
   creadoEn      DateTime @default(now())
@@ -82,9 +93,9 @@ model Producto {
   imagenes ImagenProducto[]
   tallas   TallaProducto[]
 
-  @@unique([marcaId, codigoModelo])
   @@index([marcaId])
   @@index([categoriaId])
+  @@index([grupoModeloId])
   @@index([activo])
   @@map("productos")
 }
@@ -204,6 +215,11 @@ model Pedido {
   mpCheckoutUrl   String? @db.VarChar(500)
   // Mercado Pago: ID del pago recibido por webhook tras la transacción
   mpPagoId        String? @unique @db.VarChar(100)
+  // Estado financiero independiente del avance de preparación/entrega.
+  mpEstadoPago       String?  @db.VarChar(40)
+  mpMontoReembolsado Decimal  @default(0) @db.Decimal(10, 2)
+  mpActualizadoEn    DateTime?
+  mpRequiereRevision Boolean  @default(false)
 
   // Datos de entrega, guardados tal como estaban al hacer el pedido
   telefono  String @db.VarChar(20)

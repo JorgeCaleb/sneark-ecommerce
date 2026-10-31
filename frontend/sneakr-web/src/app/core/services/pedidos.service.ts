@@ -46,6 +46,9 @@ export interface Pedido {
   ciudad: string;
   direccion: string;
   creadoEn: string;
+  mpEstadoPago?: string | null;
+  mpMontoReembolsado?: ValorMonetario;
+  mpRequiereRevision?: boolean;
   items: ItemPedido[];
   usuario: { id: number; nombre: string; email: string };
 }

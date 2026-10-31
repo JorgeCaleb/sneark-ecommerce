@@ -18,9 +18,11 @@ import { FiltrarInventarioDto } from './dto/filtrar-inventario.dto.js';
 import { esConflictoUnico } from '../prisma/es-conflicto-unico.js';
 import { esConflictoSerializacion } from '../prisma/es-conflicto-serializacion.js';
 import { construirMetaPaginacion } from '../common/paginacion.util.js';
+import { generarSku, normalizarTalla } from './sku.util.js';
 
 // Campos completos para endpoints de ADMIN
 const INCLUDE_PRODUCTO = {
+  grupoModelo: { select: { id: true, nombre: true } },
   marca: { select: { id: true, nombre: true, codigo: true, logo: true } },
   categoria: { select: { id: true, nombre: true } },
   imagenes: { select: { id: true, url: true, publicId: true } },
@@ -40,6 +42,7 @@ const INCLUDE_PRODUCTO = {
 
 // Campos para endpoints PÚBLICOS — sin publicId de Cloudinary ni SKU interno
 const INCLUDE_PRODUCTO_PUBLICO = {
+  grupoModelo: { select: { id: true, nombre: true } },
   marca: { select: { id: true, nombre: true, codigo: true, logo: true } },
   categoria: { select: { id: true, nombre: true } },
   imagenes: { select: { id: true, url: true } },
@@ -55,6 +58,8 @@ const INCLUDE_PRODUCTO_PUBLICO = {
     orderBy: { tallaNumero: 'asc' as const },
   },
 };
+
+const MAX_IMAGENES_PRODUCTO = 10;
 
 function ocultarStockExacto<T extends { tallas: { stock: number }[] }>(
   producto: T,
@@ -129,7 +134,7 @@ export class ProductosService {
                 talla: variante.talla,
                 tallaNumero: this.tallaANumero(variante.talla),
                 stock: variante.stock,
-                sku: this.generarSku(
+                sku: generarSku(
                   marca.codigo,
                   producto.codigoModelo,
                   variante.genero,
@@ -156,6 +161,25 @@ export class ProductosService {
 
   async buscarTodos(filtros: FiltrarProductosDto) {
     return this.listarProductos(filtros, true, true);
+  }
+
+  async facetas() {
+    const [variantes, precios] = await Promise.all([
+      this.prisma.tallaProducto.findMany({
+        where: { producto: { activo: true } },
+        select: { talla: true },
+        distinct: ['talla'],
+        orderBy: { tallaNumero: 'asc' },
+      }),
+      this.prisma.producto.aggregate({
+        where: { activo: true },
+        _max: { precio: true },
+      }),
+    ]);
+    return {
+      tallas: [...new Set(variantes.map(({ talla }) => String(Number(talla))))],
+      precioMax: Math.ceil(Number(precios._max.precio ?? 0)),
+    };
   }
 
   async buscarTodosAdmin(filtros: FiltrarProductosAdminDto) {
@@ -185,10 +209,17 @@ export class ProductosService {
       busqueda,
       marcaId,
       categoriaId,
+      grupoModeloId,
       precioMin,
       precioMax,
       genero,
       colorId,
+      marcaIds,
+      colorIds,
+      generos,
+      disponibilidad,
+      talla,
+      orden,
       pagina = 1,
       limite = 12,
     } = filtros;
@@ -197,17 +228,30 @@ export class ProductosService {
       activo === undefined ? {} : { activo };
 
     if (busqueda) {
-      where.nombre = { contains: busqueda };
+      where.OR = [
+        { nombre: { contains: busqueda } },
+        { codigoModelo: { contains: busqueda } },
+        { marca: { nombre: { contains: busqueda } } },
+        { categoria: { nombre: { contains: busqueda } } },
+      ];
     }
-    if (marcaId) where.marcaId = marcaId;
+    if (marcaIds?.length) where.marcaId = { in: marcaIds };
+    else if (marcaId) where.marcaId = marcaId;
     if (categoriaId) where.categoriaId = categoriaId;
-    if (genero || colorId) {
-      where.tallas = {
-        some: {
-          ...(genero ? { genero } : {}),
-          ...(colorId ? { colorId } : {}),
-        },
-      };
+    if (grupoModeloId) where.grupoModeloId = grupoModeloId;
+    const filtroVariante: Prisma.TallaProductoWhereInput = {
+      ...(generos?.length ? { genero: { in: generos } } : genero ? { genero } : {}),
+      ...(colorIds?.length ? { colorId: { in: colorIds } } : colorId ? { colorId } : {}),
+      ...(talla ? { tallaNumero: Number(talla) } : {}),
+    };
+    const filtraVariantes = Object.keys(filtroVariante).length > 0;
+    if (filtraVariantes) where.tallas = { some: filtroVariante };
+    const estados = new Set(disponibilidad);
+    if (estados.size === 1) {
+      const disponible = { ...filtroVariante, stock: { gt: 0 } };
+      where.tallas = estados.has('disponible')
+        ? { some: disponible }
+        : { ...(filtraVariantes ? { some: filtroVariante } : {}), none: disponible };
     }
     if (precioMin !== undefined || precioMax !== undefined) {
       where.precio = {};
@@ -218,14 +262,10 @@ export class ProductosService {
     const skip = (pagina - 1) * limite;
 
     // Ejecutar consulta y conteo en paralelo
-    const filtroVariante: Prisma.TallaProductoWhereInput = {
-      ...(genero ? { genero } : {}),
-      ...(colorId ? { colorId } : {}),
-    };
     const baseInclude = esPublico ? INCLUDE_PRODUCTO_PUBLICO : INCLUDE_PRODUCTO;
     const incluir = {
       ...baseInclude,
-      ...(genero || colorId
+      ...(filtraVariantes
         ? { tallas: { ...baseInclude.tallas, where: filtroVariante } }
         : {}),
     } satisfies Prisma.ProductoInclude;
@@ -234,7 +274,13 @@ export class ProductosService {
       this.prisma.producto.findMany({
         where,
         include: incluir,
-        orderBy: { creadoEn: 'desc' },
+        orderBy: orden === 'precio-asc'
+          ? [{ precio: 'asc' }, { id: 'asc' }]
+          : orden === 'precio-desc'
+            ? [{ precio: 'desc' }, { id: 'asc' }]
+            : orden === 'nombre-asc'
+              ? [{ nombre: 'asc' }, { id: 'asc' }]
+              : { creadoEn: 'desc' },
         skip,
         take: limite,
       }),
@@ -341,6 +387,14 @@ export class ProductosService {
           const modeloFinal = codigoModelo ?? producto.codigoModelo;
 
           if (variantes !== undefined) {
+            const identidadesActuales = variantesActuales.map((v) =>
+              this.claveIdentidad(v),
+            );
+            if (new Set(identidadesActuales).size !== identidadesActuales.length) {
+              throw new ConflictException(
+                'Hay variantes con tallas equivalentes en este producto. Revisa los duplicados antes de editar sus variantes.',
+              );
+            }
             const actualesPorId = new Map(
               variantesActuales.map((v) => [v.id, v]),
             );
@@ -372,9 +426,7 @@ export class ProductosService {
               if (actual) {
                 conservadas.add(actual.id);
                 const identidadCambia =
-                  actual.genero !== variante.genero ||
-                  actual.colorId !== variante.colorId ||
-                  actual.talla !== variante.talla;
+                  this.claveIdentidad(actual) !== this.claveIdentidad(variante);
                 if (
                   identidadCambia &&
                   (actual._count.itemsCarrito > 0 ||
@@ -391,7 +443,7 @@ export class ProductosService {
                     colorId: variante.colorId,
                     talla: variante.talla,
                     tallaNumero: this.tallaANumero(variante.talla),
-                    sku: this.generarSku(
+                    sku: generarSku(
                       marca.codigo,
                       modeloFinal,
                       variante.genero,
@@ -408,7 +460,7 @@ export class ProductosService {
                     talla: variante.talla,
                     tallaNumero: this.tallaANumero(variante.talla),
                     stock: variante.stock,
-                    sku: this.generarSku(
+                    sku: generarSku(
                       marca.codigo,
                       modeloFinal,
                       variante.genero,
@@ -457,12 +509,20 @@ export class ProductosService {
   }
 
   private validarVariantesDuplicadas(
-    variantes: { genero: string; colorId: number; talla: string }[] | undefined,
+    variantes:
+      | { id?: number; genero: string; colorId: number; talla: string }[]
+      | undefined,
   ) {
     if (!variantes) return;
     const claves = variantes.map((variante) => this.claveIdentidad(variante));
     if (new Set(claves).size !== claves.length) {
       throw new BadRequestException('No se pueden repetir variantes');
+    }
+    const ids = variantes.flatMap((v) => (v.id === undefined ? [] : [v.id]));
+    if (new Set(ids).size !== ids.length) {
+      throw new BadRequestException(
+        'No se puede repetir el identificador de una variante',
+      );
     }
   }
 
@@ -471,7 +531,7 @@ export class ProductosService {
       ...(id !== undefined ? { id } : {}),
       genero,
       colorId,
-      talla: this.normalizarTalla(talla),
+      talla: normalizarTalla(talla),
       stock,
     }));
   }
@@ -481,40 +541,13 @@ export class ProductosService {
     colorId: number;
     talla: string;
   }) {
-    return `${variante.genero}:${variante.colorId}:${this.normalizarTalla(variante.talla)}`;
-  }
-
-  private normalizarTalla(talla: string) {
-    const valor = talla.trim();
-    if (!/^\d+(?:\.0|\.5)?$/.test(valor)) {
-      throw new BadRequestException(
-        'La talla debe ser un número entero o una media talla positiva',
-      );
-    }
-    return valor.endsWith('.0') ? valor.slice(0, -2) : valor;
+    return `${variante.genero}:${variante.colorId}:${normalizarTalla(variante.talla)}`;
   }
 
   // Convierte la talla normalizada a Decimal numérico para ordenación correcta.
   // Ej: '10' → 10.0, '10.5' → 10.5, '6' → 6.0
   private tallaANumero(talla: string): number {
     return parseFloat(talla);
-  }
-
-  private generarSku(
-    codigoMarca: string,
-    codigoModelo: string,
-    genero: string,
-    codigoColor: string,
-    talla: string,
-  ) {
-    const tallaSku = talla.replace('.5', '5');
-    const sku = `${codigoMarca}-${codigoModelo}-${genero}-${codigoColor}-${tallaSku}`;
-    if (sku.length > 60) {
-      throw new BadRequestException(
-        'Los códigos son demasiado largos para generar un SKU válido',
-      );
-    }
-    return sku;
   }
 
   async previsualizarSku(dto: PrevisualizarSkuDto) {
@@ -534,9 +567,9 @@ export class ProductosService {
     if (!color) {
       throw new NotFoundException(`Color con id ${dto.colorId} no encontrado`);
     }
-    const talla = this.normalizarTalla(dto.talla);
+    const talla = normalizarTalla(dto.talla);
     return {
-      sku: this.generarSku(
+      sku: generarSku(
         marca.codigo,
         dto.codigoModelo.trim().toUpperCase(),
         dto.genero,
@@ -567,12 +600,15 @@ export class ProductosService {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
 
       if (error.code === 'P2003') {
-        const fieldName = String(error.meta?.field_name ?? '');
+        const fieldName = typeof error.meta?.field_name === 'string' ? error.meta.field_name : '';
         if (fieldName.includes('categoriaId')) {
           throw new NotFoundException('Categoría no encontrada');
         }
         if (fieldName.includes('marcaId')) {
           throw new NotFoundException('Marca no encontrada');
+        }
+        if (fieldName.includes('grupoModeloId')) {
+          throw new NotFoundException('Grupo de modelos no encontrado');
         }
         throw new BadRequestException('Referencia foránea no válida');
       }
@@ -750,6 +786,13 @@ export class ProductosService {
 
     if (!archivos?.length) {
       throw new BadRequestException('Debe enviar al menos una imagen');
+    }
+
+    const disponibles = MAX_IMAGENES_PRODUCTO - producto.imagenes.length;
+    if (archivos.length > disponibles) {
+      throw new BadRequestException(
+        `Este producto admite hasta ${MAX_IMAGENES_PRODUCTO} imágenes. Puedes agregar ${disponibles} más.`,
+      );
     }
 
     const resultados = await Promise.allSettled(

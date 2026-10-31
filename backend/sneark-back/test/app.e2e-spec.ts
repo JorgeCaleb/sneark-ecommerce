@@ -33,9 +33,8 @@ describe('AppController (e2e)', () => {
 
   it('starts without Mercado Pago credentials', () => {
     return request(app.getHttpServer())
-      .get('/api')
-      .expect(200)
-      .expect('Hello World!');
+      .get('/api/pagos/estado/1')
+      .expect(401);
   });
 
   it('applies global DTO validation to API routes', () => {

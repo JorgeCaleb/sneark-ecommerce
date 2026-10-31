@@ -10,23 +10,27 @@ import { FooterComponent } from './shared/footer/footer.component';
   standalone: true,
   imports: [RouterOutlet, NavbarComponent, FooterComponent],
   template: `
+    <a class="skip-link" href="#contenido-principal">Saltar al contenido</a>
     @if (!esAdmin()) {
       <app-navbar />
     }
-    <main [class.main--full]="esAdmin()">
+    <main id="contenido-principal" tabindex="-1" [class.main--full]="esAdmin()" [class.main--home]="esInicio() || esCatalogo() || esProducto() || esCarrito()">
       <router-outlet />
     </main>
     @if (!esAdmin()) {
-      <app-footer />
+      <app-footer [esInicio]="esInicio()" [esCatalogo]="!esInicio()" />
     }
   `,
   styles: [`
+    :host { display: flex; flex-direction: column; min-height: 100dvh; }
     main {
-      min-height: calc(100dvh - 64px);
+      flex: 1;
+      min-height: 0;
     }
     main.main--full {
       min-height: 100dvh;
     }
+    main.main--home { min-height: 0; }
   `],
 })
 export class App {
@@ -42,4 +46,8 @@ export class App {
   );
 
   readonly esAdmin = computed(() => this.url().startsWith('/admin'));
+  readonly esInicio = computed(() => this.url().split(/[?#]/)[0] === '/');
+  readonly esCatalogo = computed(() => this.url().split(/[?#]/)[0] === '/catalogo');
+  readonly esProducto = computed(() => /^\/producto\/[^/?#]+/.test(this.url()));
+  readonly esCarrito = computed(() => this.url().split(/[?#]/)[0] === '/carrito');
 }

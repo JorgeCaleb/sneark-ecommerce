@@ -1,214 +1,370 @@
-<div class="catalogo">
-
-  <!-- ── Header ───────────────────────────────────────────── -->
-  <div class="catalogo__header">
-    <div class="container catalogo__header-inner">
-      <div>
-        <h1 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(1.75rem,3vw,2.5rem);letter-spacing:0.04em;color:var(--color-text);line-height:1;">
-          CATALOGO
-        </h1>
-        @if (meta()) {
-          <p style="font-size:var(--text-sm);color:var(--color-muted);margin-top:4px;">
-            {{ meta()!.total }} producto{{ meta()!.total !== 1 ? 's' : '' }} encontrado{{ meta()!.total !== 1 ? 's' : '' }}
-          </p>
-        }
-      </div>
-
-      <div class="filtros__grupo">
-        <h3 class="filtros__grupo-title">Genero</h3>
-        <div class="filtros__opciones">
-          <button class="filtros__opcion" [class.filtros__opcion--activa]="!genero"
-                  (click)="genero = ''; aplicarFiltros()">Todos</button>
-          <button class="filtros__opcion" [class.filtros__opcion--activa]="genero === 'M'"
-                  (click)="genero = 'M'; aplicarFiltros()">Hombre</button>
-          <button class="filtros__opcion" [class.filtros__opcion--activa]="genero === 'W'"
-                  (click)="genero = 'W'; aplicarFiltros()">Mujer</button>
-          <button class="filtros__opcion" [class.filtros__opcion--activa]="genero === 'X'"
-                  (click)="genero = 'X'; aplicarFiltros()">Unisex</button>
-        </div>
-      </div>
-
-      <div class="filtros__grupo">
-        <h3 class="filtros__grupo-title">Color</h3>
-        <div class="filtros__opciones">
-          <button class="filtros__opcion" [class.filtros__opcion--activa]="!colorId"
-                  (click)="colorId = 0; aplicarFiltros()">Todos</button>
-          @for (color of colores(); track color.id) {
-            <button class="filtros__opcion" [class.filtros__opcion--activa]="colorId === color.id"
-                    (click)="colorId = color.id; aplicarFiltros()">
-              {{ color.nombre }} ({{ color.codigo }})
-            </button>
-          }
-        </div>
-      </div>
-
-      <!-- Busqueda -->
-      <div class="catalogo__search-wrap">
-        <svg class="catalogo__search-icon" width="18" height="18" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-        <input
-          type="search"
-          class="catalogo__search"
-          placeholder="Buscar zapatillas..."
-          [(ngModel)]="busqueda"
-          (keydown.enter)="aplicarFiltros()"
-        />
-      </div>
-
-      <!-- Boton filtros mobile -->
-      <button class="catalogo__filtros-toggle" (click)="toggleFiltros()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="4" y1="6" x2="20" y2="6"/>
-          <line x1="8" y1="12" x2="20" y2="12"/>
-          <line x1="12" y1="18" x2="20" y2="18"/>
-        </svg>
-        Filtros
-        @if (hayFiltrosActivos()) {
-          <span class="catalogo__filtros-badge"></span>
+<div class="catalog-shell">
+  <nav class="breadcrumbs" aria-label="Ruta de navegación">
+    <a routerLink="/">Inicio</a><span aria-hidden="true"> / </span><span>Zapatillas</span
+    ><span aria-hidden="true"> / </span><span aria-current="page">Todos los modelos</span>
+  </nav>
+  <header class="catalog-intro">
+    <h1>ZAPATILLAS</h1>
+    <p>
+      Pares para moverte a tu manera. Explora siluetas urbanas, clásicos y nuevas combinaciones.
+    </p>
+    <p class="catalog-caption">
+      @if (!cargando() && !errorCarga()) {
+        {{ total() }} modelos en el catálogo · Consulta las tallas y colores de cada producto
+      } @else {
+        Encuentra las zapatillas que van contigo.
+      }
+    </p>
+  </header>
+  <div class="catalog-toolbar" id="catalogo-resultados">
+    <p class="results-count" role="status">
+      @if (cargando()) {
+        Buscando productos…
+      } @else if (errorCarga()) {
+        Resultados no disponibles
+      } @else {
+        {{ total() }} {{ total() === 1 ? 'resultado' : 'resultados' }}
+      }
+    </p>
+    <div class="toolbar-actions">
+      <label class="toolbar-sort">
+        <span class="visually-hidden">Ordenar productos</span>
+        <select [value]="filtros().orden" (change)="cambiarOrden($event)">
+          <option value="relevancia">Relevancia</option>
+          <option value="precio-asc">Menor precio</option>
+          <option value="precio-desc">Mayor precio</option>
+          <option value="nombre-asc">Nombre: A–Z</option>
+        </select>
+        <ng-icon name="lucideChevronDown" size="16" aria-hidden="true" />
+      </label>
+      <button
+        type="button"
+        class="filters-button"
+        (click)="abrirFiltros()"
+        aria-controls="dialogo-filtros"
+        [attr.aria-expanded]="filtrosPanelAbierto()"
+      >
+        <span>Filtrar y ordenar</span>
+        @if (cantidadFiltros()) {
+          <span class="filters-button__count" aria-label="filtros aplicados">
+            {{ cantidadFiltros() }}
+          </span>
         }
       </button>
     </div>
   </div>
-
-  <div class="container catalogo__body">
-
-    <!-- ── Sidebar filtros ───────────────────────────────── -->
-    <aside class="catalogo__sidebar" [class.catalogo__sidebar--open]="filtrosPanelAbierto()">
-      <div class="catalogo__sidebar-inner">
-
-        <div class="filtros__header">
-          <h2 class="filtros__title">Filtros</h2>
-          @if (hayFiltrosActivos()) {
-            <button class="filtros__limpiar" (click)="limpiarFiltros()">Limpiar</button>
-          }
-        </div>
-
-        <!-- Marca -->
-        <div class="filtros__grupo">
-          <h3 class="filtros__grupo-title">Marca</h3>
-          <div class="filtros__opciones">
-            <button class="filtros__opcion" [class.filtros__opcion--activa]="marcaId === 0"
-                    (click)="marcaId = 0; aplicarFiltros()">Todas</button>
-            @for (marca of marcas(); track marca.id) {
-              <button class="filtros__opcion" [class.filtros__opcion--activa]="marcaId === marca.id"
-                      (click)="marcaId = marca.id; aplicarFiltros()">
-                {{ marca.nombre }}
-              </button>
-            }
-          </div>
-        </div>
-
-        <!-- Categoria -->
-        <div class="filtros__grupo">
-          <h3 class="filtros__grupo-title">Categoria</h3>
-          <div class="filtros__opciones">
-            <button class="filtros__opcion" [class.filtros__opcion--activa]="categoriaId === 0"
-                    (click)="categoriaId = 0; aplicarFiltros()">Todas</button>
-            @for (cat of categorias(); track cat.id) {
-              <button class="filtros__opcion" [class.filtros__opcion--activa]="categoriaId === cat.id"
-                      (click)="categoriaId = cat.id; aplicarFiltros()">
-                {{ cat.nombre }}
-              </button>
-            }
-          </div>
-        </div>
-
-        <!-- Precio -->
-        <div class="filtros__grupo">
-          <h3 class="filtros__grupo-title">Precio (S/)</h3>
-          <div class="filtros__precio">
-            <input type="number" class="filtros__precio-input" placeholder="Min"
-                   [(ngModel)]="precioMin" min="0" />
-            <span class="filtros__precio-sep">—</span>
-            <input type="number" class="filtros__precio-input" placeholder="Max"
-                   [(ngModel)]="precioMax" min="0" />
-          </div>
-          <button class="btn-primary filtros__aplicar-precio" (click)="aplicarFiltros()">
-            Aplicar
+  @if (cantidadFiltros()) {
+    <div class="active-filters">
+      <div class="active-filters__list" role="group" aria-label="Filtros aplicados">
+        @for (filtro of filtrosAplicados(); track $index) {
+          <button type="button" class="active-filter" (click)="quitarFiltroAplicado(filtro)" [attr.aria-label]="'Quitar filtro: ' + filtro.etiqueta">
+            <span>{{ filtro.etiqueta }}</span><ng-icon name="lucideX" size="14" aria-hidden="true" />
           </button>
-        </div>
-
+        }
       </div>
-    </aside>
-
-    <!-- ── Grid de productos ─────────────────────────────── -->
-    <main class="catalogo__main">
-
-      <!-- Skeleton -->
+      <button type="button" class="clear-filters" (click)="limpiarFiltros()">Limpiar todo</button>
+    </div>
+  }
+  <div class="catalog-layout">
+    <section
+      class="catalog-products"
+      aria-label="Productos del catálogo"
+      [attr.aria-busy]="cargando()"
+    >
       @if (cargando()) {
-        <div class="catalogo__grid">
-          @for (i of [1,2,3,4,5,6,7,8,9,10,11,12]; track i) {
-            <div class="producto-skeleton"></div>
+        <div class="product-grid" role="status" aria-label="Cargando productos">
+          @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
+            <div class="skeleton-card" aria-hidden="true">
+              <div class="skeleton-photo"></div>
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line short"></div>
+            </div>
           }
         </div>
-      }
-
-      @if (!cargando() && errorCarga()) {
-        <div class="catalogo__empty" role="alert">
-          <h3 class="catalogo__empty-title">No se pudo cargar el catalogo</h3>
-          <p class="catalogo__empty-desc">Revisa tu conexion e intentalo nuevamente.</p>
-          <button class="btn-primary" type="button" (click)="cargarProductos()">Reintentar</button>
+      } @else if (errorCarga()) {
+        <div class="catalog-state" role="status">
+          <h2>No pudimos cargar las zapatillas.</h2>
+          <p>Intenta de nuevo en unos momentos.</p>
+          <button type="button" class="catalog-button" (click)="reintentar()">REINTENTAR</button>
         </div>
-      }
-
-      <!-- Sin resultados -->
-      @if (!cargando() && !errorCarga() && productos().length === 0) {
-        <div class="catalogo__empty">
-          <div class="catalogo__empty-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-          </div>
-          <h3 class="catalogo__empty-title">Sin resultados</h3>
-          <p class="catalogo__empty-desc">No encontramos productos con esos filtros.</p>
-          <button class="btn-primary" (click)="limpiarFiltros()">Limpiar filtros</button>
-        </div>
-      }
-
-      <!-- Grid -->
-      @if (!cargando() && !errorCarga() && productos().length > 0) {
-        <div class="catalogo__grid">
-          @for (producto of productos(); track producto.id; let i = $index) {
-            <a [routerLink]="['/producto', producto.id]"
-               class="producto-card stagger-item animate-fade-up"
-               [style.animation-delay]="(i * 40) + 'ms'">
-
-              <div class="producto-card__img-wrap">
-                <img [src]="imagenPrincipal(producto)" [alt]="producto.nombre"
-                     class="producto-card__img" loading="lazy"
-                     onerror="this.onerror=null; this.src='/placeholder-shoe.svg'" />
-                @if (!tieneStock(producto)) {
-                  <span class="producto-card__agotado">Agotado</span>
-                }
-                <span class="producto-card__marca-tag">{{ producto.marca.nombre }}</span>
-              </div>
-
-              <div class="producto-card__info">
-                <h3 class="producto-card__nombre">{{ producto.nombre }}</h3>
-                <div class="producto-card__footer">
-                  <span class="producto-card__precio">{{ producto.precio | moneda }}</span>
-                  <span class="producto-card__cat">{{ producto.categoria.nombre }}</span>
-                </div>
-              </div>
-
-            </a>
+      } @else if (!productos().length) {
+        <div class="catalog-state" role="status">
+          <h2>
+            @if (cantidadFiltros()) {
+              Ningún par coincide con tu búsqueda.
+            } @else {
+              Pronto llegarán nuevos pares.
+            }
+          </h2>
+          <p>
+            @if (cantidadFiltros()) {
+              Prueba otra talla, marca o rango de precio.
+            } @else {
+              Vuelve a visitarnos para descubrir nuevos modelos.
+            }
+          </p>
+          @if (cantidadFiltros()) {
+            <button type="button" class="catalog-button" (click)="limpiarFiltros()">
+              LIMPIAR FILTROS
+            </button>
           }
         </div>
-
-        <!-- Paginacion -->
-        <app-paginacion
-          [pagina]="paginaActual"
-          [totalPaginas]="totalPaginas()"
-          modo="numeros"
-          ariaLabel="Paginacion de productos"
-          (cambioPagina)="irAPagina($event)"
-        />
+      } @else {
+        <div class="product-grid">
+          @for (producto of productos(); track producto.id) {
+            <app-producto-card [producto]="producto" />
+          }
+        </div>
+        <div class="catalog-pagination">
+          <p>Mostrando {{ desde() }}–{{ hasta() }} de {{ total() }} productos</p>
+          <app-paginacion
+            [pagina]="filtros().pagina"
+            [totalPaginas]="totalPaginas()"
+            modo="editorial"
+            ariaLabel="Páginas del catálogo"
+            (cambioPagina)="irAPagina($event)"
+          />
+          <p class="pagination-caption">Página {{ filtros().pagina }} de {{ totalPaginas() }}</p>
+        </div>
       }
-
-    </main>
+    </section>
   </div>
 </div>
+
+<dialog
+  #panelFiltros
+  id="dialogo-filtros"
+  class="filters-dialog"
+  aria-label="Filtros del catálogo"
+  (close)="restaurarScroll()"
+  (click)="cerrarDesdeFondo($event)"
+>
+  <header class="filters-dialog__header">
+    <h2>Filtrar y ordenar</h2>
+    <button type="button" class="filters-dialog__clear" (click)="limpiarFiltros()">
+      Borrar todo
+    </button>
+    <button
+      type="button"
+      class="filters-dialog__close"
+      (click)="cerrarFiltros()"
+      aria-label="Cerrar filtros"
+      autofocus
+    >
+      <ng-icon name="lucideX" size="20" aria-hidden="true" />
+    </button>
+  </header>
+  <div class="filters-dialog__content">
+    @if (cantidadFiltros()) {
+      <section class="applied-filters" aria-label="Filtros aplicados">
+        <h3>Filtros aplicados</h3>
+        <div class="applied-filters__list">
+          @for (filtro of filtrosAplicados(); track filtro.tipo + filtro.valor) {
+            <button
+              type="button"
+              class="applied-filter"
+              (click)="quitarFiltroAplicado(filtro)"
+              [attr.aria-label]="'Quitar filtro ' + filtro.etiqueta"
+            >
+              <ng-icon name="lucideX" size="14" aria-hidden="true" />
+              {{ filtro.etiqueta }}
+            </button>
+          }
+        </div>
+      </section>
+    }
+    <section class="sort-section" aria-labelledby="sort-heading">
+      <h3 id="sort-heading">Ordenar por</h3>
+      <label class="sort-control">
+        <span class="visually-hidden">Ordenar productos</span>
+        <select
+          aria-label="Ordenar productos"
+          [value]="filtros().orden"
+          (change)="cambiarOrden($event)"
+        >
+          <option value="relevancia">Relevancia</option>
+          <option value="precio-asc">Precio (de menor a mayor)</option>
+          <option value="precio-desc">Precio (de mayor a menor)</option>
+          <option value="nombre-asc">Nombre A–Z</option>
+        </select>
+        <ng-icon name="lucideChevronDown" size="18" aria-hidden="true" />
+      </label>
+    </section>
+    <ng-container
+      [ngTemplateOutlet]="filtrosContenido"
+      [ngTemplateOutletContext]="{ $implicit: 'panel' }"
+    />
+  </div>
+  <div class="dialog-actions">
+    <p>{{ total() }} {{ total() === 1 ? 'artículo encontrado' : 'artículos encontrados' }}</p>
+    <button type="button" class="catalog-button" (click)="cerrarFiltros()">
+      MOSTRAR {{ total() }} {{ total() === 1 ? 'ARTÍCULO' : 'ARTÍCULOS' }}
+      <ng-icon name="lucideArrowRight" size="18" aria-hidden="true" />
+    </button>
+  </div>
+</dialog>
+
+<ng-template #filtrosContenido let-zona>
+  @if (errorFiltros()) {
+    <div class="filter-error" role="status">
+      <p>No pudimos cargar todos los filtros.</p>
+      <button type="button" (click)="cargarFiltros()">Reintentar filtros</button>
+    </div>
+  }
+  <fieldset class="filter-section" [attr.id]="zona + '-marcas'">
+    <legend>Marca</legend>
+    <div class="checkbox-list">
+      @for (marca of marcas(); track marca.id) {
+        <label class="checkbox-option"
+          ><input
+            type="checkbox"
+            [checked]="filtros().marcaIds.includes(marca.id)"
+            (change)="alternarMarca(marca.id)"
+          /><span>{{ marca.nombre }}</span></label
+        >
+      } @empty {
+        <p class="filter-caption">Sin marcas para mostrar.</p>
+      }
+    </div>
+  </fieldset>
+  <fieldset class="filter-section">
+    <legend>Talla</legend>
+    <div class="size-grid">
+      @for (talla of facetas().tallas; track talla) {
+        <button
+          type="button"
+          class="size-option"
+          [class.is-selected]="filtros().talla === talla"
+          [attr.aria-pressed]="filtros().talla === talla"
+          [attr.aria-label]="'Talla ' + talla"
+          (click)="seleccionarTalla(talla)"
+        >
+          {{ talla }}
+        </button>
+      } @empty {
+        <p class="filter-caption">Sin tallas para mostrar.</p>
+      }
+    </div>
+  </fieldset>
+  <fieldset class="filter-section">
+    <legend>Precio</legend>
+    <div
+      class="price-range"
+      [style.--range-start]="(precioMinBorrador() / limitePrecio()) * 100 + '%'"
+      [style.--range-end]="(precioMaxBorrador() / limitePrecio()) * 100 + '%'"
+    >
+      <div class="price-track"></div>
+      <input
+        type="range"
+        min="0"
+        [max]="limitePrecio()"
+        step="1"
+        [value]="precioMinBorrador()"
+        [disabled]="!facetas().precioMax"
+        aria-label="Precio mínimo"
+        (input)="cambiarPrecio($event, 'min')"
+        (change)="aplicarPrecio()"
+      />
+      <input
+        type="range"
+        min="0"
+        [max]="limitePrecio()"
+        step="1"
+        [value]="precioMaxBorrador()"
+        [disabled]="!facetas().precioMax"
+        aria-label="Precio máximo"
+        (input)="cambiarPrecio($event, 'max')"
+        (change)="aplicarPrecio()"
+      />
+    </div>
+    <div class="price-limits">
+      <span>{{ precioMinBorrador() | moneda }}</span
+      ><span>{{ precioMaxBorrador() | moneda }}</span>
+    </div>
+  </fieldset>
+  <fieldset class="filter-section">
+    <legend>Color</legend>
+    <div class="color-options">
+      @for (color of colores(); track color.id) {
+        <button
+          type="button"
+          class="color-option"
+          [class.is-selected]="filtros().colorIds.includes(color.id)"
+          [style.background-color]="colorVisual(color)"
+          [attr.aria-label]="color.nombre"
+          [attr.aria-pressed]="filtros().colorIds.includes(color.id)"
+          [title]="color.nombre"
+          (click)="alternarColor(color.id)"
+        >
+          @if (!colorVisual(color)) {
+            <span aria-hidden="true">{{ color.nombre.slice(0, 2) }}</span>
+          }
+        </button>
+      } @empty {
+        <p class="filter-caption">Sin colores para mostrar.</p>
+      }
+    </div>
+    <p class="filter-caption color-names">
+      @for (color of colores(); track color.id; let ultimo = $last) {
+        {{ color.nombre }}
+        @if (!ultimo) {
+          ·
+        }
+      }
+    </p>
+  </fieldset>
+  <fieldset class="filter-section">
+    <legend>Género</legend>
+    <div class="checkbox-list">
+      @for (genero of opcionesGenero; track genero.valor) {
+        <label class="checkbox-option"
+          ><input
+            type="checkbox"
+            [checked]="filtros().generos.includes(genero.valor)"
+            (change)="alternarGenero(genero.valor)"
+          /><span>{{ genero.nombre }}</span></label
+        >
+      }
+      @if (categoriaNinos(); as ninos) {
+        <label class="checkbox-option"
+          ><input
+            type="checkbox"
+            [checked]="filtros().categoriaId === ninos.id"
+            (change)="seleccionarCategoria(ninos.id)"
+          /><span>Niños</span></label
+        >
+      }
+    </div>
+  </fieldset>
+  <fieldset class="filter-section">
+    <legend>Disponibilidad</legend>
+    <div class="checkbox-list">
+      @for (estado of opcionesDisponibilidad; track estado.valor) {
+        <label class="checkbox-option"
+          ><input
+            type="checkbox"
+            [checked]="filtros().disponibilidad.includes(estado.valor)"
+            (change)="alternarDisponibilidad(estado.valor)"
+          /><span>{{ estado.nombre }}</span></label
+        >
+      }
+    </div>
+    <p class="filter-caption">La disponibilidad se confirma al comprar.</p>
+  </fieldset>
+  @if (categoriasAdicionales().length) {
+    <details class="category-filter">
+      <summary>Categoría</summary>
+      <div class="checkbox-list">
+        @for (categoria of categoriasAdicionales(); track categoria.id) {
+          <label class="checkbox-option"
+            ><input
+              type="checkbox"
+              [checked]="filtros().categoriaId === categoria.id"
+              (change)="seleccionarCategoria(categoria.id)"
+            /><span>{{ categoria.nombre }}</span></label
+          >
+        }
+      </div>
+    </details>
+  }
+</ng-template>

@@ -80,7 +80,7 @@
 .filtro-btn--activo {
   background-color: var(--color-accent);
   border-color: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-white);
 }
 
 .filtro-btn__count {
@@ -105,7 +105,7 @@
 }
 
 .filtro-dot--warning {
-  background-color: #a16207;
+  background-color: var(--color-warning);
 }
 .filtro-dot--info {
   background-color: var(--color-accent);
@@ -201,7 +201,7 @@
 
 /* Fila pendiente resaltada sutilmente */
 .tabla__row--pendiente {
-  border-left: 3px solid #a16207;
+  border-left: 3px solid var(--color-warning);
 }
 
 .tabla__td {
@@ -251,19 +251,19 @@
 }
 
 .estado-badge--warning {
-  background-color: #fef9c3;
-  color: #a16207;
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning);
 }
 .estado-badge--info {
   background-color: var(--color-accent-light);
   color: var(--color-accent);
 }
 .estado-badge--success {
-  background-color: #f0fdf4;
+  background-color: var(--color-success-bg);
   color: var(--color-success);
 }
 .estado-badge--error {
-  background-color: #fef2f2;
+  background-color: var(--color-error-bg);
   color: var(--color-error);
 }
 
@@ -278,7 +278,7 @@
 
 .metodo-badge--mercadopago {
   background-color: #009ee3;
-  color: #fff;
+  color: var(--color-white);
 }
 .pago-online {
   font-size: var(--text-xs);
@@ -303,7 +303,7 @@
 @media (hover: hover) and (pointer: fine) {
   .accion-ver:hover {
     background-color: var(--color-accent);
-    color: #fff;
+    color: var(--color-white);
   }
 }
 
@@ -317,7 +317,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(25, 26, 28, 0.48);
+  background-color: var(--color-overlay);
   z-index: 200;
   backdrop-filter: blur(1px);
 }
@@ -581,7 +581,7 @@
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border-top-color: var(--color-white);
   border-radius: 50%;
   animation: spin 600ms linear infinite;
 }

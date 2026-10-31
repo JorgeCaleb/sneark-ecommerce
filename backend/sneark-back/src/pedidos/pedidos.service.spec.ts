@@ -701,12 +701,17 @@ describe('PedidosService resumen del dashboard', () => {
     );
     expect(count).toHaveBeenCalledOnce();
     expect(aggregate).toHaveBeenCalledTimes(2);
+    for (const [consulta] of aggregate.mock.calls) {
+      expect(consulta.where.mpRequiereRevision).toBe(false);
+    }
     expect(queryRaw).toHaveBeenCalledTimes(2);
     const [ventasQueryCall, topProductosQueryCall] = queryRaw.mock.calls as [
       [Prisma.Sql],
       [Prisma.Sql],
     ];
     expect(ventasQueryCall[0].sql).toContain('`pagadoEn` >=');
+    expect(ventasQueryCall[0].sql).toContain('`mpRequiereRevision` = false');
+    expect(topProductosQueryCall[0].sql).toContain('pedidos.`mpRequiereRevision` = false');
     expect(ventasQueryCall[0].values).toEqual(
       expect.arrayContaining([
         EstadoPedido.PAGO_VERIFICADO,

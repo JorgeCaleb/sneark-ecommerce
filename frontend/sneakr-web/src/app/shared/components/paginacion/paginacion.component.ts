@@ -1,16 +1,17 @@
 import { Component, computed, input, output } from '@angular/core';
+import { NgIcon } from '@ng-icons/core';
 
 @Component({
   selector: 'app-paginacion',
   standalone: true,
-  imports: [],
+  imports: [NgIcon],
   templateUrl: './paginacion.component.html',
   styleUrl: './paginacion.component.css',
 })
 export class PaginacionComponent {
   pagina = input.required<number>();
   totalPaginas = input.required<number>();
-  modo = input<'numeros' | 'compacto'>('compacto');
+  modo = input<'numeros' | 'compacto' | 'editorial'>('compacto');
   ariaLabel = input<string>('Paginación');
 
   cambioPagina = output<number>();

@@ -38,3 +38,10 @@ coverage/
 
 # Archivos de entorno locales
 *.local
+
+# Herramientas locales de asistencia y revisión visual
+/.agents/
+/.impeccable/
+/.taste-skill/
+/skills-lock.json
+/docs/

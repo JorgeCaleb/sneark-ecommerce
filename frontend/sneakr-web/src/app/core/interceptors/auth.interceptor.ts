@@ -12,6 +12,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const apiRoot = inject(ApiUrlService).endpoint('').replace(/\/+$/, '');
   const esApiPropia = req.url === apiRoot || req.url.startsWith(`${apiRoot}/`);
   const token = esApiPropia ? authService.obtenerTokenValido() : null;
+  const sesion = authService.idSesion;
   const authReq = token
     ? req.clone({
         headers: req.headers.set('Authorization', `Bearer ${token}`),
@@ -20,7 +21,14 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(authReq).pipe(
     catchError((error: unknown) => {
-      if (token && error instanceof HttpErrorResponse && error.status === 401) {
+      if (
+        esApiPropia &&
+        !req.url.startsWith(`${apiRoot}/auth/`) &&
+        error instanceof HttpErrorResponse &&
+        error.status === 401 &&
+        sesion === authService.idSesion &&
+        token === authService.token()
+      ) {
         authService.limpiarSesion();
         void router.navigate(['/auth/login']);
       }

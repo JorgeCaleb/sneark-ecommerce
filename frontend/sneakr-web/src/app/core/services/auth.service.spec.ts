@@ -1,8 +1,5 @@
 ﻿import { provideHttpClient } from '@angular/common/http';
-import {
-  HttpTestingController,
-  provideHttpClientTesting,
-} from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { environment } from '../../../environments/environment';
@@ -17,11 +14,7 @@ describe('AuthService storage resilience', () => {
   beforeEach(() => {
     localStorage.clear();
     TestBed.configureTestingModule({
-      providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        provideRouter([]),
-      ],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     });
     http = TestBed.inject(HttpTestingController);
   });
@@ -72,5 +65,40 @@ describe('AuthService storage resilience', () => {
 
     expect(auth.estaAutenticado()).toBe(true);
     expect(auth.almacenamientoDisponible()).toBe(false);
+  });
+
+  it('no cambia la identidad de sesion al comprobar repetidamente un usuario anonimo', () => {
+    const auth = TestBed.inject(AuthService);
+    const cambios = vi.fn();
+    auth.cambiosSesion$.subscribe(cambios);
+    const inicial = auth.idSesion;
+    expect(auth.sesionValida()).toBe(false);
+    expect(auth.obtenerTokenValido()).toBeNull();
+    expect(auth.idSesion).toBe(inicial);
+    expect(cambios).not.toHaveBeenCalled();
+  });
+
+  it('notifica cada autenticacion despues de guardar el usuario, incluso con el mismo JWT', () => {
+    const auth = TestBed.inject(AuthService);
+    const cambios = vi.fn(() => ({ sesion: auth.idSesion, id: auth.usuario()?.id }));
+    auth.cambiosSesion$.subscribe(cambios);
+    const usuario = {
+      id: 1,
+      nombre: 'Cliente',
+      email: 'cliente@example.test',
+      rol: 'CLIENTE',
+      creadoEn: '2026-01-01T00:00:00Z',
+    };
+    auth.login(usuario.email, 'password').subscribe();
+    http.expectOne(`${environment.apiUrl}/auth/login`).flush({ token: tokenValido, usuario });
+    const primera = auth.idSesion;
+    auth.login(usuario.email, 'password').subscribe();
+    http.expectOne(`${environment.apiUrl}/auth/login`).flush({ token: tokenValido, usuario });
+    expect(auth.idSesion).toBeGreaterThan(primera);
+    expect(cambios).toHaveBeenCalledTimes(2);
+    expect(cambios.mock.results.every((resultado) => resultado.value.id === 1)).toBe(true);
+    auth.limpiarSesion();
+    expect(cambios).toHaveBeenCalledTimes(3);
+    expect(auth.usuario()).toBeNull();
   });
 });

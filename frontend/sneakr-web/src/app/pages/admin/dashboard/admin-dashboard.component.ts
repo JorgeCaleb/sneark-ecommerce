@@ -1,5 +1,6 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { NgIcon } from '@ng-icons/core';
 import { RouterLink } from '@angular/router';
 import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
 import { Subscription } from 'rxjs';
@@ -9,10 +10,7 @@ import {
   PedidosService,
   ResumenPedidosDashboard,
 } from '../../../core/services/pedidos.service';
-import {
-  InventarioActivo,
-  ProductosService,
-} from '../../../core/services/productos.service';
+import { InventarioActivo, ProductosService } from '../../../core/services/productos.service';
 
 const DIAS_GRAFICO = 30;
 
@@ -24,6 +22,7 @@ interface MetricaDashboard {
 }
 
 interface PuntoVenta {
+  fecha: string;
   etiqueta: string;
   total: number;
 }
@@ -52,13 +51,14 @@ interface InventarioResumen {
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, MonedaPipe],
+  imports: [RouterLink, DecimalPipe, MonedaPipe, NgIcon],
   templateUrl: './admin-dashboard.component.html',
   styleUrl: './admin-dashboard.component.css',
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   private readonly pedidosService = inject(PedidosService);
   private readonly productosService = inject(ProductosService);
+  private readonly inicioVentas = signal<Date | null>(null);
 
   readonly cargandoPedidos = signal(true);
   readonly cargandoProductos = signal(true);
@@ -66,26 +66,16 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   readonly errorProductos = signal(false);
   readonly pedidos = signal<Pedido[]>([]);
   readonly resumenPedidos = signal<ResumenPedidosDashboard | null>(null);
-  readonly productosMasVendidos = computed(
-    () => this.resumenPedidos()?.productosMasVendidos ?? [],
-  );
+  readonly productosMasVendidos = computed(() => this.resumenPedidos()?.productosMasVendidos ?? []);
   readonly inventario = signal<InventarioActivo | null>(null);
-  readonly totalProductos = computed(
-    () => this.inventario()?.productosActivos ?? null,
-  );
+  readonly totalProductos = computed(() => this.inventario()?.productosActivos ?? null);
   private pedidosSubscription?: Subscription;
   private productosSubscription?: Subscription;
   readonly pedidosRecientes = computed(() => this.pedidos());
 
-  readonly ventasPeriodo = computed(() => {
-    return (this.resumenPedidos()?.ventasDiarias ?? []).filter(
-      (venta) => venta.total > 0,
-    );
-  });
+  readonly ventasPeriodo = computed(() => this.puntosVenta().filter((venta) => venta.total > 0));
 
-  readonly totalVentasPeriodo = computed(
-    () => this.resumenPedidos()?.totalVentasPeriodo ?? 0,
-  );
+  readonly totalVentasPeriodo = computed(() => this.resumenPedidos()?.totalVentasPeriodo ?? 0);
 
   readonly variacionVentas = computed(() => {
     const ventasAnteriores = this.resumenPedidos()?.ventasPeriodoAnterior ?? 0;
@@ -94,28 +84,18 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   });
 
   readonly puntosVenta = computed<PuntoVenta[]>(() => {
-    const hoy = this.inicioPeriodoActual();
-    const valores = new Map<string, number>();
-    const fechas: Date[] = [];
-
-    for (let indice = DIAS_GRAFICO - 1; indice >= 0; indice -= 1) {
-      const fecha = new Date(hoy);
-      fecha.setDate(hoy.getDate() - indice);
-      fechas.push(fecha);
-      valores.set(this.claveFecha(fecha), 0);
-    }
-
-    for (const venta of this.resumenPedidos()?.ventasDiarias ?? []) {
-      valores.set(venta.fecha, venta.total);
-    }
-
-    return fechas.map((fecha) => ({
-      etiqueta: new Intl.DateTimeFormat('es-PE', {
-        day: '2-digit',
-        month: 'short',
-      }).format(fecha),
-      total: valores.get(this.claveFecha(fecha)) ?? 0,
-    }));
+    const inicio = this.inicioVentas();
+    if (!inicio) return [];
+    const valores = new Map<string, number>(
+      (this.resumenPedidos()?.ventasDiarias ?? []).map((venta) => [venta.fecha, venta.total]),
+    );
+    const formato = new Intl.DateTimeFormat('es-PE', { day: '2-digit', month: 'short' });
+    return Array.from({ length: DIAS_GRAFICO }, (_, indice) => {
+      const fecha = new Date(inicio);
+      fecha.setDate(inicio.getDate() + indice);
+      const clave = this.claveFecha(fecha);
+      return { fecha: clave, etiqueta: formato.format(fecha), total: valores.get(clave) ?? 0 };
+    });
   });
 
   readonly maxVentaDiaria = computed(() =>
@@ -152,7 +132,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   readonly etiquetasGrafico = computed(() => {
     const puntos = this.puntosVenta();
-    return puntos.filter((_, indice) => indice % 5 === 0 || indice === 29);
+    return puntos.filter((_, indice) => indice % 5 === 0 || indice === puntos.length - 1);
   });
 
   readonly variantesStockBajo = computed<VarianteInventario[]>(
@@ -182,9 +162,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     },
     {
       label: 'Pedidos',
-      valor: this.cargandoPedidos()
-        ? '—'
-        : String(this.resumenPedidos()?.totalPedidos ?? 0),
+      valor: this.cargandoPedidos() ? '—' : String(this.resumenPedidos()?.totalPedidos ?? 0),
       detalle: 'Pedidos no cancelados',
       tipo: 'pedidos',
     },
@@ -234,6 +212,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.cargandoPedidos.set(true);
     this.errorPedidos.set(false);
     const inicioActual = this.inicioPeriodoActual();
+    // El gráfico conserva el mismo calendario que esta consulta, aunque cruce medianoche.
+    this.inicioVentas.set(inicioActual);
     const finActual = new Date(inicioActual);
     finActual.setDate(finActual.getDate() + DIAS_GRAFICO);
     const inicioAnterior = new Date(inicioActual);
@@ -241,18 +221,18 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.pedidosSubscription = this.pedidosService
       .resumenDashboard(inicioAnterior, inicioActual, finActual)
       .subscribe({
-      next: (resumen) => {
-        this.resumenPedidos.set(resumen);
-        this.pedidos.set(resumen.pedidosRecientes);
-        this.cargandoPedidos.set(false);
-      },
-      error: () => {
-        this.resumenPedidos.set(null);
-        this.pedidos.set([]);
-        this.errorPedidos.set(true);
-        this.cargandoPedidos.set(false);
-      },
-    });
+        next: (resumen) => {
+          this.resumenPedidos.set(resumen);
+          this.pedidos.set(resumen.pedidosRecientes);
+          this.cargandoPedidos.set(false);
+        },
+        error: () => {
+          this.resumenPedidos.set(null);
+          this.pedidos.set([]);
+          this.errorPedidos.set(true);
+          this.cargandoPedidos.set(false);
+        },
+      });
   }
 
   cargarProductos() {

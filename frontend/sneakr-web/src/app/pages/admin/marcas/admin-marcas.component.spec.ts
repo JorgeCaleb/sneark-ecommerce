@@ -20,6 +20,37 @@ describe('AdminMarcasComponent request errors', () => {
     };
   });
 
+  it('muestra el conteo real de cada marca y lo refresca al cargar de nuevo', async () => {
+    const adidas = { id: 2, nombre: 'Adidas', codigo: 'AD', logo: null };
+    const nike = { id: 1, nombre: 'Nike', codigo: 'NK', logo: null };
+    marcasService.buscarTodas
+      .mockReturnValueOnce(of([{ ...adidas, _count: { productos: 0 } }, { ...nike, _count: { productos: 2 } }]))
+      .mockReturnValueOnce(of([{ ...adidas, _count: { productos: 1 } }, { ...nike, _count: { productos: 2 } }]));
+    await TestBed.configureTestingModule({
+      imports: [AdminMarcasComponent],
+      providers: [{ provide: MarcasService, useValue: marcasService }],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(AdminMarcasComponent);
+    fixture.detectChanges();
+    const conteos = () => [...fixture.nativeElement.querySelectorAll('.marca-card__productos')]
+      .map((elemento) => (elemento as HTMLElement).textContent?.replace(/\s+/g, ' ').trim());
+    expect(conteos()).toEqual(['0 productos', '2 productos']);
+    fixture.componentInstance.cargar();
+    fixture.detectChanges();
+    expect(conteos()).toEqual(['1 producto', '2 productos']);
+  });
+
+  it('no presenta un cero falso si la respuesta no contiene el conteo', async () => {
+    marcasService.buscarTodas.mockReturnValue(of([{ id: 2, nombre: 'Adidas', codigo: 'AD', logo: null }]));
+    await TestBed.configureTestingModule({
+      imports: [AdminMarcasComponent],
+      providers: [{ provide: MarcasService, useValue: marcasService }],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(AdminMarcasComponent);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.marca-card__productos').textContent).toContain('—');
+  });
+
   it('shows an error and clears loading when the brand list request fails', async () => {
     marcasService.buscarTodas.mockReturnValue(
       throwError(() => new Error('Brands unavailable')),

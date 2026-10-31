@@ -35,14 +35,7 @@
     @if (!cargando() && !errorCarga() && pedidos().length === 0) {
       <div class="animate-fade-up" style="display:flex;flex-direction:column;align-items:center;padding-block:var(--space-2xl);gap:var(--space-md);text-align:center;">
         <div style="width:88px;height:88px;background-color:var(--color-surface);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--color-muted-light);margin-bottom:var(--space-sm);">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-            <polyline points="10 9 9 9 8 9"/>
-          </svg>
+          <ng-icon name="lucideFileText" size="48" />
         </div>
         <h2 style="font-size:var(--text-xl);font-weight:700;color:var(--color-text);">Aun no tienes pedidos</h2>
         <p style="font-size:var(--text-sm);color:var(--color-muted);max-width:36ch;">
@@ -75,18 +68,18 @@
                 <span class="metodo-badge metodo-badge--{{ pedido.metodoPago.toLowerCase() }}">
                   {{ pedido.metodoPago }}
                 </span>
+                @if (etiquetaIncidenciaPago(pedido); as incidencia) {
+                  <span class="estado-badge estado-badge--error">{{ incidencia }}</span>
+                }
               </div>
 
               <div style="display:flex;align-items:center;gap:var(--space-md);margin-left:auto;">
                 <span style="font-size:var(--text-base);font-weight:800;color:var(--color-accent);letter-spacing:-0.02em;white-space:nowrap;">
                   {{ pedido.total | moneda }}
                 </span>
-                <svg class="pedido-card__chevron"
+                <ng-icon class="pedido-card__chevron"
                      [class.pedido-card__chevron--open]="pedidoAbierto() === pedido.id"
-                     width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
+                     name="lucideChevronDown" size="16" />
               </div>
             </button>
 
@@ -151,11 +144,7 @@
                     <button class="btn-primary" style="padding:0.625rem 1.25rem;font-size:var(--text-sm);"
                             (click)="pagarConMercadoPago(pedido.id)"
                             [disabled]="pagandoId() === pedido.id">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
-                        <line x1="1" y1="10" x2="23" y2="10"/>
-                      </svg>
+                      <ng-icon name="lucideCreditCard" size="16" />
                       {{ pagandoId() === pedido.id ? 'Conectando...' : 'Continuar con Mercado Pago' }}
                     </button>
                   }

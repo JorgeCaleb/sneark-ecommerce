@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsInt,
   IsIn,
@@ -8,11 +8,61 @@ import {
   IsString,
   Max,
   Min,
+  IsArray,
+  ArrayMaxSize,
+  Matches,
 } from 'class-validator';
 import { PaginacionDto } from '../../common/dto/paginacion.dto.js';
+import { PATRON_TALLA } from '../sku.util.js';
+
+const lista = (value: unknown): unknown =>
+  typeof value === 'string' ? value.split(',') : value;
+const ids = (value: unknown): unknown => {
+  const valores = lista(value);
+  return Array.isArray(valores) ? valores.map(Number) : valores;
+};
 
 // DTO para los query params de búsqueda/filtrado del catálogo
 export class FiltrarProductosDto extends PaginacionDto {
+  @IsOptional()
+  @Transform(({ value }) => ids(value))
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsInt({ each: true })
+  @IsPositive({ each: true })
+  marcaIds?: number[];
+
+  @IsOptional()
+  @Transform(({ value }) => ids(value))
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsInt({ each: true })
+  @IsPositive({ each: true })
+  colorIds?: number[];
+
+  @IsOptional()
+  @Transform(({ value }) => lista(value))
+  @IsArray()
+  @ArrayMaxSize(3)
+  @IsIn(['M', 'W', 'X'], { each: true })
+  generos?: ('M' | 'W' | 'X')[];
+
+  @IsOptional()
+  @Transform(({ value }) => lista(value))
+  @IsArray()
+  @ArrayMaxSize(2)
+  @IsIn(['disponible', 'agotado'], { each: true })
+  disponibilidad?: ('disponible' | 'agotado')[];
+
+  @IsOptional()
+  @IsString()
+  @Matches(PATRON_TALLA)
+  talla?: string;
+
+  @IsOptional()
+  @IsIn(['relevancia', 'precio-asc', 'precio-desc', 'nombre-asc'])
+  orden?: 'relevancia' | 'precio-asc' | 'precio-desc' | 'nombre-asc';
+
   @IsOptional()
   @IsString()
   busqueda?: string; // Búsqueda por nombre
@@ -38,6 +88,12 @@ export class FiltrarProductosDto extends PaginacionDto {
   @IsPositive()
   @Type(() => Number)
   categoriaId?: number;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  @Type(() => Number)
+  grupoModeloId?: number;
 
   @IsOptional()
   @IsNumber()

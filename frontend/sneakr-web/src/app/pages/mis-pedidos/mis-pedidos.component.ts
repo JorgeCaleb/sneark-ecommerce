@@ -1,20 +1,28 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize, takeUntil } from 'rxjs';
+import { NgIcon } from '@ng-icons/core';
 import { RouterLink } from '@angular/router';
 import { PedidosService, Pedido, EstadoPedido } from '../../core/services/pedidos.service';
 import { PagosService } from '../../core/services/pagos.service';
+import { AuthService } from '../../core/services/auth.service';
 import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 import { extraerMensajeError } from '../../core/utils/error.util';
+import { etiquetaIncidenciaPago } from '../../core/utils/estado-pago.util';
 
 @Component({
   selector: 'app-mis-pedidos',
   standalone: true,
-  imports: [RouterLink, MonedaPipe],
+  imports: [RouterLink, MonedaPipe, NgIcon],
   templateUrl: './mis-pedidos.component.html',
   styleUrl: './mis-pedidos.component.css',
 })
 export class MisPedidosComponent implements OnInit {
+  readonly etiquetaIncidenciaPago = etiquetaIncidenciaPago;
   private pedidosService = inject(PedidosService);
   private pagosService = inject(PagosService);
+  private readonly auth = inject(AuthService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly pedidos = signal<Pedido[]>([]);
   readonly cargando = signal(true);
@@ -72,18 +80,25 @@ export class MisPedidosComponent implements OnInit {
 
   // Devuelve true si el pedido puede pagarse en línea con Mercado Pago
   puedePagarConMercadoPago(pedido: Pedido): boolean {
-    return pedido.metodoPago === 'MERCADOPAGO' && pedido.estado === 'PENDIENTE';
+    return pedido.metodoPago === 'MERCADOPAGO' && pedido.estado === 'PENDIENTE' && !etiquetaIncidenciaPago(pedido);
   }
 
   // Pagar con Mercado Pago
   pagarConMercadoPago(pedidoId: number) {
+    if (this.pagandoId() !== null || !this.auth.sesionValida()) return;
+    const sesion = this.auth.idSesion;
     this.pagandoId.set(pedidoId);
-    this.pagosService.crearPreferencia(pedidoId).subscribe({
+    this.pagosService.crearPreferencia(pedidoId).pipe(
+      takeUntil(this.auth.cambiosSesion$),
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => this.pagandoId.set(null)),
+    ).subscribe({
       next: (res) => {
-        window.location.href = res.urlPago;
+        if (sesion === this.auth.idSesion && this.auth.sesionValida()) {
+          window.location.href = res.urlPago;
+        }
       },
       error: (err) => {
-        this.pagandoId.set(null);
         alert(err?.error?.message ?? 'No se pudo iniciar el pago con Mercado Pago.');
       },
     });

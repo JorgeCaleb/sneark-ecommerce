@@ -95,6 +95,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'grupos-modelos',
+        loadComponent: () =>
+          import('./pages/admin/grupos-modelos/admin-grupos-modelos.component').then(
+            (m) => m.AdminGruposModelosComponent,
+          ),
+      },
+      {
         path: 'marcas',
         loadComponent: () =>
           import('./pages/admin/marcas/admin-marcas.component').then((m) => m.AdminMarcasComponent),

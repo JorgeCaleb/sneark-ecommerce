@@ -32,7 +32,7 @@ No guardes credenciales reales en el repositorio.
 
 Para habilitar pagos, configura `MP_ACCESS_TOKEN` con las credenciales correspondientes al entorno. Configura `MP_WEBHOOK_SECRET` con el secreto de firma de Webhooks que proporciona Mercado Pago; el endpoint `/api/pagos/webhook` verifica `x-signature` y `x-request-id` antes de consultar el pago.
 
-Para probar sin cobros reales, usa el access token de prueba `TEST-...` y las cuentas de prueba/tarjetas de prueba creadas desde Mercado Pago Developers. Con ese token la aplicación redirige al checkout sandbox. No uses credenciales `APP_USR-...` para pruebas.
+Para probar sin cobros reales, crea las cuentas de vendedor y comprador de prueba y utiliza las credenciales que Mercado Pago indique para ese vendedor, junto con tarjetas de prueba. Sigue la [guía de compras de prueba de Checkout Pro](https://www.mercadopago.com.pe/developers/es/docs/checkout-pro-preferences/integration-test/test-purchases). La aplicación utiliza `sandbox_init_point` con tokens `TEST-...` e `init_point` para los demás tokens, incluidos los que correspondan a vendedores de prueba.
 
 En producción configura ambos orígenes públicos con HTTPS:
 
@@ -47,6 +47,16 @@ El costo de envío se calcula en backend según el distrito elegido; `La Esperan
 
 Los pagos aprobados con una preferencia, importe o moneda inesperados también quedan marcados para revisión. No confirmes un nuevo pago desde el frontend en esos estados; revisa la operación en Mercado Pago y resuelve manualmente.
 
+La validación consulta el pago y su orden comercial (`payment.order.id`). Compara la preferencia de la orden con `mpPreferenciaId`, comprueba que la orden incluya el pago recibido y verifica la referencia del pedido, el importe y la moneda. `preference_id` se obtiene de la [orden comercial](https://www.mercadopago.com.pe/developers/es/reference/online-payments/checkout-pro-preferences/merchant-orders/get-merchant-order/get), no del recurso Payment.
+
+Los fallos temporales al consultar Mercado Pago devuelven HTTP 503 sin modificar el pedido, para permitir el reintento de la notificación. Las firmas inválidas devuelven 401. Las aprobaciones duplicadas no descuentan inventario de nuevo. Las actualizaciones financieras anteriores a `date_last_updated` ya registrado se ignoran.
+
+Los reembolsos totales o parciales, contracargos y disputas guardan `mpEstadoPago`, `mpMontoReembolsado`, `mpActualizadoEn` y `mpRequiereRevision`. En pedidos en preparación, enviados o entregados se conserva el avance de entrega; la incidencia se muestra por separado y bloquea el siguiente avance. Estos pedidos aparecen en el filtro de pagos en revisión y se excluyen de las ventas confirmadas del dashboard hasta resolver la incidencia. Un reembolso parcial queda pendiente de revisión; el dashboard no calcula ventas netas por artículo devuelto.
+
+La notificación financiera no repone stock automáticamente. Para pedidos aún cancelables, una cancelación administrativa libera la reserva una sola vez. La devolución física de productos enviados o entregados se gestiona manualmente. Las discrepancias con pago aprobado y sin reembolso pueden confirmarse desde el estado `PAGO_REQUIERE_REVISION` después de revisar la operación. Si una disputa se resuelve y Mercado Pago vuelve a reportar un pago aprobado sin reembolso, el administrador puede usar «Confirmar revisión de pago» conservando el estado de entrega. No se permite confirmar pagos reembolsados o en disputa.
+
+Antes de iniciar esta versión, aplica la migración aditiva `20261027010000_estado_financiero_mercadopago` mediante el procedimiento de migraciones de la siguiente sección. Agrega campos opcionales o con valor predeterminado y conserva los pedidos existentes. Las pruebas HTTP de `test/pagos.e2e-spec.ts` usan servicios simulados y no realizan cobros; la validación final del despliegue requiere una compra con cuentas de prueba y comprobar la recepción del webhook HTTPS.
+
 ## Base de datos
 
 Genera el cliente Prisma y aplica las migraciones versionadas:
@@ -55,6 +65,28 @@ Genera el cliente Prisma y aplica las migraciones versionadas:
 npx prisma generate
 npx prisma migrate deploy
 ```
+
+## Normalizar tallas y SKU existentes
+
+Los SKU representan las medias tallas con `P`: `3.5` genera el sufijo `3P5` y `35` genera `35`. La talla visible conserva el punto decimal. Las entradas `06`, `6.0` y `6` representan una única talla `6`.
+
+Para actualizar una base que aún tenga los códigos anteriores, compila esta versión y ejecuta la auditoría antes de iniciar el backend. En PowerShell:
+
+```powershell
+npm.cmd run build
+npm.cmd run skus:auditar
+npm.cmd run skus:auditar -- --aplicar
+```
+
+El primer comando de SKU solo informa los cambios. `--aplicar` vuelve a comprobar todas las variantes y actualiza únicamente `talla`, `tallaNumero` y `sku` dentro de una transacción. Conserva identificadores, stock, referencias de carritos y las copias históricas de los pedidos. Es idempotente y no necesita una migración de esquema de Prisma. Ejecuta la conversión sin ediciones de catálogo concurrentes; un conflicto revierte la operación completa.
+
+Si detecta tallas equivalentes duplicadas o SKU finales repetidos, se detiene sin escribir nada. Revisa esos identificadores y sus referencias antes de continuar; el comando no suma stock, fusiona variantes ni borra datos.
+
+## Validación de actualizaciones del catálogo
+
+Los endpoints `PATCH` de productos, categorías, colores y marcas permiten omitir campos para conservar su valor actual. Rechazan `null` en campos obligatorios con HTTP 400 antes de llamar al servicio. En productos, `descripcion: null` borra la descripción y `grupoModeloId: null` quita el grupo; `activo: false` sigue siendo válido.
+
+Las tallas se omiten para conservar las variantes o se envían como un arreglo. `tallas: null` y los identificadores de variante nulos se rechazan tanto al crear como al actualizar. Un arreglo vacío solicita quitar las variantes, respetando las restricciones existentes para las que tienen referencias en carritos o pedidos. Este ajuste de validación no requiere una migración de base de datos.
 
 ## Crear el primer administrador
 

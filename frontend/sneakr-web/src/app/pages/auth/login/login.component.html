@@ -1,89 +1,51 @@
-﻿<div class="auth-page">
-  <div class="auth-card animate-fade-up">
-
-    <a routerLink="/" class="auth-card__logo">SNEARK</a>
-
-    <div class="auth-card__header">
-      <h1 class="auth-card__title">Bienvenido de vuelta</h1>
-      <p class="auth-card__subtitle">Ingresa con tu cuenta para continuar</p>
-    </div>
-
-    <form class="auth-form" (ngSubmit)="submit()" #f="ngForm">
-
-      <!-- Email -->
+<div class="auth-page">
+  <section class="auth-card" aria-labelledby="auth-title">
+    <a routerLink="/" class="auth-card__logo" aria-label="Volver a SOHO"><img src="images/soho/Logo%20SOHO.png" alt="" width="104" height="40"></a>
+    <header>
+      <h1 id="auth-title" class="auth-card__title">Bienvenido de vuelta</h1>
+      <p class="auth-card__subtitle">Ingresa a tu cuenta para continuar con tu compra.</p>
+    </header>
+    <form class="auth-form" (ngSubmit)="submit(f)" #f="ngForm" [attr.aria-busy]="enviando()">
       <div class="form-field">
-        <label class="form-label" for="email">Email</label>
+        <label class="form-label" for="email">Correo electrónico</label>
         <div class="form-input-wrap">
-          <svg class="form-input-icon" width="16" height="16" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-            <polyline points="22,6 12,13 2,6"/>
-          </svg>
-          <input id="email" type="email" class="form-input form-input--icon"
-                 placeholder="tu@email.com"
-                 [(ngModel)]="email" name="email"
-                 autocomplete="email" required />
+          <ng-icon class="form-input-icon" name="lucideMail" size="18" aria-hidden="true" />
+          <input id="email" type="email" class="form-input form-input--icon" placeholder="tu@email.com"
+            [(ngModel)]="email" name="email" autocomplete="email" #emailControl="ngModel" required
+            [disabled]="enviando()" [attr.aria-invalid]="emailControl.invalid && (emailControl.touched || f.submitted) ? true : null"
+            [attr.aria-describedby]="emailControl.invalid && (emailControl.touched || f.submitted) ? 'email-error' : null" email>
         </div>
+        @if (emailControl.invalid && (emailControl.touched || f.submitted)) {
+          <p id="email-error" class="field-error">Ingresa un correo electrónico válido.</p>
+        }
       </div>
-
-      <!-- Password -->
       <div class="form-field">
-        <div class="form-label-row">
-          <label class="form-label" for="password">Contrasena</label>
-        </div>
+        <label class="form-label" for="password">Contraseña</label>
         <div class="form-input-wrap">
-          <svg class="form-input-icon" width="16" height="16" viewBox="0 0 24 24"
-               fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-          </svg>
-          <input id="password" [type]="mostrarPass() ? 'text' : 'password'"
-                 class="form-input form-input--icon form-input--icon-right"
-                 placeholder="Tu contrasena"
-                 [(ngModel)]="password" name="password"
-                 autocomplete="current-password" required />
-          <button type="button" class="form-input-toggle" (click)="togglePass()"
-                  [attr.aria-label]="mostrarPass() ? 'Ocultar contrasena' : 'Mostrar contrasena'">
-            @if (mostrarPass()) {
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                <line x1="1" y1="1" x2="23" y2="23"/>
-              </svg>
-            } @else {
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-            }
+          <ng-icon class="form-input-icon" name="lucideLockKeyhole" size="18" aria-hidden="true" />
+          <input id="password" [type]="mostrarPass() ? 'text' : 'password'" class="form-input form-input--icon form-input--icon-right"
+            placeholder="Tu contraseña" [(ngModel)]="password" name="password" #passwordControl="ngModel"
+            autocomplete="current-password" required  [disabled]="enviando()"
+            [attr.aria-invalid]="passwordControl.invalid && (passwordControl.touched || f.submitted) ? true : null"
+            aria-describedby="password-help">
+          <button type="button" class="form-input-toggle" (click)="togglePass()" [disabled]="enviando()"
+            [attr.aria-label]="mostrarPass() ? 'Ocultar contraseña' : 'Mostrar contraseña'" [attr.aria-pressed]="mostrarPass()">
+            <ng-icon [name]="mostrarPass() ? 'lucideEyeOff' : 'lucideEye'" size="18" aria-hidden="true" />
           </button>
         </div>
+        <p id="password-help" [class.field-error]="passwordControl.invalid && (passwordControl.touched || f.submitted)" class="field-hint">
+          @if (passwordControl.invalid && (passwordControl.touched || f.submitted)) { Ingresa tu contraseña. }
+        </p>
       </div>
-
-      <!-- Error -->
-      @if (error()) {
-        <div class="auth-error animate-fade-up">{{ error() }}</div>
-      }
-
-      <!-- Submit -->
+      @if (error()) { <div class="auth-error" role="alert">{{ error() }}</div> }
       <button type="submit" class="btn-primary auth-submit" [disabled]="enviando()">
-        @if (enviando()) {
-          <span class="auth-spinner"></span>
-          Ingresando...
-        } @else {
-          Iniciar sesion
-        }
+        @if (enviando()) { <span class="auth-spinner" aria-hidden="true"></span> Ingresando… }
+        @else { Iniciar sesión }
       </button>
-
     </form>
-
-    <p class="auth-card__footer">
-      ¿No tienes cuenta?
-      <a routerLink="/auth/registro" class="auth-card__link">Registrate gratis</a>
+    <p class="auth-card__footer">¿No tienes cuenta?
+      <a routerLink="/auth/registro" [queryParams]="{ returnUrl: returnUrl }" class="auth-card__link">Crea tu cuenta</a>
     </p>
-
-  </div>
+    <a routerLink="/catalogo" class="auth-back"><ng-icon name="lucideArrowLeft" size="16" aria-hidden="true" /> Seguir explorando</a>
+  </section>
 </div>

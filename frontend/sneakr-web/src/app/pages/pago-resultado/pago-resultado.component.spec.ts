@@ -3,18 +3,22 @@ import { ActivatedRoute } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { PagosService } from '../../core/services/pagos.service';
 import { PagoResultadoComponent } from './pago-resultado.component';
+import type { EstadoPedido } from '../../core/services/pedidos.service';
+import { AuthService } from '../../core/services/auth.service';
 
 describe('PagoResultadoComponent', () => {
   function crearComponente(
     estadoUrl: string,
-    estadoServidor: 'PENDIENTE' | 'PAGO_VERIFICADO' | 'CANCELADO',
+    estadoServidor: EstadoPedido,
     falloConsulta = false,
+    mpRequiereRevision = false,
   ) {
     const consultarEstado = vi.fn().mockReturnValue(
       falloConsulta
         ? throwError(() => new Error('API no disponible'))
         : of({
-            pedidoId: 12,
+            id: 12,
+            mpRequiereRevision,
             estado: estadoServidor,
             total: 99,
             metodoPago: 'MERCADOPAGO',
@@ -24,6 +28,7 @@ describe('PagoResultadoComponent', () => {
     );
     TestBed.configureTestingModule({
       providers: [
+        { provide: AuthService, useValue: {} },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -60,6 +65,12 @@ describe('PagoResultadoComponent', () => {
       expect(component.errorConsulta()).toContain('No se pudo consultar el pedido'),
     );
     expect(component.resultado()).toBe('pendiente');
+    component.ngOnDestroy();
+  });
+
+  it('muestra la incidencia financiera aunque el pedido ya este entregado', async () => {
+    const { component } = crearComponente('exitoso', 'ENTREGADO', false, true);
+    await vi.waitFor(() => expect(component.resultado()).toBe('revision'));
     component.ngOnDestroy();
   });
 });

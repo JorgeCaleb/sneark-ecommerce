@@ -13,10 +13,12 @@ import {
   Max,
   Min,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
+import { PATRON_TALLA } from '../sku.util.js';
 
 export class TallaDto {
-  @IsOptional()
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsInt()
   @IsPositive()
   @Type(() => Number)
@@ -40,7 +42,7 @@ export class TallaDto {
   @IsString()
   @IsNotEmpty({ message: 'La talla es obligatoria' })
   @MaxLength(20)
-  @Matches(/^(?:\d{1,2}|[1-9]\d{2})(?:\.0|\.5)?$/, {
+  @Matches(PATRON_TALLA, {
     message: 'La talla debe ser un número entre 0 y 999.5, entero o terminado en .0 o .5',
   })
   talla: string;
@@ -74,7 +76,7 @@ export class CrearProductoDto {
 
   @IsOptional()
   @IsString()
-  descripcion?: string;
+  descripcion?: string | null;
 
   @IsNumber(
     { maxDecimalPlaces: 2 },
@@ -98,6 +100,12 @@ export class CrearProductoDto {
   categoriaId: number;
 
   @IsOptional()
+  @IsInt()
+  @IsPositive({ message: 'Selecciona un grupo de modelos válido' })
+  @Type(() => Number)
+  grupoModeloId?: number | null;
+
+  @ValidateIf((_, value: unknown) => value !== undefined)
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => TallaDto)

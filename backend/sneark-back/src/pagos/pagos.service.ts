@@ -8,14 +8,35 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
+import {
+  MercadoPagoConfig,
+  MerchantOrder,
+  Preference,
+  Payment,
+} from 'mercadopago';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { EstadoPedido, MetodoPago } from '@prisma/client';
+import { EstadoPedido, MetodoPago, Prisma } from '@prisma/client';
 import { MINUTOS_EXPIRACION_PEDIDO } from '../pedidos/pedidos.constants.js';
 import { obtenerOrigenPublico } from '../common/origen-publico.util.js';
 import { validarFirmaMercadoPago } from './validar-firma-mercadopago.util.js';
 
 type ItemParaReservar = { tallaProductoId: number; cantidad: number };
+type DatosFinancieros = {
+  mpEstadoPago: string;
+  mpMontoReembolsado: Prisma.Decimal;
+  mpActualizadoEn: Date;
+};
+
+const SELECCION_PAGO = {
+  id: true,
+  estado: true,
+  mpPagoId: true,
+  mpEstadoPago: true,
+  mpMontoReembolsado: true,
+  mpActualizadoEn: true,
+  mpRequiereRevision: true,
+} satisfies Prisma.PedidoSelect;
+type PedidoConPago = Prisma.PedidoGetPayload<{ select: typeof SELECCION_PAGO }>;
 
 @Injectable()
 export class PagosService {
@@ -35,7 +56,10 @@ export class PagosService {
         'Mercado Pago no está configurado. Define MP_ACCESS_TOKEN antes de iniciar un pago.',
       );
     }
-    this.mp = new MercadoPagoConfig({ accessToken });
+    this.mp = new MercadoPagoConfig({
+      accessToken,
+      options: { timeout: 5_000 },
+    });
     return this.mp;
   }
 
@@ -54,7 +78,9 @@ export class PagosService {
       );
     } catch (error) {
       throw new ServiceUnavailableException(
-        error instanceof Error ? error.message : `Configuración inválida: ${nombre}`,
+        error instanceof Error
+          ? error.message
+          : `Configuración inválida: ${nombre}`,
       );
     }
   }
@@ -148,7 +174,9 @@ export class PagosService {
       },
     });
 
-    const usaSandbox = this.config.get<string>('MP_ACCESS_TOKEN')?.trim().startsWith('TEST-') ?? false;
+    const usaSandbox =
+      this.config.get<string>('MP_ACCESS_TOKEN')?.trim().startsWith('TEST-') ??
+      false;
     const urlPago = usaSandbox
       ? resultado.sandbox_init_point
       : resultado.init_point;
@@ -163,7 +191,9 @@ export class PagosService {
         id: pedidoId,
         estado: EstadoPedido.PENDIENTE,
         mpPreferenciaId: null,
-        creadoEn: { gt: new Date(Date.now() - MINUTOS_EXPIRACION_PEDIDO * 60 * 1000) },
+        creadoEn: {
+          gt: new Date(Date.now() - MINUTOS_EXPIRACION_PEDIDO * 60 * 1000),
+        },
       },
       data: { mpPreferenciaId: resultado.id, mpCheckoutUrl: urlPago },
     });
@@ -203,9 +233,22 @@ export class PagosService {
       );
     }
 
-    const payment = new Payment(this.clienteMercadoPago());
-    const pago = await payment.get({ id: pagoId });
-    if (pago.status !== 'approved') {
+    const cliente = this.clienteMercadoPago();
+    const pago = await this.consultarMercadoPago(() =>
+      new Payment(cliente).get({ id: pagoId }),
+    );
+    if (this.idMercadoPago(pago.id) !== pagoId) {
+      throw new ServiceUnavailableException(
+        'Mercado Pago devolvió un pago inconsistente.',
+      );
+    }
+    const estadoPago = pago.status;
+    if (
+      !estadoPago ||
+      !['approved', 'refunded', 'charged_back', 'in_mediation'].includes(
+        estadoPago,
+      )
+    ) {
       return { recibido: true };
     }
 
@@ -232,26 +275,57 @@ export class PagosService {
       return { recibido: true };
     }
 
-    const pagoEnCentimos =
-      typeof pago.transaction_amount === 'number' &&
-      Number.isFinite(pago.transaction_amount)
-        ? Math.round(pago.transaction_amount * 100)
-        : Number.NaN;
-    const pedidoEnCentimos = Math.round(Number(pedido.total) * 100);
-    // The Payments API returns this field, although the SDK response type omits it.
-    const preferenceId = Reflect.get(pago, 'preference_id');
-    const coincidePreferencia =
-      Boolean(pedido.mpPreferenciaId) &&
-      typeof preferenceId === 'string' &&
-      preferenceId === pedido.mpPreferenciaId;
-    const coincideImporte = pagoEnCentimos === pedidoEnCentimos;
+    const importe = this.importeMercadoPago(pago.transaction_amount);
+    const reembolsado = this.importeMercadoPago(
+      pago.transaction_amount_refunded ??
+        (pago.status === 'refunded' ? importe.toString() : 0),
+    );
+    const actualizadoEn = new Date(pago.date_last_updated ?? '');
+    if (reembolsado.gt(importe) || !Number.isFinite(actualizadoEn.getTime())) {
+      throw new ServiceUnavailableException(
+        'Mercado Pago devolvió datos financieros incompletos.',
+      );
+    }
+    const financiero: DatosFinancieros = {
+      mpEstadoPago: estadoPago,
+      mpMontoReembolsado: reembolsado,
+      mpActualizadoEn: actualizadoEn,
+    };
+
+    // La preferencia pertenece a la orden comercial, no al recurso Payment.
+    const ordenId = this.idMercadoPago(pago.order?.id);
+    let coincidePreferencia = false;
+    if (ordenId && pago.order?.type === 'mercadopago') {
+      const orden = await this.consultarMercadoPago(() =>
+        new MerchantOrder(cliente).get({ merchantOrderId: ordenId }),
+      );
+      if (
+        this.idMercadoPago(orden.id) !== ordenId ||
+        !orden.preference_id ||
+        !orden.payments?.length
+      ) {
+        throw new ServiceUnavailableException(
+          'La orden de Mercado Pago aún no puede verificarse.',
+        );
+      }
+      coincidePreferencia =
+        orden.preference_id === pedido.mpPreferenciaId &&
+        orden.external_reference === String(pedidoId) &&
+        orden.payments.some((item) => this.idMercadoPago(item.id) === pagoId);
+    }
+    const coincideImporte = importe.eq(pedido.total);
     const coincideMoneda = pago.currency_id === 'PEN';
 
     if (!coincidePreferencia || !coincideImporte || !coincideMoneda) {
       this.logger.error(
         `Pago MP aprobado requiere revisión para pedido #${pedidoId}: preferencia, importe o moneda no coinciden (pago ${pagoId}).`,
       );
-      await this.marcarParaRevision(pedidoId, pagoId);
+      await this.marcarParaRevision(pedidoId, pagoId, financiero);
+      return { recibido: true };
+    }
+
+    if (pago.status !== 'approved' || reembolsado.gt(0)) {
+      await this.marcarParaRevision(pedidoId, pagoId, financiero);
       return { recibido: true };
     }
 
@@ -261,10 +335,11 @@ export class PagosService {
       pagoId,
       pedido.items,
       fechaAprobacion,
+      financiero,
     );
     if (resultado === 'revision') {
       this.logger.error(
-        `Pago MP aprobado sin stock suficiente; pedido #${pedidoId} requiere revisión/reembolso (pago ${pagoId}).`,
+        `Pago MP aprobado requiere revisión del inventario o del pago asociado al pedido #${pedidoId} (pago ${pagoId}).`,
       );
     } else if (resultado === 'registrado') {
       this.logger.log(`Pago MP aprobado → Pedido #${pedidoId} verificado`);
@@ -272,32 +347,101 @@ export class PagosService {
     return { recibido: true };
   }
 
-  private async marcarParaRevision(pedidoId: number, pagoId: string) {
-    const estadosConPago = [
-      EstadoPedido.PENDIENTE,
-      EstadoPedido.CANCELADO,
-      EstadoPedido.PAGO_VERIFICADO,
-    ];
-    const asociado = await this.prisma.pedido.updateMany({
+  private async consultarMercadoPago<T>(
+    consulta: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await consulta();
+    } catch {
+      // Un fallo de la API debe provocar el reintento del webhook, sin alterar el pedido.
+      throw new ServiceUnavailableException(
+        'No se pudo verificar el pago con Mercado Pago.',
+      );
+    }
+  }
+
+  private idMercadoPago(id: unknown): string | null {
+    if (typeof id === 'number' && Number.isSafeInteger(id) && id > 0)
+      return String(id);
+    return typeof id === 'string' && /^[1-9]\d*$/.test(id) ? id : null;
+  }
+
+  private importeMercadoPago(valor: unknown): Prisma.Decimal {
+    if (
+      (typeof valor === 'number' && Number.isFinite(valor)) ||
+      (typeof valor === 'string' && /^\d+(?:\.\d{1,2})?$/.test(valor))
+    ) {
+      const importe = new Prisma.Decimal(valor);
+      if (
+        importe.gte(0) &&
+        importe.lte('99999999.99') &&
+        importe.decimalPlaces() <= 2
+      ) {
+        return importe;
+      }
+    }
+    throw new ServiceUnavailableException(
+      'Mercado Pago devolvió un importe inválido.',
+    );
+  }
+
+  private async marcarParaRevision(
+    pedidoId: number,
+    pagoId: string,
+    financiero: DatosFinancieros,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      const actual = await tx.pedido.findUnique({
+        where: { id: pedidoId },
+        select: SELECCION_PAGO,
+      });
+      if (actual)
+        await this.sincronizarPago(tx, actual, pagoId, financiero, true);
+    });
+  }
+
+  private async sincronizarPago(
+    tx: Prisma.TransactionClient,
+    actual: PedidoConPago,
+    pagoId: string,
+    financiero: DatosFinancieros,
+    requiereRevision: boolean,
+  ) {
+    const mismoPago = !actual.mpPagoId || actual.mpPagoId === pagoId;
+    if (mismoPago && actual.mpActualizadoEn) {
+      const diferencia =
+        financiero.mpActualizadoEn.getTime() - actual.mpActualizadoEn.getTime();
+      if (diferencia < 0 || (diferencia === 0 && !requiereRevision)) return;
+    }
+    const revision =
+      requiereRevision || actual.mpRequiereRevision || !mismoPago;
+    const sinPreparar = (
+      [
+        EstadoPedido.PENDIENTE,
+        EstadoPedido.CANCELADO,
+        EstadoPedido.PAGO_VERIFICADO,
+      ] as EstadoPedido[]
+    ).includes(actual.estado);
+    const actualizado = await tx.pedido.updateMany({
       where: {
-        id: pedidoId,
-        estado: { in: estadosConPago },
-        mpPagoId: null,
+        id: actual.id,
+        estado: actual.estado,
+        mpPagoId: actual.mpPagoId,
+        mpActualizadoEn: actual.mpActualizadoEn,
+        mpRequiereRevision: actual.mpRequiereRevision,
       },
       data: {
-        estado: EstadoPedido.PAGO_REQUIERE_REVISION,
-        mpPagoId: pagoId,
+        ...(mismoPago ? { ...financiero, mpPagoId: pagoId } : {}),
+        mpRequiereRevision: revision,
+        ...(revision && sinPreparar
+          ? { estado: EstadoPedido.PAGO_REQUIERE_REVISION }
+          : {}),
       },
     });
-    if (asociado.count === 0) {
-      await this.prisma.pedido.updateMany({
-        where: {
-          id: pedidoId,
-          estado: { in: estadosConPago },
-          mpPagoId: { not: null },
-        },
-        data: { estado: EstadoPedido.PAGO_REQUIERE_REVISION },
-      });
+    if (actualizado.count !== 1) {
+      throw new ConflictException(
+        'El pedido cambió durante la verificación del pago.',
+      );
     }
   }
 
@@ -306,6 +450,7 @@ export class PagosService {
     pagoId: string,
     items: ItemParaReservar[],
     pagadoEn: Date,
+    financiero: DatosFinancieros,
   ): Promise<'registrado' | 'revision' | 'duplicado'> {
     return this.prisma.$transaction(async (tx) => {
       const pagoPendiente = await tx.pedido.updateMany({
@@ -313,11 +458,13 @@ export class PagosService {
           id: pedidoId,
           estado: EstadoPedido.PENDIENTE,
           mpPagoId: null,
+          mpRequiereRevision: false,
         },
         data: {
           estado: EstadoPedido.PAGO_VERIFICADO,
           mpPagoId: pagoId,
           pagadoEn,
+          ...financiero,
         },
       });
       if (pagoPendiente.count === 1) return 'registrado';
@@ -327,10 +474,13 @@ export class PagosService {
           id: pedidoId,
           estado: EstadoPedido.CANCELADO,
           mpPagoId: null,
+          mpRequiereRevision: false,
         },
         data: {
           estado: EstadoPedido.PAGO_REQUIERE_REVISION,
           mpPagoId: pagoId,
+          ...financiero,
+          mpRequiereRevision: true,
         },
       });
       if (cancelado.count === 1) {
@@ -365,6 +515,7 @@ export class PagosService {
             estado: EstadoPedido.PAGO_VERIFICADO,
             inventarioReservado: true,
             pagadoEn,
+            mpRequiereRevision: false,
           },
         });
         return 'registrado';
@@ -372,36 +523,17 @@ export class PagosService {
 
       const actual = await tx.pedido.findUnique({
         where: { id: pedidoId },
-        select: { estado: true, mpPagoId: true },
+        select: SELECCION_PAGO,
       });
-      if (actual?.mpPagoId === pagoId) return 'duplicado';
-      if (actual?.estado === EstadoPedido.PAGO_REQUIERE_REVISION) {
-        if (actual.mpPagoId && actual.mpPagoId !== pagoId) {
-          this.logger.error(
-            `Pago MP aprobado adicional para pedido #${pedidoId}; pago nuevo ${pagoId}, pago ya registrado ${actual.mpPagoId}.`,
-          );
-        }
-        return 'revision';
+      if (actual?.mpPagoId === pagoId) {
+        await this.sincronizarPago(tx, actual, pagoId, financiero, false);
+        return 'duplicado';
       }
-      if (actual?.mpPagoId) {
+      if (actual) {
         this.logger.error(
           `Pago MP aprobado adicional para pedido #${pedidoId}; el pedido ya registra otro pago (${actual.mpPagoId}, nuevo ${pagoId}).`,
         );
-        if (
-          actual.estado === EstadoPedido.EN_PREPARACION ||
-          actual.estado === EstadoPedido.ENVIADO ||
-          actual.estado === EstadoPedido.ENTREGADO
-        ) {
-          return 'duplicado';
-        }
-        await tx.pedido.updateMany({
-          where: {
-            id: pedidoId,
-            estado: actual.estado,
-            mpPagoId: actual.mpPagoId,
-          },
-          data: { estado: EstadoPedido.PAGO_REQUIERE_REVISION },
-        });
+        await this.sincronizarPago(tx, actual, pagoId, financiero, true);
         return 'revision';
       }
       return 'duplicado';
@@ -436,6 +568,9 @@ export class PagosService {
         mpPagoId: true,
         creadoEn: true,
         pagadoEn: true,
+        mpEstadoPago: true,
+        mpMontoReembolsado: true,
+        mpRequiereRevision: true,
       },
     });
 

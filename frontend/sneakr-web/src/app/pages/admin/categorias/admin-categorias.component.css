@@ -164,7 +164,7 @@
   position: fixed;
   z-index: 200;
   inset: 0;
-  background: rgb(25 26 28 / 48%);
+  background: var(--color-overlay);
   backdrop-filter: blur(1px);
 }
 

@@ -1,4 +1,5 @@
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { NgIcon } from '@ng-icons/core';
 import { FormsModule } from '@angular/forms';
 import { MarcasService, Marca } from '../../../core/services/marcas.service';
 
@@ -10,7 +11,7 @@ interface MarcaForm {
 @Component({
   selector: 'app-admin-marcas',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, NgIcon],
   templateUrl: './admin-marcas.component.html',
   styleUrl: './admin-marcas.component.css',
 })

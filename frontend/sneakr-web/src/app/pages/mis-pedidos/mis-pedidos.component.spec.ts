@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { Pedido, PedidosService } from '../../core/services/pedidos.service';
 import { MisPedidosComponent } from './mis-pedidos.component';
+import { AuthService } from '../../core/services/auth.service';
 
 describe('MisPedidosComponent cancellation', () => {
   let component: MisPedidosComponent;
@@ -11,6 +12,7 @@ describe('MisPedidosComponent cancellation', () => {
     cancelar = vi.fn();
     TestBed.configureTestingModule({
       providers: [
+        { provide: AuthService, useValue: {} },
         { provide: PedidosService, useValue: { cancelar } },
       ],
     });

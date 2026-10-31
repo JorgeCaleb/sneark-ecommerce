@@ -1,20 +1,24 @@
 import { Component, inject, signal } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
-import { FormsModule } from '@angular/forms';
+import { NgIcon } from '@ng-icons/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormsModule, NgForm } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { CarritoService } from '../../../core/services/carrito.service';
+import { EMPTY, catchError } from 'rxjs';
 
 @Component({
   selector: 'app-registro',
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [RouterLink, FormsModule, NgIcon],
   templateUrl: './registro.component.html',
-  styleUrl: './registro.component.css',
+  styleUrls: ['../auth-shared.css', './registro.component.css'],
 })
 export class RegistroComponent {
   private authService    = inject(AuthService);
   private carritoService = inject(CarritoService);
   private router         = inject(Router);
+  private route          = inject(ActivatedRoute);
+  readonly returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/';
 
   nombre    = '';
   email     = '';
@@ -29,9 +33,11 @@ export class RegistroComponent {
     this.mostrarPass.update((v) => !v);
   }
 
-  submit() {
-    if (!this.nombre || !this.email || !this.password || !this.confirmar) {
-      this.error.set('Completá todos los campos.');
+  submit(form: NgForm) {
+    if (this.enviando()) return;
+    form.control.markAllAsTouched();
+    if (form.invalid || !this.nombre.trim() || !this.email.trim() || !this.password || !this.confirmar) {
+      this.error.set('Revisa los campos indicados para continuar.');
       return;
     }
 
@@ -50,8 +56,8 @@ export class RegistroComponent {
 
     this.authService.registro(this.nombre, this.email, this.password).subscribe({
       next: () => {
-        this.carritoService.obtener().subscribe();
-        this.router.navigate(['/']);
+        this.carritoService.obtener().pipe(catchError(() => EMPTY)).subscribe();
+        this.router.navigateByUrl(this.returnUrl);
       },
       error: (err) => {
         this.enviando.set(false);

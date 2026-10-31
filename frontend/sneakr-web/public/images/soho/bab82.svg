@@ -1,0 +1,13 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="148" height="28" viewBox="0 0 148 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Muestras" clip-path="url(#clip0_0_11)">
+<path id="Color" d="M27.5 14C27.5 21.4558 21.4558 27.5 14 27.5C6.54416 27.5 0.5 21.4558 0.5 14C0.5 6.54416 6.54416 0.5 14 0.5C21.4558 0.5 27.5 6.54416 27.5 14Z" fill="white" stroke="#242424"/>
+<path id="Color_2" d="M67.5 14C67.5 21.4558 61.4558 27.5 54 27.5C46.5442 27.5 40.5 21.4558 40.5 14C40.5 6.54416 46.5442 0.5 54 0.5C61.4558 0.5 67.5 6.54416 67.5 14Z" fill="#F5F3EF" stroke="#242424"/>
+<path id="Color_3" d="M107.5 14C107.5 21.4558 101.456 27.5 94 27.5C86.5442 27.5 80.5 21.4558 80.5 14C80.5 6.54416 86.5442 0.5 94 0.5C101.456 0.5 107.5 6.54416 107.5 14Z" fill="#242424" stroke="#242424"/>
+<path id="Color_4" d="M147.5 14C147.5 21.4558 141.456 27.5 134 27.5C126.544 27.5 120.5 21.4558 120.5 14C120.5 6.54416 126.544 0.5 134 0.5C141.456 0.5 147.5 6.54416 147.5 14Z" fill="#E9E9E9" stroke="#242424"/>
+</g>
+<defs>
+<clipPath id="clip0_0_11">
+<rect width="148" height="28" fill="white"/>
+</clipPath>
+</defs>
+</svg>
